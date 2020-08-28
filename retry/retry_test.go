@@ -52,17 +52,21 @@ func TestRetry(t *testing.T) {
 		sleeper := &bm.Sleeper{}
 		backoff.Sleeper = sleeper
 
-		retries, reason, err := Do(op, &UntilNoError{}, backoff)
-		So(retries, ShouldEqual, 2)
-		So(reason, ShouldEqual, BecauseErrorNil)
-		So(err, ShouldBeNil)
+		status := Do(op, &UntilNoError{}, backoff)
+		So(status.Retried, ShouldEqual, 2)
+		So(status.StoppedBecause, ShouldEqual, BecauseErrorNil)
+		So(status.Err, ShouldBeNil)
+		msg := "after 2 retries, stopped trying because there was no error"
+		So(status.String(), ShouldEqual, msg)
+		So(status.Error(), ShouldEqual, msg)
+		So(status.Unwrap(), ShouldBeNil)
 		So(count, ShouldEqual, 3)
 		So(sleeper.Elapsed(), ShouldEqual, 2*time.Millisecond)
 	})
 
 	Convey("You can Retry things until you give up", t, func() {
 		count := 0
-		opErr := errors.New("err")
+		opErr := errors.New("a problem")
 		op := func() error {
 			count++
 			return opErr
@@ -71,10 +75,14 @@ func TestRetry(t *testing.T) {
 		sleeper := &bm.Sleeper{}
 		backoff.Sleeper = sleeper
 
-		retries, reason, err := Do(op, &UntilLimit{Max: 2}, backoff)
-		So(retries, ShouldEqual, 2)
-		So(reason, ShouldEqual, BecauseLimitReached)
-		So(err, ShouldEqual, opErr)
+		status := Do(op, &UntilLimit{Max: 2}, backoff)
+		So(status.Retried, ShouldEqual, 2)
+		So(status.StoppedBecause, ShouldEqual, BecauseLimitReached)
+		So(status.Err, ShouldEqual, opErr)
+		msg := "after 2 retries, stopped trying because limit reached; err: a problem"
+		So(status.String(), ShouldEqual, msg)
+		So(status.Error(), ShouldEqual, msg)
+		So(status.Unwrap(), ShouldEqual, opErr)
 		So(count, ShouldEqual, 3)
 		So(sleeper.Elapsed(), ShouldEqual, 2*time.Millisecond)
 	})

@@ -33,7 +33,7 @@ type Reason string
 // Because* constants are returned by Until.ShouldStop().
 const (
 	BecauseLimitReached  Reason = "limit reached"
-	BecauseErrorNil      Reason = "there is no error"
+	BecauseErrorNil      Reason = "there was no error"
 	BecauseContextClosed Reason = "context closed"
 	doNotStop            Reason = ""
 )
