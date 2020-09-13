@@ -40,14 +40,17 @@ func TestSleeper(t *testing.T) {
 
 	Convey("Sleeper.Sleep() doesn't really sleep", t, func() {
 		sleeper := &Sleeper{}
-		t := time.Now()
-		d := 1 * time.Millisecond
-		sleeper.Sleep(d)
-		So(time.Now(), ShouldHappenBefore, t.Add(d))
+		tn := time.Now()
+		delay := 1 * time.Millisecond
+		
+		sleeper.Sleep(delay)
+		So(sleeper.Invoked(), ShouldEqual, 1)
+		So(sleeper.Elapsed(), ShouldEqual, delay*1)
 
-		Convey("But Invoked() and Elapsed() tell you what it was supposed to do", func() {
-			So(sleeper.Invoked(), ShouldEqual, 1)
-			So(sleeper.Elapsed(), ShouldEqual, d)
-		})
+		sleeper.Sleep(delay)
+                So(sleeper.Invoked(), ShouldEqual, 2)
+                So(sleeper.Elapsed(), ShouldEqual, delay*2)
+
+		So(time.Now(), ShouldHappenBefore, tn.Add(delay))
 	})
 }
