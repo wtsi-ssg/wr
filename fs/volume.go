@@ -82,6 +82,7 @@ func (v *CachedVolumeUsageCalculator) Size(volumePath string) uint64 {
 	}
 
 	v.size = v.UsageCalculator.Size(volumePath)
+
 	return v.size
 }
 
@@ -129,9 +130,11 @@ func retryIfZero(retries int, backoff *backoff.Backoff, f volumeUsageCalculation
 		&retry.Untils{&retry.UntilNoError{}, &retry.UntilLimit{Max: retries}},
 		backoff,
 	)
+
 	if status.StoppedBecause == retry.BecauseErrorNil {
 		backoff.Reset()
 	}
+
 	return bytes
 }
 
@@ -144,6 +147,7 @@ func operationReturnsErrIfZero(f volumeUsageCalculationMethod, arg string, bytes
 		if *bytes == 0 {
 			return errZeroBytes
 		}
+
 		return nil
 	}
 }

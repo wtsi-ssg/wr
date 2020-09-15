@@ -55,6 +55,7 @@ func (s *Status) String() string {
 	if s.Err != nil {
 		errString = fmt.Sprintf("; err: %s", s.Err.Error())
 	}
+
 	return fmt.Sprintf("after %d retries, stopped trying because %s%s", s.Retried, s.StoppedBecause, errString)
 }
 
@@ -74,13 +75,17 @@ func (s *Status) Unwrap() error {
 //
 // Note that bo is NOT Reset() during this function.
 func Do(op Operation, until Until, bo *backoff.Backoff) *Status {
-	var reason Reason
-	var retries int
-	var err error
+	var (
+		reason  Reason
+		retries int
+		err     error
+	)
+
 	for ok := true; ok; ok = tryAgain(bo, reason, &retries) {
 		err = op()
 		reason = until.ShouldStop(retries, err)
 	}
+
 	return &Status{Retried: retries, StoppedBecause: reason, Err: err}
 }
 
@@ -90,7 +95,10 @@ func tryAgain(bo *backoff.Backoff, reason Reason, retries *int) bool {
 	if reason != doNotStop {
 		return false
 	}
+
 	*retries++
+
 	bo.Sleep()
+
 	return true
 }

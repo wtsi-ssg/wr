@@ -36,7 +36,6 @@ import (
 var ErrNormal error = errors.New("normal")
 
 func TestUntil(t *testing.T) {
-
 	Convey("UntilLimit stops after the specified limit", t, func() {
 		var _ Until = (*UntilLimit)(nil)
 		u := &UntilLimit{Max: 2}

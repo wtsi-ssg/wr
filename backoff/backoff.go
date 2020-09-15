@@ -72,6 +72,7 @@ func (b *Backoff) duration() time.Duration {
 	sleeps := atomic.AddUint64(&b.sleeps, 1) - 1
 	d := b.durationAfterSleeps(sleeps)
 	d = b.jitter(d, sleeps)
+
 	return b.durationWithinBounds(d)
 }
 
@@ -89,6 +90,7 @@ func (b *Backoff) jitter(d time.Duration, sleeps uint64) time.Duration {
 	if sleeps == 0 {
 		return d
 	}
+
 	prev := b.durationAfterSleeps(sleeps - 1)
 	return time.Duration((rand.Float64() * float64(d-prev)) + float64(prev))
 }
@@ -98,9 +100,11 @@ func (b *Backoff) durationWithinBounds(d time.Duration) time.Duration {
 	if d <= b.Min {
 		return b.Min
 	}
+
 	if d > b.Max {
 		return b.Max
 	}
+
 	return d
 }
 

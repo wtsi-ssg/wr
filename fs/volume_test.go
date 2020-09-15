@@ -102,6 +102,7 @@ func TestVolume(t *testing.T) {
 		bm := &bm.Sleeper{}
 		checked := &CheckedVolumeUsageCalculator{UsageCalculator: m, Retries: attempts - 1, Backoff: &backoff.Backoff{Min: wait, Max: max, Factor: 2, Sleeper: bm}}
 		volume := &Volume{Dir: path, UsageCalculator: checked}
+
 		return volume, m, bm
 	}
 

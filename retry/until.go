@@ -58,6 +58,7 @@ func (u Untils) ShouldStop(retries int, err error) Reason {
 			return reason
 		}
 	}
+
 	return doNotStop
 }
 
@@ -74,6 +75,7 @@ func (u *UntilLimit) ShouldStop(retries int, err error) Reason {
 	if retries >= u.Max {
 		return BecauseLimitReached
 	}
+
 	return doNotStop
 }
 
@@ -87,6 +89,7 @@ func (u *UntilNoError) ShouldStop(retries int, err error) Reason {
 	if err == nil {
 		return BecauseErrorNil
 	}
+
 	return doNotStop
 }
 
@@ -102,5 +105,6 @@ func (u *UntilContext) ShouldStop(retries int, err error) Reason {
 	if u.Context.Err() != nil {
 		return BecauseContextClosed
 	}
+
 	return doNotStop
 }
