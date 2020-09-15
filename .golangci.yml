@@ -1,0 +1,100 @@
+run:
+  deadline: 4m
+  build-tags:
+    - netgo
+  modules-download-mode: readonly
+
+linters-settings:
+  dupl:
+    threshold: 50
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+  exhaustive:
+    default-signifies-exhaustive: false
+  funlen:
+    lines: 30
+    statements: 20
+  gocognit:
+    min-complexity: 8
+  nestif:
+    min-complexity: 2
+  gocyclo:
+    min-complexity: 5
+  govet:
+    check-shadowing: true
+    enable-all: true
+    disable-all: false
+  lll:
+    line-length: 120
+  maligned:
+    suggest-new: true
+  misspell:
+    locale: UK
+  nakedret:
+    max-func-lines: 20
+  prealloc:
+    simple: true
+    range-loops: true
+    for-loops: true
+  unparam:
+    check-exported: true
+  unused:
+    check-exported: false
+  whitespace:
+    multi-if: true
+    multi-func: false
+  wsl:
+    allow-cuddle-declarations: false
+    force-err-cuddling: true
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - funlen
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  new-from-rev: master
+
+linters:
+  enable:
+    - megacheck
+    - govet
+    - maligned
+    - prealloc
+    - depguard
+    - dogsled
+    - dupl
+    - gochecknoglobals
+    - gochecknoinits
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - godot
+    - goerr113
+    - gofmt
+    - golint
+    - gomnd
+    - interfacer
+    - lll
+    - maligned
+    - misspell
+    - nakedret
+    - nestif
+    - prealloc
+    - stylecheck
+    - unconvert
+    - whitespace
+    - wsl
+    - exhaustive
+    - exportloopref
+    - funlen
+    - goimports
+    - gosec
+    - nlreturn
+    - scopelint
+    - unparam
+  disable-all: false
+  fast: false
