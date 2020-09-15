@@ -38,10 +38,12 @@ type VolumeUsageCalculator struct {
 // Size returns the size of the volume in bytes.
 func (v *VolumeUsageCalculator) Size(volumePath string) uint64 {
 	v.SizeInvoked++
+
 	return v.SizeFn(volumePath)
 }
 
 func (v *VolumeUsageCalculator) Free(volumePath string) uint64 {
 	v.FreeInvoked++
+
 	return v.FreeFn(volumePath)
 }

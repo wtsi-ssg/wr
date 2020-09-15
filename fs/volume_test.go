@@ -162,6 +162,7 @@ func TestVolume(t *testing.T) {
 					return gb
 				}
 				called = true
+
 				return 0
 			}
 			So(volume.Size(), ShouldEqual, 1)
