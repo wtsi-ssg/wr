@@ -33,8 +33,8 @@ import (
 	"github.com/wtsi-ssg/wr/retry"
 )
 
-const gb = uint64(1.07374182e9) // for byte to GB conversion
-const mb100 = uint64(104857600) // 100MB in bytes
+const gb uint64 = 1.07374182e9 // for byte to GB conversion
+const mb100 uint64 = 104857600 // 100MB in bytes
 
 var errZeroBytes = errors.New("zero bytes claimed")
 
