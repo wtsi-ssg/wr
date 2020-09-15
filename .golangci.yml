@@ -1,8 +1,8 @@
 run:
+  deadline: 4m
   build-tags:
     - netgo
-  skip-dirs:
-    - data
+  modules-download-mode: readonly
 
 linters-settings:
   dupl:
@@ -53,6 +53,9 @@ issues:
     - path: _test\.go
       linters:
         - funlen
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  new-from-rev: master
 
 linters:
   enable:
