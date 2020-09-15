@@ -35,7 +35,7 @@ import (
 	bm "github.com/wtsi-ssg/wr/backoff/mock"
 )
 
-var opErr = errors.New("op err")
+var ErrOp = errors.New("op err")
 
 func TestRetry(t *testing.T) {
 	wait := 1 * time.Millisecond
@@ -49,7 +49,7 @@ func TestRetry(t *testing.T) {
 				return nil
 			}
 
-			return opErr
+			return ErrOp
 		}
 
 		sleeper := &bm.Sleeper{}
@@ -72,7 +72,7 @@ func TestRetry(t *testing.T) {
 		op := func() error {
 			count++
 
-			return opErr
+			return ErrOp
 		}
 
 		sleeper := &bm.Sleeper{}
@@ -81,11 +81,11 @@ func TestRetry(t *testing.T) {
 		status := Do(op, &UntilLimit{Max: 2}, backoff)
 		So(status.Retried, ShouldEqual, 2)
 		So(status.StoppedBecause, ShouldEqual, BecauseLimitReached)
-		So(status.Err, ShouldEqual, opErr)
-		msg := "after 2 retries, stopped trying because limit reached; err: a problem"
+		So(status.Err, ShouldEqual, ErrOp)
+		msg := "after 2 retries, stopped trying because limit reached; err: op err"
 		So(status.String(), ShouldEqual, msg)
 		So(status.Error(), ShouldEqual, msg)
-		So(status.Unwrap(), ShouldEqual, opErr)
+		So(status.Unwrap(), ShouldEqual, ErrOp)
 		So(count, ShouldEqual, 3)
 		So(sleeper.Elapsed(), ShouldEqual, 2*time.Millisecond)
 	})

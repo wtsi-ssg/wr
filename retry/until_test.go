@@ -33,25 +33,25 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-var normalError = errors.New("normal")
+var ErrNormal error = errors.New("normal")
 
 func TestUntil(t *testing.T) {
 
 	Convey("UntilLimit stops after the specified limit", t, func() {
 		var _ Until = (*UntilLimit)(nil)
 		u := &UntilLimit{Max: 2}
-		So(u.ShouldStop(0, normalError), ShouldEqual, doNotStop)
+		So(u.ShouldStop(0, ErrNormal), ShouldEqual, doNotStop)
 		So(u.ShouldStop(0, nil), ShouldEqual, doNotStop)
-		So(u.ShouldStop(1, normalError), ShouldEqual, doNotStop)
-		So(u.ShouldStop(2, normalError), ShouldEqual, BecauseLimitReached)
-		So(u.ShouldStop(3, normalError), ShouldEqual, BecauseLimitReached)
+		So(u.ShouldStop(1, ErrNormal), ShouldEqual, doNotStop)
+		So(u.ShouldStop(2, ErrNormal), ShouldEqual, BecauseLimitReached)
+		So(u.ShouldStop(3, ErrNormal), ShouldEqual, BecauseLimitReached)
 	})
 
 	Convey("UntilNoError stops after getting no error", t, func() {
 		var _ Until = (*UntilNoError)(nil)
 		u := &UntilNoError{}
-		So(u.ShouldStop(0, normalError), ShouldEqual, doNotStop)
-		So(u.ShouldStop(1, normalError), ShouldEqual, doNotStop)
+		So(u.ShouldStop(0, ErrNormal), ShouldEqual, doNotStop)
+		So(u.ShouldStop(1, ErrNormal), ShouldEqual, doNotStop)
 		So(u.ShouldStop(0, nil), ShouldEqual, BecauseErrorNil)
 		So(u.ShouldStop(1, nil), ShouldEqual, BecauseErrorNil)
 	})
@@ -68,8 +68,8 @@ func TestUntil(t *testing.T) {
 	Convey("You can combine multiple Untils", t, func() {
 		var _ Until = (*Untils)(nil)
 		u := &Untils{&UntilLimit{Max: 2}, &UntilNoError{}}
-		So(u.ShouldStop(0, normalError), ShouldEqual, doNotStop)
-		So(u.ShouldStop(2, normalError), ShouldEqual, BecauseLimitReached)
+		So(u.ShouldStop(0, ErrNormal), ShouldEqual, doNotStop)
+		So(u.ShouldStop(2, ErrNormal), ShouldEqual, BecauseLimitReached)
 		So(u.ShouldStop(0, nil), ShouldEqual, BecauseErrorNil)
 		So(u.ShouldStop(2, nil), ShouldEqual, BecauseLimitReached)
 	})
