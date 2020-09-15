@@ -33,8 +33,9 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
+var normalError = errors.New("normal")
+
 func TestUntil(t *testing.T) {
-	normalError := errors.New("normal")
 
 	Convey("UntilLimit stops after the specified limit", t, func() {
 		var _ Until = (*UntilLimit)(nil)

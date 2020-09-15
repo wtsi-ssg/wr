@@ -35,6 +35,8 @@ import (
 	bm "github.com/wtsi-ssg/wr/backoff/mock"
 )
 
+var opErr = errors.New("op err")
+
 func TestRetry(t *testing.T) {
 	wait := 1 * time.Millisecond
 	backoff := &backoff.Backoff{Min: wait, Max: wait, Factor: 1}
@@ -46,7 +48,8 @@ func TestRetry(t *testing.T) {
 			if count == 3 {
 				return nil
 			}
-			return errors.New("err")
+
+			return opErr
 		}
 
 		sleeper := &bm.Sleeper{}
@@ -66,7 +69,6 @@ func TestRetry(t *testing.T) {
 
 	Convey("You can Retry things until you give up", t, func() {
 		count := 0
-		opErr := errors.New("a problem")
 		op := func() error {
 			count++
 
