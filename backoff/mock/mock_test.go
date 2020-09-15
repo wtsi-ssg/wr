@@ -42,14 +42,14 @@ func TestSleeper(t *testing.T) {
 		sleeper := &Sleeper{}
 		tn := time.Now()
 		delay := 1 * time.Millisecond
-		
+
 		sleeper.Sleep(delay)
 		So(sleeper.Invoked(), ShouldEqual, 1)
 		So(sleeper.Elapsed(), ShouldEqual, delay*1)
 
 		sleeper.Sleep(delay)
-                So(sleeper.Invoked(), ShouldEqual, 2)
-                So(sleeper.Elapsed(), ShouldEqual, delay*2)
+		So(sleeper.Invoked(), ShouldEqual, 2)
+		So(sleeper.Elapsed(), ShouldEqual, delay*2)
 
 		So(time.Now(), ShouldHappenBefore, tn.Add(delay))
 	})
