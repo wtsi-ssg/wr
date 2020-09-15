@@ -91,56 +91,55 @@ func TestBackoff(t *testing.T) {
 		})
 	})
 
-	Convey("If you create a Backoff with a Factor less than 1, it always Sleep()s for Min", t, func() {
+	testBackoffProperties := func(
+		min, max time.Duration,
+		factor float64,
+		elapsedAfter1Sleep, elapsedAfter2Sleeps time.Duration) {
 		sleeper := &mock.Sleeper{}
 		b := &Backoff{
-			Min:     1 * time.Millisecond,
-			Max:     10 * time.Millisecond,
-			Factor:  0.5,
+			Min:     min,
+			Max:     max,
+			Factor:  factor,
 			Sleeper: sleeper,
 		}
 
 		b.Sleep()
 		So(sleeper.Invoked(), ShouldEqual, 1)
-		So(sleeper.Elapsed(), ShouldEqual, 1*time.Millisecond)
+		So(sleeper.Elapsed(), ShouldEqual, elapsedAfter1Sleep)
 
 		b.Sleep()
 		So(sleeper.Invoked(), ShouldEqual, 2)
-		So(sleeper.Elapsed(), ShouldEqual, 2*time.Millisecond)
+		So(sleeper.Elapsed(), ShouldEqual, elapsedAfter2Sleeps)
+	}
+
+	Convey("If you create a Backoff with a Factor less than 1, it always Sleep()s for Min", t, func() {
+		testBackoffProperties(
+			1*time.Millisecond,
+			10*time.Millisecond,
+			0.5,
+			1*time.Millisecond,
+			2*time.Millisecond,
+		)
 	})
 
 	Convey("A Backoff treats Max less than Min as Min", t, func() {
-		sleeper := &mock.Sleeper{}
-		b := &Backoff{
-			Min:     10 * time.Millisecond,
-			Factor:  1,
-			Sleeper: sleeper,
-		}
-
-		b.Sleep()
-		So(sleeper.Invoked(), ShouldEqual, 1)
-		So(sleeper.Elapsed(), ShouldEqual, 10*time.Millisecond)
-
-		b.Sleep()
-		So(sleeper.Invoked(), ShouldEqual, 2)
-		So(sleeper.Elapsed(), ShouldEqual, 20*time.Millisecond)
+		testBackoffProperties(
+			10*time.Millisecond,
+			0*time.Millisecond,
+			1,
+			10*time.Millisecond,
+			20*time.Millisecond,
+		)
 	})
 
 	Convey("A 0ms Min Backoff sleeps for 0ms every time", t, func() {
-		sleeper := &mock.Sleeper{}
-		b := &Backoff{
-			Max:     10 * time.Millisecond,
-			Factor:  2,
-			Sleeper: sleeper,
-		}
-
-		b.Sleep()
-		So(sleeper.Invoked(), ShouldEqual, 1)
-		So(sleeper.Elapsed(), ShouldEqual, 0*time.Millisecond)
-
-		b.Sleep()
-		So(sleeper.Invoked(), ShouldEqual, 2)
-		So(sleeper.Elapsed(), ShouldEqual, 0*time.Millisecond)
+		testBackoffProperties(
+			0*time.Millisecond,
+			10*time.Millisecond,
+			2,
+			0*time.Millisecond,
+			0*time.Millisecond,
+		)
 	})
 
 	Convey("A Backoff can be used concurrently", t, func() {
