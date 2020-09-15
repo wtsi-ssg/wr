@@ -116,13 +116,14 @@ func TestVolume(t *testing.T) {
 
 		Convey("You can choose the number of attempts when checking", func() {
 			attempts = 4
-			volume, m, _ := makeCheckedMockVolumeAndCalculator(attempts, 0*time.Millisecond, 0*time.Millisecond)
+			volume, m, _ = makeCheckedMockVolumeAndCalculator(attempts, 0*time.Millisecond, 0*time.Millisecond)
 			So(volume.NoSpaceLeft(), ShouldBeTrue)
 			So(m.FreeInvoked, ShouldEqual, attempts)
 		})
 
 		Convey("You can choose how long to wait in between checks", func() {
-			volume, m, bm := makeCheckedMockVolumeAndCalculator(attempts, 2*time.Millisecond, 2*time.Millisecond)
+			var bm *bm.Sleeper
+			volume, m, bm = makeCheckedMockVolumeAndCalculator(attempts, 2*time.Millisecond, 2*time.Millisecond)
 			So(volume.NoSpaceLeft(), ShouldBeTrue)
 			So(m.FreeInvoked, ShouldEqual, attempts)
 			So(bm.Invoked(), ShouldEqual, attempts-1)
