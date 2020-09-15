@@ -61,7 +61,7 @@ type Backoff struct {
 
 // Sleep will sleep (using Sleeper.Sleep()) for Min on the first call,
 // increasing the sleep duration by Factor up to Max on each subsequent call.
-// Sleep times in bewteen Min and Max are jittered so multiple Backoffs working
+// Sleep times in between Min and Max are jittered so multiple Backoffs working
 // at the same time don't all sleep for the same time periods.
 func (b *Backoff) Sleep() {
 	b.Sleeper.Sleep(b.duration())

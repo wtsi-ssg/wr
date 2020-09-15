@@ -38,7 +38,7 @@ const mb100 uint64 = 104857600 // 100MB in bytes
 
 var errZeroBytes = errors.New("zero bytes claimed")
 
-// VolumeUsageCalculator has methods that provide volume usage infomation.
+// VolumeUsageCalculator has methods that provide volume usage information.
 type VolumeUsageCalculator interface {
 	// Size returns the size of the volume in bytes.
 	Size(volumePath string) uint64
@@ -99,8 +99,8 @@ type CheckedVolumeUsageCalculator struct {
 	// be made, if the answer is 0
 	Retries int
 
-	// Backoff determins the time waited in between attempts. It will be Reset()
-	// when free space is greater than 0.
+	// Backoff determines the time waited in between attempts. It will be
+	// Reset() when free space is greater than 0.
 	Backoff *backoff.Backoff
 
 	// UsageCalculator is an implementation of VolumeUsageCalculator.
