@@ -69,6 +69,7 @@ func TestRetry(t *testing.T) {
 		opErr := errors.New("a problem")
 		op := func() error {
 			count++
+
 			return opErr
 		}
 
