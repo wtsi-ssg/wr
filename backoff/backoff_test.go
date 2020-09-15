@@ -59,11 +59,19 @@ func TestBackoff(t *testing.T) {
 				Convey("Subsequent calls keep increasing sleep by Factor, with jitter", func() {
 					b.Sleep()
 					So(sleeper.Invoked(), ShouldEqual, 3)
-					So(base.Add(sleeper.Elapsed()), ShouldHappenOnOrBetween, base.Add(3*time.Millisecond), base.Add(7*time.Millisecond))
+					So(base.Add(sleeper.Elapsed()),
+						ShouldHappenOnOrBetween,
+						base.Add(3*time.Millisecond),
+						base.Add(7*time.Millisecond),
+					)
 
 					b.Sleep()
 					So(sleeper.Invoked(), ShouldEqual, 4)
-					So(base.Add(sleeper.Elapsed()), ShouldHappenOnOrBetween, base.Add(7*time.Millisecond), base.Add(15*time.Millisecond))
+					So(base.Add(sleeper.Elapsed()),
+						ShouldHappenOnOrBetween,
+						base.Add(7*time.Millisecond),
+						base.Add(15*time.Millisecond),
+					)
 
 					Convey("But not above Max", func() {
 						b.Sleep()

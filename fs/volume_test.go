@@ -90,7 +90,9 @@ func TestVolume(t *testing.T) {
 		})
 	})
 
-	makeCheckedMockVolumeAndCalculator := func(attempts int, wait time.Duration, max time.Duration) (*Volume, *mock.VolumeUsageCalculator, *bm.Sleeper) {
+	makeCheckedMockVolumeAndCalculator := func(attempts int,
+		wait time.Duration,
+		max time.Duration) (*Volume, *mock.VolumeUsageCalculator, *bm.Sleeper) {
 		m := &mock.VolumeUsageCalculator{
 			FreeFn: func(volumePath string) uint64 {
 				return 0
@@ -100,7 +102,16 @@ func TestVolume(t *testing.T) {
 			},
 		}
 		bm := &bm.Sleeper{}
-		checked := &CheckedVolumeUsageCalculator{UsageCalculator: m, Retries: attempts - 1, Backoff: &backoff.Backoff{Min: wait, Max: max, Factor: 2, Sleeper: bm}}
+		checked := &CheckedVolumeUsageCalculator{
+			UsageCalculator: m,
+			Retries:         attempts - 1,
+			Backoff: &backoff.Backoff{
+				Min:     wait,
+				Max:     max,
+				Factor:  2,
+				Sleeper: bm,
+			},
+		}
 		volume := &Volume{Dir: path, UsageCalculator: checked}
 
 		return volume, m, bm
