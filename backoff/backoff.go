@@ -92,7 +92,8 @@ func (b *Backoff) jitter(d time.Duration, sleeps uint64) time.Duration {
 	}
 
 	prev := b.durationAfterSleeps(sleeps - 1)
-	return time.Duration((rand.Float64() * float64(d-prev)) + float64(prev))
+
+	return time.Duration((rand.Float64() * float64(d-prev)) + float64(prev)) // #nosec
 }
 
 // durationWithinBounds returns d but not less than Min and not more than Max.
