@@ -26,6 +26,7 @@
 package mock
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -34,6 +35,8 @@ import (
 )
 
 func TestSleeper(t *testing.T) {
+	ctx := context.Background()
+
 	Convey("Sleeper implements backoff.Sleeper", t, func() {
 		var _ backoff.Sleeper = (*Sleeper)(nil)
 	})
@@ -43,11 +46,11 @@ func TestSleeper(t *testing.T) {
 		tn := time.Now()
 		delay := 1 * time.Millisecond
 
-		sleeper.Sleep(delay)
+		sleeper.Sleep(ctx, delay)
 		So(sleeper.Invoked(), ShouldEqual, 1)
 		So(sleeper.Elapsed(), ShouldEqual, delay*1)
 
-		sleeper.Sleep(delay)
+		sleeper.Sleep(ctx, delay)
 		So(sleeper.Invoked(), ShouldEqual, 2)
 		So(sleeper.Elapsed(), ShouldEqual, delay*2)
 

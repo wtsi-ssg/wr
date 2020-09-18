@@ -26,6 +26,8 @@
 // mock contains a mock implementation of VolumeUsageCalculator.
 package mock
 
+import "context"
+
 // VolumeUsageCalculator represents a mock implementation of
 // fs.VolumeUsageCalculator.
 type VolumeUsageCalculator struct {
@@ -36,13 +38,13 @@ type VolumeUsageCalculator struct {
 }
 
 // Size returns the size of the volume in bytes.
-func (v *VolumeUsageCalculator) Size(volumePath string) uint64 {
+func (v *VolumeUsageCalculator) Size(ctx context.Context, volumePath string) uint64 {
 	v.SizeInvoked++
 
 	return v.SizeFn(volumePath)
 }
 
-func (v *VolumeUsageCalculator) Free(volumePath string) uint64 {
+func (v *VolumeUsageCalculator) Free(ctx context.Context, volumePath string) uint64 {
 	v.FreeInvoked++
 
 	return v.FreeFn(volumePath)

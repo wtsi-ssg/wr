@@ -26,18 +26,22 @@
 // local contains a local implementation of VolumeUsageCalculator.
 package local
 
-import "github.com/ricochet2200/go-disk-usage/du"
+import (
+	"context"
+
+	"github.com/ricochet2200/go-disk-usage/du"
+)
 
 // VolumeUsageCalculator represents a local filesystem implementation of
 // fs.VolumeUsageCalculator.
 type VolumeUsageCalculator struct{}
 
 // Size returns the size of the volume in bytes.
-func (v *VolumeUsageCalculator) Size(volumePath string) uint64 {
+func (v *VolumeUsageCalculator) Size(ctx context.Context, volumePath string) uint64 {
 	return du.NewDiskUsage(volumePath).Size()
 }
 
 // Free returns the free space of the volume in bytes.
-func (v *VolumeUsageCalculator) Free(volumePath string) uint64 {
+func (v *VolumeUsageCalculator) Free(ctx context.Context, volumePath string) uint64 {
 	return du.NewDiskUsage(volumePath).Free()
 }

@@ -26,6 +26,7 @@
 package backoff
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
@@ -35,6 +36,7 @@ import (
 )
 
 func TestBackoff(t *testing.T) {
+	ctx := context.Background()
 	base := time.Now()
 
 	Convey("Given a Backoff", t, func() {
@@ -47,17 +49,17 @@ func TestBackoff(t *testing.T) {
 		}
 
 		Convey("It Sleep()s for Min", func() {
-			b.Sleep()
+			b.Sleep(ctx)
 			So(sleeper.Invoked(), ShouldEqual, 1)
 			So(sleeper.Elapsed(), ShouldEqual, 1*time.Millisecond)
 
 			Convey("The next call Sleep()s for Min*Factor, with jitter", func() {
-				b.Sleep()
+				b.Sleep(ctx)
 				So(sleeper.Invoked(), ShouldEqual, 2)
 				So(base.Add(sleeper.Elapsed()), ShouldHappenOnOrBetween, base.Add(1*time.Millisecond), base.Add(3*time.Millisecond))
 
 				Convey("Subsequent calls keep increasing sleep by Factor, with jitter", func() {
-					b.Sleep()
+					b.Sleep(ctx)
 					So(sleeper.Invoked(), ShouldEqual, 3)
 					So(base.Add(sleeper.Elapsed()),
 						ShouldHappenOnOrBetween,
@@ -65,7 +67,7 @@ func TestBackoff(t *testing.T) {
 						base.Add(7*time.Millisecond),
 					)
 
-					b.Sleep()
+					b.Sleep(ctx)
 					So(sleeper.Invoked(), ShouldEqual, 4)
 					So(base.Add(sleeper.Elapsed()),
 						ShouldHappenOnOrBetween,
@@ -74,14 +76,14 @@ func TestBackoff(t *testing.T) {
 					)
 
 					Convey("But not above Max", func() {
-						b.Sleep()
+						b.Sleep(ctx)
 						So(sleeper.Invoked(), ShouldEqual, 5)
 						elapsed := sleeper.Elapsed()
 						So(base.Add(elapsed), ShouldHappenOnOrBetween, base.Add(15*time.Millisecond), base.Add(25*time.Millisecond))
 
 						Convey("And it can be reset back to Min", func() {
 							b.Reset()
-							b.Sleep()
+							b.Sleep(ctx)
 							So(sleeper.Invoked(), ShouldEqual, 6)
 							So(sleeper.Elapsed(), ShouldEqual, elapsed+1*time.Millisecond)
 						})
@@ -103,11 +105,11 @@ func TestBackoff(t *testing.T) {
 			Sleeper: sleeper,
 		}
 
-		b.Sleep()
+		b.Sleep(ctx)
 		So(sleeper.Invoked(), ShouldEqual, 1)
 		So(sleeper.Elapsed(), ShouldEqual, elapsedAfter1Sleep)
 
-		b.Sleep()
+		b.Sleep(ctx)
 		So(sleeper.Invoked(), ShouldEqual, 2)
 		So(sleeper.Elapsed(), ShouldEqual, elapsedAfter2Sleeps)
 	}
@@ -154,7 +156,7 @@ func TestBackoff(t *testing.T) {
 		wg := &sync.WaitGroup{}
 
 		sleep := func() {
-			b.Sleep()
+			b.Sleep(ctx)
 			wg.Done()
 		}
 
@@ -166,7 +168,7 @@ func TestBackoff(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			b.Reset()
-			b.Sleep()
+			b.Sleep(ctx)
 			wg.Done()
 		}()
 		wg.Wait()

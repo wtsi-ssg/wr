@@ -93,15 +93,15 @@ func (u *UntilNoError) ShouldStop(retries int, err error) Reason {
 	return doNotStop
 }
 
-// UntilContext implements Until, stopping retries after the context has been
+// untilContext implements Until, stopping retries after the context has been
 // closed.
-type UntilContext struct {
+type untilContext struct {
 	Context context.Context
 }
 
 // ShouldStop returns BecauseContextClosed after the context has been
 // closed. retries and err are not considered.
-func (u *UntilContext) ShouldStop(retries int, err error) Reason {
+func (u *untilContext) ShouldStop(retries int, err error) Reason {
 	if u.Context.Err() != nil {
 		return BecauseContextClosed
 	}

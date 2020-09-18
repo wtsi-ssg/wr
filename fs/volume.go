@@ -27,6 +27,7 @@
 package fs
 
 import (
+	"context"
 	"errors"
 
 	"github.com/wtsi-ssg/wr/backoff"
@@ -41,10 +42,10 @@ var errZeroBytes = errors.New("zero bytes claimed")
 // VolumeUsageCalculator has methods that provide volume usage information.
 type VolumeUsageCalculator interface {
 	// Size returns the size of the volume in bytes.
-	Size(volumePath string) uint64
+	Size(ctx context.Context, volumePath string) uint64
 
 	// Free returns the free space of the volume in bytes.
-	Free(volumePath string) uint64
+	Free(ctx context.Context, volumePath string) uint64
 }
 
 // Volume respresents a file system volume.
@@ -58,14 +59,14 @@ type Volume struct {
 }
 
 // Size returns the size of the volume in GB.
-func (v *Volume) Size() int {
-	return int(v.UsageCalculator.Size(v.Dir) / gb)
+func (v *Volume) Size(ctx context.Context) int {
+	return int(v.UsageCalculator.Size(ctx, v.Dir) / gb)
 }
 
 // NoSpaceLeft tells you if the volume has no more space left (or is within
 // 100MB of being full).
-func (v *Volume) NoSpaceLeft() bool {
-	return v.UsageCalculator.Free(v.Dir) < mb100
+func (v *Volume) NoSpaceLeft(ctx context.Context) bool {
+	return v.UsageCalculator.Free(ctx, v.Dir) < mb100
 }
 
 // CachedVolumeUsageCalculator wraps a VolumeUsageCalculator to provide an
@@ -76,19 +77,19 @@ type CachedVolumeUsageCalculator struct {
 }
 
 // Size returns the size of the volume in bytes.
-func (v *CachedVolumeUsageCalculator) Size(volumePath string) uint64 {
+func (v *CachedVolumeUsageCalculator) Size(ctx context.Context, volumePath string) uint64 {
 	if v.size > 0 {
 		return v.size
 	}
 
-	v.size = v.UsageCalculator.Size(volumePath)
+	v.size = v.UsageCalculator.Size(ctx, volumePath)
 
 	return v.size
 }
 
 // Free returns the free space of the volume in bytes.
-func (v *CachedVolumeUsageCalculator) Free(volumePath string) uint64 {
-	return v.UsageCalculator.Free(volumePath)
+func (v *CachedVolumeUsageCalculator) Free(ctx context.Context, volumePath string) uint64 {
+	return v.UsageCalculator.Free(ctx, volumePath)
 }
 
 // CheckedVolumeUsageCalculator wraps a VolumeUsageCalculator to confirm
@@ -107,27 +108,35 @@ type CheckedVolumeUsageCalculator struct {
 	UsageCalculator VolumeUsageCalculator
 }
 
-type volumeUsageCalculationMethod func(string) uint64
+type volumeUsageCalculationMethod func(context.Context, string) uint64
 
 // Size returns the size of the volume in bytes. If the answer would be
 // 0, this is first re-confirmed multiple times before returning.
-func (v *CheckedVolumeUsageCalculator) Size(volumePath string) uint64 {
-	return retryIfZero(v.Retries, v.Backoff, v.UsageCalculator.Size, volumePath)
+func (v *CheckedVolumeUsageCalculator) Size(ctx context.Context, volumePath string) uint64 {
+	return retryIfZero(ctx, v.Retries, v.Backoff, v.UsageCalculator.Size, volumePath)
 }
 
 // Free returns the free space of the volume in bytes. If the answer would be
 // 0, this is first re-confirmed multiple times before returning.
-func (v *CheckedVolumeUsageCalculator) Free(volumePath string) uint64 {
-	return retryIfZero(v.Retries, v.Backoff, v.UsageCalculator.Free, volumePath)
+func (v *CheckedVolumeUsageCalculator) Free(ctx context.Context, volumePath string) uint64 {
+	return retryIfZero(ctx, v.Retries, v.Backoff, v.UsageCalculator.Free, volumePath)
 }
 
 // retryIfZero retries the given method up to retries times if the method
 // returns zero. If it returns greater than zero, backoff is Reset().
-func retryIfZero(retries int, backoff *backoff.Backoff, f volumeUsageCalculationMethod, arg string) uint64 {
+func retryIfZero(ctx context.Context,
+	retries int,
+	backoff *backoff.Backoff,
+	f volumeUsageCalculationMethod,
+	arg string) uint64 {
 	var bytes uint64
 	status := retry.Do(
-		operationReturnsErrIfZero(f, arg, &bytes),
-		&retry.Untils{&retry.UntilNoError{}, &retry.UntilLimit{Max: retries}},
+		ctx,
+		operationReturnsErrIfZero(ctx, f, arg, &bytes),
+		&retry.Untils{
+			&retry.UntilNoError{},
+			&retry.UntilLimit{Max: retries},
+		},
 		backoff,
 	)
 
@@ -141,9 +150,12 @@ func retryIfZero(retries int, backoff *backoff.Backoff, f volumeUsageCalculation
 // operationReturnsErrIfZero creates a retry.Operation that errors if supplied
 // method returns zero given supplied arg. The return value is stored in the
 // given bytes arg.
-func operationReturnsErrIfZero(f volumeUsageCalculationMethod, arg string, bytes *uint64) retry.Operation {
+func operationReturnsErrIfZero(ctx context.Context,
+	f volumeUsageCalculationMethod,
+	arg string,
+	bytes *uint64) retry.Operation {
 	return func() error {
-		*bytes = f(arg)
+		*bytes = f(ctx, arg)
 		if *bytes == 0 {
 			return errZeroBytes
 		}

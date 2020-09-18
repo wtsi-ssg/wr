@@ -27,6 +27,7 @@
 package retry
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/wtsi-ssg/wr/backoff"
@@ -70,18 +71,23 @@ func (s *Status) Unwrap() error {
 }
 
 // Do will run op at least once, and then will keep retrying it unless the until
-// returns a Reason to stop. The amount of time between retries is determined
-// by bo.
+// returns a Reason to stop, or the context has been cancelled. The amount of
+// time between retries is determined by bo.
+//
+// The context is also used to end bo's sleep early, if cancelled during a
+// sleep.
 //
 // Note that bo is NOT Reset() during this function.
-func Do(op Operation, until Until, bo *backoff.Backoff) *Status {
+func Do(ctx context.Context, op Operation, until Until, bo *backoff.Backoff) *Status {
 	var (
 		reason  Reason
 		retries int
 		err     error
 	)
 
-	for ok := true; ok; ok = tryAgain(bo, reason, &retries) {
+	until = Untils{until, &untilContext{Context: ctx}}
+
+	for ok := true; ok; ok = tryAgain(ctx, bo, reason, &retries) {
 		err = op()
 		reason = until.ShouldStop(retries, err)
 	}
@@ -91,14 +97,14 @@ func Do(op Operation, until Until, bo *backoff.Backoff) *Status {
 
 // tryAgain tests reason to see if we should try again, and if so, increments
 // retries and uses the backoff to sleep before returning.
-func tryAgain(bo *backoff.Backoff, reason Reason, retries *int) bool {
+func tryAgain(ctx context.Context, bo *backoff.Backoff, reason Reason, retries *int) bool {
 	if reason != doNotStop {
 		return false
 	}
 
 	*retries++
 
-	bo.Sleep()
+	bo.Sleep(ctx)
 
 	return true
 }

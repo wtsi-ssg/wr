@@ -27,6 +27,7 @@
 package mock
 
 import (
+	"context"
 	"sync/atomic"
 	"time"
 )
@@ -40,7 +41,7 @@ type Sleeper struct {
 
 // Sleep increases Elapsed and increments SleepInvoked, but doesn't actually
 // sleep.
-func (s *Sleeper) Sleep(d time.Duration) {
+func (s *Sleeper) Sleep(ctx context.Context, d time.Duration) {
 	atomic.AddUint64(&s.sleepInvoked, 1)
 	atomic.AddInt64(&s.elapsed, int64(d))
 }

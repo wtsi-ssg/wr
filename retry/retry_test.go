@@ -26,6 +26,7 @@
 package retry
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -38,6 +39,7 @@ import (
 var ErrOp = errors.New("op err")
 
 func TestRetry(t *testing.T) {
+	ctx := context.Background()
 	wait := 1 * time.Millisecond
 	backoff := &backoff.Backoff{Min: wait, Max: wait, Factor: 1}
 
@@ -55,7 +57,7 @@ func TestRetry(t *testing.T) {
 		sleeper := &bm.Sleeper{}
 		backoff.Sleeper = sleeper
 
-		status := Do(op, &UntilNoError{}, backoff)
+		status := Do(ctx, op, &UntilNoError{}, backoff)
 		So(status.Retried, ShouldEqual, 2)
 		So(status.StoppedBecause, ShouldEqual, BecauseErrorNil)
 		So(status.Err, ShouldBeNil)
@@ -78,7 +80,7 @@ func TestRetry(t *testing.T) {
 		sleeper := &bm.Sleeper{}
 		backoff.Sleeper = sleeper
 
-		status := Do(op, &UntilLimit{Max: 2}, backoff)
+		status := Do(ctx, op, &UntilLimit{Max: 2}, backoff)
 		So(status.Retried, ShouldEqual, 2)
 		So(status.StoppedBecause, ShouldEqual, BecauseLimitReached)
 		So(status.Err, ShouldEqual, ErrOp)

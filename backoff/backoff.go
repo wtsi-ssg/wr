@@ -28,6 +28,7 @@
 package backoff
 
 import (
+	"context"
 	"math"
 	"math/rand"
 	"sync/atomic"
@@ -36,8 +37,9 @@ import (
 
 // Sleeper defines the Sleep method used by a Backoff.
 type Sleeper interface {
-	// Sleep sleeps for the given duration.
-	Sleep(time.Duration)
+	// Sleep sleeps for the given duration, stopping early if context is
+	// cancelled.
+	Sleep(context.Context, time.Duration)
 }
 
 // Backoff is used to sleep for increasing periods of time.
@@ -61,10 +63,13 @@ type Backoff struct {
 
 // Sleep will sleep (using Sleeper.Sleep()) for Min on the first call,
 // increasing the sleep duration by Factor up to Max on each subsequent call.
+//
 // Sleep times in between Min and Max are jittered so multiple Backoffs working
 // at the same time don't all sleep for the same time periods.
-func (b *Backoff) Sleep() {
-	b.Sleeper.Sleep(b.duration())
+//
+// If the supplied context is cancelled, we stop sleeping early.
+func (b *Backoff) Sleep(ctx context.Context) {
+	b.Sleeper.Sleep(ctx, b.duration())
 }
 
 // duration calculates the next amount of time we should Sleep() for.
