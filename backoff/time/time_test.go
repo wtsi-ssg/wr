@@ -51,13 +51,13 @@ func TestSleeper(t *testing.T) {
 	Convey("Sleep() can be cancelled via the context", t, func() {
 		sleeper := &Sleeper{}
 		tn := time.Now()
-		delay := 4 * time.Millisecond
-		cancelAfter := delay / 2
+		delay := 1 * time.Second
+		cancelAfter := 1 * time.Millisecond
 
 		ctx, cancel := context.WithTimeout(context.Background(), cancelAfter)
 		defer cancel()
 
 		sleeper.Sleep(ctx, delay)
-		So(time.Now(), ShouldHappenBetween, tn.Add(cancelAfter), tn.Add(3*time.Millisecond))
+		So(time.Now(), ShouldHappenBetween, tn.Add(cancelAfter), tn.Add(500*time.Millisecond))
 	})
 }
