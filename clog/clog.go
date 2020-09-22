@@ -66,6 +66,19 @@ func ToBufferAtLevel(lvl string) *bytes.Buffer {
 	return buff
 }
 
+// ToFileAtLevel sets the global logger to log to a file at the given path
+// and at the given level.
+func ToFileAtLevel(path, lvl string) error {
+	fh, err := log.FileHandler(path, log.LogfmtFormat())
+	if err != nil {
+		return err
+	}
+
+	toOutputAtLevel(fh, lvlFromString(lvl))
+
+	return nil
+}
+
 // lvlFromString returns a log.Lvl for the given string. Valid lvls are
 // "debug"|"dbug", "info", "warn", "error"|"eror", "crit". Invalid lvls return
 // LvlDebug.

@@ -31,6 +31,7 @@ import (
 
 	"github.com/inconshreveable/log15"
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/wtsi-ssg/wr/internal"
 )
 
 func TestLogger(t *testing.T) {
@@ -146,7 +147,7 @@ func TestLogger(t *testing.T) {
 			checkMethod(Error, "eror", "crit")
 		})
 
-		Convey("Crit always works", func() {
+		Convey("Crit always works and has a stack trace", func() {
 			Crit(ctx, "msg", "foo", 1)
 			lmsg := buff.String()
 			hasMsgAndFoo("crit", lmsg)
@@ -154,5 +155,32 @@ func TestLogger(t *testing.T) {
 			So(lmsg, ShouldContainSubstring, "stack=")
 			So(lmsg, ShouldContainSubstring, retryLogMsg)
 		})
+	})
+
+	Convey("You can log to a file", t, func() {
+		logPath, toDefer := internal.FilePathInTempDir("clog.log")
+		defer toDefer()
+
+		err := ToFileAtLevel(logPath, "debug")
+		So(err, ShouldBeNil)
+		Debug(background, "msg")
+
+		So(internal.FileAsString(logPath), ShouldContainSubstring, "msg=msg")
+
+		Convey("And append to a file", func() {
+			err = ToFileAtLevel(logPath, "debug")
+			So(err, ShouldBeNil)
+
+			Debug(background, "foo")
+
+			logs := internal.FileAsString(logPath)
+			So(logs, ShouldContainSubstring, "msg=msg")
+			So(logs, ShouldContainSubstring, "msg=foo")
+		})
+	})
+
+	Convey("You can't log to a file given a bad path", t, func() {
+		err := ToFileAtLevel("!/*&^%$", "debug")
+		So(err, ShouldNotBeNil)
 	})
 }
