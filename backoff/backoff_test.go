@@ -33,6 +33,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-ssg/wr/backoff/mock"
+	"github.com/wtsi-ssg/wr/clog"
 )
 
 func TestBackoff(t *testing.T) {
@@ -90,6 +91,15 @@ func TestBackoff(t *testing.T) {
 					})
 				})
 			})
+		})
+
+		Convey("Sleep()s are logged", func() {
+			buff := clog.ToBufferAtLevel("debug")
+			defer clog.ToDefault()
+			b.Sleep(ctx)
+			So(buff.String(), ShouldContainSubstring, "lvl=dbug")
+			So(buff.String(), ShouldContainSubstring, "msg=backoff")
+			So(buff.String(), ShouldContainSubstring, "sleep=1ms")
 		})
 	})
 

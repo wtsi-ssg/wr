@@ -33,6 +33,8 @@ import (
 	"math/rand"
 	"sync/atomic"
 	"time"
+
+	"github.com/wtsi-ssg/wr/clog"
 )
 
 // Sleeper defines the Sleep method used by a Backoff.
@@ -68,8 +70,12 @@ type Backoff struct {
 // at the same time don't all sleep for the same time periods.
 //
 // If the supplied context is cancelled, we stop sleeping early.
+//
+// Sleep durations are logged using the global context logger at debug level.
 func (b *Backoff) Sleep(ctx context.Context) {
-	b.Sleeper.Sleep(ctx, b.duration())
+	d := b.duration()
+	clog.Debug(ctx, "backoff", "sleep", d)
+	b.Sleeper.Sleep(ctx, d)
 }
 
 // duration calculates the next amount of time we should Sleep() for.

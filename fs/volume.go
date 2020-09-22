@@ -138,6 +138,7 @@ func retryIfZero(ctx context.Context,
 			&retry.UntilLimit{Max: retries},
 		},
 		backoff,
+		"getting volume usage",
 	)
 
 	if status.StoppedBecause == retry.BecauseErrorNil {

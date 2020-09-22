@@ -82,17 +82,29 @@ func lvlFromString(lvl string) log.Lvl {
 func logger(ctx context.Context) log.Logger {
 	logger := log.Root()
 	if ctx != nil {
-		logger = addRequestIDToLogger(ctx, logger)
+		logger = addStringKeyToLogger(ctx, logger, retrySetKey, "retryset")
+		logger = addStringKeyToLogger(ctx, logger, retryActivityKey, "retryactivity")
+		logger = addIntKeyToLogger(ctx, logger, retryNumKey, "retrynum")
 	}
 
 	return logger
 }
 
-// addRequestIDToLogger takes any requestIDKey found in the context and
-// returns a copy of the given logger with that context.
-func addRequestIDToLogger(ctx context.Context, logger log.Logger) log.Logger {
-	if rid, ok := ctx.Value(requestIDKey).(string); ok {
-		logger = logger.New("rid", rid)
+// addStringKeyToLogger checks if the given string key is set in the logger and
+// returns a new logger with that context under the logger key if so.
+func addStringKeyToLogger(ctx context.Context, logger log.Logger, key correlationIDType, loggerKey string) log.Logger {
+	if val, ok := ctx.Value(key).(string); ok {
+		logger = logger.New(loggerKey, val)
+	}
+
+	return logger
+}
+
+// addIntKeyToLogger checks if the given int key is set in the logger and
+// returns a new logger with that context under the logger key if so.
+func addIntKeyToLogger(ctx context.Context, logger log.Logger, key correlationIDType, loggerKey string) log.Logger {
+	if val, ok := ctx.Value(key).(int); ok {
+		logger = logger.New(loggerKey, val)
 	}
 
 	return logger

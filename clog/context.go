@@ -35,17 +35,22 @@ import (
 type correlationIDType int
 
 const (
-	requestIDKey correlationIDType = iota
+	retrySetKey correlationIDType = iota
+	retryActivityKey
+	retryNumKey
 )
 
-// ContextWithNewRequestID returns a context which knows a new unique request
-// ID.
-func ContextWithNewRequestID(ctx context.Context) context.Context {
-	return ContextWithRequestID(ctx, UniqueID())
+// ContextForRetries returns a context which knows a new unique retryset
+// ID, as well as the given retryactivity.
+func ContextForRetries(ctx context.Context, activity string) context.Context {
+	return context.WithValue(
+		context.WithValue(ctx, retrySetKey, UniqueID()),
+		retryActivityKey,
+		activity,
+	)
 }
 
-// ContextWithRequestID returns a context which knows the given request
-// ID.
-func ContextWithRequestID(ctx context.Context, rid string) context.Context {
-	return context.WithValue(ctx, requestIDKey, rid)
+// ContextWithRetryNum returns a context which knows the given retrynum.
+func ContextWithRetryNum(ctx context.Context, retrynum int) context.Context {
+	return context.WithValue(ctx, retryNumKey, retrynum)
 }

@@ -45,9 +45,27 @@ func TestLogger(t *testing.T) {
 		So(lvlFromString("foo"), ShouldEqual, log15.LvlDebug)
 	})
 
+	Convey("RetrySet context gets logged", t, func() {
+		buff := ToBufferAtLevel("debug")
+		activity := "doing foo"
+		ctx := ContextForRetries(background, activity)
+		Debug(ctx, "msg", "foo", 1)
+		So(buff.String(), ShouldContainSubstring, "retryset=")
+		So(buff.String(), ShouldContainSubstring, "retryactivity=\""+activity)
+	})
+
+	Convey("RetryNum context gets logged", t, func() {
+		buff := ToBufferAtLevel("debug")
+		ctx := ContextWithRetryNum(background, 3)
+		Debug(ctx, "msg", "foo", 1)
+		So(buff.String(), ShouldContainSubstring, "retrynum=3")
+	})
+
 	Convey("With logging set to a buffer at warn level, and some context", t, func() {
 		buff := ToBufferAtLevel("warn")
-		ctx := ContextWithNewRequestID(background)
+		retryNum := 3
+		ctx := ContextWithRetryNum(background, retryNum)
+		retryLogMsg := "retrynum=3"
 
 		hasMsgAndFoo := func(lvl, lmsg string) {
 			So(lmsg, ShouldContainSubstring, "lvl="+lvl)
@@ -66,7 +84,7 @@ func TestLogger(t *testing.T) {
 				lmsg := buff.String()
 				hasMsgAndFoo("dbug", lmsg)
 				So(lmsg, ShouldContainSubstring, "caller=clog")
-				So(lmsg, ShouldContainSubstring, "rid=")
+				So(lmsg, ShouldContainSubstring, retryLogMsg)
 				buff.Reset()
 
 				Convey("And then stops working when you go back to default", func() {
@@ -79,7 +97,7 @@ func TestLogger(t *testing.T) {
 					Debug(context.Background(), "msg", "foo", 1)
 					lmsg := buff.String()
 					hasMsgAndFoo("dbug", lmsg)
-					So(lmsg, ShouldNotContainSubstring, "rid=")
+					So(lmsg, ShouldNotContainSubstring, retryLogMsg)
 				})
 			})
 		})
@@ -95,14 +113,14 @@ func TestLogger(t *testing.T) {
 				lmsg := buff.String()
 				hasMsgAndFoo("info", lmsg)
 				So(lmsg, ShouldNotContainSubstring, "caller=clog")
-				So(lmsg, ShouldContainSubstring, "rid=")
+				So(lmsg, ShouldContainSubstring, retryLogMsg)
 				buff.Reset()
 
 				buff = ToBufferAtLevel("info")
 				Info(ctx, "msg", "foo", 1)
 				lmsg = buff.String()
 				hasMsgAndFoo("info", lmsg)
-				So(lmsg, ShouldContainSubstring, "rid=")
+				So(lmsg, ShouldContainSubstring, retryLogMsg)
 				buff.Reset()
 			})
 		})
@@ -112,7 +130,7 @@ func TestLogger(t *testing.T) {
 			lmsg := buff.String()
 			hasMsgAndFoo(lvl1, lmsg)
 			So(lmsg, ShouldContainSubstring, "caller=clog")
-			So(lmsg, ShouldContainSubstring, "rid=")
+			So(lmsg, ShouldContainSubstring, retryLogMsg)
 
 			Convey("But not at a higher level", func() {
 				buff = ToBufferAtLevel(lvl2)
@@ -134,7 +152,7 @@ func TestLogger(t *testing.T) {
 			hasMsgAndFoo("crit", lmsg)
 			So(lmsg, ShouldNotContainSubstring, "caller=clog")
 			So(lmsg, ShouldContainSubstring, "stack=")
-			So(lmsg, ShouldContainSubstring, "rid=")
+			So(lmsg, ShouldContainSubstring, retryLogMsg)
 		})
 	})
 }
