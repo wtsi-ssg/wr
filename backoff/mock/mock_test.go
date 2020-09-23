@@ -44,7 +44,7 @@ func TestSleeper(t *testing.T) {
 	Convey("Sleeper.Sleep() doesn't really sleep", t, func() {
 		sleeper := &Sleeper{}
 		tn := time.Now()
-		delay := 1 * time.Millisecond
+		delay := 1 * time.Second
 
 		sleeper.Sleep(ctx, delay)
 		So(sleeper.Invoked(), ShouldEqual, 1)
