@@ -55,10 +55,10 @@ func TestUntil(t *testing.T) {
 		So(u.ShouldStop(1, nil), ShouldEqual, BecauseErrorNil)
 	})
 
-	Convey("UntilContext stops after the context is done", t, func() {
-		var _ Until = (*UntilContext)(nil)
+	Convey("untilContext stops after the context is done", t, func() {
+		var _ Until = (*untilContext)(nil)
 		ctx, cancel := context.WithCancel(context.Background())
-		u := &UntilContext{Context: ctx}
+		u := &untilContext{Context: ctx}
 		So(u.ShouldStop(1, nil), ShouldEqual, doNotStop)
 		cancel()
 		So(u.ShouldStop(1, nil), ShouldEqual, BecauseContextClosed)
@@ -66,10 +66,15 @@ func TestUntil(t *testing.T) {
 
 	Convey("You can combine multiple Untils", t, func() {
 		var _ Until = (*Untils)(nil)
-		u := &Untils{&UntilLimit{Max: 2}, &UntilNoError{}}
+		u := Untils{&UntilLimit{Max: 2}, &UntilNoError{}}
 		So(u.ShouldStop(0, ErrNormal), ShouldEqual, doNotStop)
 		So(u.ShouldStop(2, ErrNormal), ShouldEqual, BecauseLimitReached)
 		So(u.ShouldStop(0, nil), ShouldEqual, BecauseErrorNil)
 		So(u.ShouldStop(2, nil), ShouldEqual, BecauseLimitReached)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		u = Untils{u, &untilContext{Context: ctx}}
+		cancel()
+		So(u.ShouldStop(1, ErrNormal), ShouldEqual, BecauseContextClosed)
 	})
 }

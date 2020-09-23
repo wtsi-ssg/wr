@@ -27,9 +27,11 @@
 package retry
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/wtsi-ssg/wr/backoff"
+	"github.com/wtsi-ssg/wr/clog"
 )
 
 // Operation is passed to Do() and is the code you would like to retry.
@@ -70,35 +72,59 @@ func (s *Status) Unwrap() error {
 }
 
 // Do will run op at least once, and then will keep retrying it unless the until
-// returns a Reason to stop. The amount of time between retries is determined
-// by bo.
+// returns a Reason to stop, or the context has been cancelled. The amount of
+// time between retries is determined by bo.
+//
+// The context is also used to end bo's sleep early, if cancelled during a
+// sleep.
+//
+// If any retries were required, the returned Status is logged using the global
+// context logger at debug level. Any Backoff sleeps will have been logged
+// sharing a unique retryset id, and a retrynum. All logs will include the given
+// activity.
 //
 // Note that bo is NOT Reset() during this function.
-func Do(op Operation, until Until, bo *backoff.Backoff) *Status {
+func Do(ctx context.Context, op Operation, until Until, bo *backoff.Backoff, activity string) *Status {
 	var (
 		reason  Reason
 		retries int
 		err     error
 	)
 
-	for ok := true; ok; ok = tryAgain(bo, reason, &retries) {
+	until = Untils{until, &untilContext{Context: ctx}}
+
+	ctx = clog.ContextForRetries(ctx, activity)
+
+	for ok := true; ok; ok = tryAgain(ctx, bo, reason, &retries) {
 		err = op()
 		reason = until.ShouldStop(retries, err)
 	}
 
-	return &Status{Retried: retries, StoppedBecause: reason, Err: err}
+	status := &Status{Retried: retries, StoppedBecause: reason, Err: err}
+	logStatusIfRetried(ctx, status)
+
+	return status
 }
 
 // tryAgain tests reason to see if we should try again, and if so, increments
 // retries and uses the backoff to sleep before returning.
-func tryAgain(bo *backoff.Backoff, reason Reason, retries *int) bool {
+func tryAgain(ctx context.Context, bo *backoff.Backoff, reason Reason, retries *int) bool {
 	if reason != doNotStop {
 		return false
 	}
 
 	*retries++
 
-	bo.Sleep()
+	bo.Sleep(clog.ContextWithRetryNum(ctx, *retries))
 
 	return true
+}
+
+// logStatusIfRetried logs the status if status.Retried > 0.
+func logStatusIfRetried(ctx context.Context, status *Status) {
+	if status.Retried == 0 {
+		return
+	}
+
+	clog.Debug(ctx, "retried", "status", status.String())
 }

@@ -26,6 +26,7 @@
 package local
 
 import (
+	"context"
 	"os"
 	"syscall"
 	"testing"
@@ -35,6 +36,8 @@ import (
 )
 
 func TestVolumeUsageCalculator(t *testing.T) {
+	ctx := context.Background()
+
 	Convey("VolumeUsageCalculator implements fs.VolumeUsageCalculator", t, func() {
 		var _ fs.VolumeUsageCalculator = (*VolumeUsageCalculator)(nil)
 	})
@@ -49,7 +52,7 @@ func TestVolumeUsageCalculator(t *testing.T) {
 		expectedSize := stat.Blocks * uint64(stat.Bsize)
 
 		calc := &VolumeUsageCalculator{}
-		So(calc.Size(path), ShouldEqual, expectedSize)
-		So(calc.Free(path), ShouldBeGreaterThan, 0)
+		So(calc.Size(ctx, path), ShouldEqual, expectedSize)
+		So(calc.Free(ctx, path), ShouldBeGreaterThan, 0)
 	})
 }

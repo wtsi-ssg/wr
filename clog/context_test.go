@@ -23,35 +23,46 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-// package mock contains a mock implementation of backoff.Sleeper
-package mock
+package clog
 
 import (
 	"context"
-	"sync/atomic"
-	"time"
+	"testing"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
 
-// Sleeper represents a mock implementation of backoff.Sleeper. It is
-// concurrent safe.
-type Sleeper struct {
-	sleepInvoked uint64
-	elapsed      int64
-}
+func TestContext(t *testing.T) {
+	background := context.Background()
 
-// Sleep increases Elapsed and increments SleepInvoked, but doesn't actually
-// sleep.
-func (s *Sleeper) Sleep(ctx context.Context, d time.Duration) {
-	atomic.AddUint64(&s.sleepInvoked, 1)
-	atomic.AddInt64(&s.elapsed, int64(d))
-}
+	checkValIsString := func(val interface{}) string {
+		strVal, isString := val.(string)
+		So(isString, ShouldBeTrue)
 
-// Invoked returns the number of times Sleep() has been called.
-func (s *Sleeper) Invoked() int {
-	return int(atomic.LoadUint64(&s.sleepInvoked))
-}
+		return strVal
+	}
 
-// Elapsed returns the total elapsed time we were supposed to have slept for.
-func (s *Sleeper) Elapsed() time.Duration {
-	return time.Duration(atomic.LoadInt64(&s.elapsed))
+	checkValIsUniqueID := func(val interface{}) {
+		id := checkValIsString(val)
+		So(len(id), ShouldEqual, uniqueIDLength)
+	}
+
+	Convey("ContextForRetries returns a context with a retryset and retryactivity", t, func() {
+		activity := "doing foo"
+		ctx := ContextForRetries(background, activity)
+		val := ctx.Value(retrySetKey)
+		checkValIsUniqueID(val)
+
+		val = ctx.Value(retryActivityKey)
+		So(checkValIsString(val), ShouldEqual, activity)
+	})
+
+	Convey("ContextWithRetryNum returns a context with a retrynum", t, func() {
+		retrynum := 3
+		ctx := ContextWithRetryNum(background, retrynum)
+		val := ctx.Value(retryNumKey)
+		num, isInt := val.(int)
+		So(isInt, ShouldBeTrue)
+		So(num, ShouldEqual, retrynum)
+	})
 }

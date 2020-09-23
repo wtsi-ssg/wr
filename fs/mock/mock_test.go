@@ -26,6 +26,7 @@
 package mock
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -33,6 +34,8 @@ import (
 )
 
 func TestVolumeUsageCalculator(t *testing.T) {
+	ctx := context.Background()
+
 	Convey("VolumeUsageCalculator implements fs.VolumeUsageCalculator", t, func() {
 		var _ fs.VolumeUsageCalculator = (*VolumeUsageCalculator)(nil)
 	})
@@ -50,9 +53,9 @@ func TestVolumeUsageCalculator(t *testing.T) {
 			},
 		}
 
-		So(calc.Free(path), ShouldEqual, answer)
+		So(calc.Free(ctx, path), ShouldEqual, answer)
 		So(calc.FreeInvoked, ShouldEqual, 1)
-		So(calc.Size(path), ShouldEqual, answer)
+		So(calc.Size(ctx, path), ShouldEqual, answer)
 		So(calc.SizeInvoked, ShouldEqual, 1)
 	})
 }

@@ -26,6 +26,7 @@
 package time
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -43,7 +44,20 @@ func TestSleeper(t *testing.T) {
 		tn := time.Now()
 		delay := 1 * time.Millisecond
 
-		sleeper.Sleep(delay)
+		sleeper.Sleep(context.Background(), delay)
 		So(time.Now(), ShouldHappenOnOrAfter, tn.Add(delay))
+	})
+
+	Convey("Sleep() can be cancelled via the context", t, func() {
+		sleeper := &Sleeper{}
+		tn := time.Now()
+		delay := 1 * time.Second
+		cancelAfter := 1 * time.Millisecond
+
+		ctx, cancel := context.WithTimeout(context.Background(), cancelAfter)
+		defer cancel()
+
+		sleeper.Sleep(ctx, delay)
+		So(time.Now(), ShouldHappenBetween, tn.Add(cancelAfter), tn.Add(500*time.Millisecond))
 	})
 }

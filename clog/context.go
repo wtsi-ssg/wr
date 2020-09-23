@@ -2,6 +2,7 @@
  * Copyright (c) 2020 Genome Research Ltd.
  *
  * Author: Sendu Bala <sb10@sanger.ac.uk>
+ * Based on: https://blog.gopheracademy.com/advent-2016/context-logging/
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -23,35 +24,33 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-// package mock contains a mock implementation of backoff.Sleeper
-package mock
+package clog
 
 import (
 	"context"
-	"sync/atomic"
-	"time"
 )
 
-// Sleeper represents a mock implementation of backoff.Sleeper. It is
-// concurrent safe.
-type Sleeper struct {
-	sleepInvoked uint64
-	elapsed      int64
+// correlationIDType is for the *Key constants, which provide private quick-to-
+// access value storage in the With* functions.
+type correlationIDType int
+
+const (
+	retrySetKey correlationIDType = iota
+	retryActivityKey
+	retryNumKey
+)
+
+// ContextForRetries returns a context which knows a new unique retryset
+// ID, as well as the given retryactivity.
+func ContextForRetries(ctx context.Context, activity string) context.Context {
+	return context.WithValue(
+		context.WithValue(ctx, retrySetKey, UniqueID()),
+		retryActivityKey,
+		activity,
+	)
 }
 
-// Sleep increases Elapsed and increments SleepInvoked, but doesn't actually
-// sleep.
-func (s *Sleeper) Sleep(ctx context.Context, d time.Duration) {
-	atomic.AddUint64(&s.sleepInvoked, 1)
-	atomic.AddInt64(&s.elapsed, int64(d))
-}
-
-// Invoked returns the number of times Sleep() has been called.
-func (s *Sleeper) Invoked() int {
-	return int(atomic.LoadUint64(&s.sleepInvoked))
-}
-
-// Elapsed returns the total elapsed time we were supposed to have slept for.
-func (s *Sleeper) Elapsed() time.Duration {
-	return time.Duration(atomic.LoadInt64(&s.elapsed))
+// ContextWithRetryNum returns a context which knows the given retrynum.
+func ContextWithRetryNum(ctx context.Context, retrynum int) context.Context {
+	return context.WithValue(ctx, retryNumKey, retrynum)
 }

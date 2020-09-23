@@ -23,35 +23,36 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-// package mock contains a mock implementation of backoff.Sleeper
-package mock
+package internal
 
 import (
-	"context"
-	"sync/atomic"
-	"time"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"testing"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
 
-// Sleeper represents a mock implementation of backoff.Sleeper. It is
-// concurrent safe.
-type Sleeper struct {
-	sleepInvoked uint64
-	elapsed      int64
-}
+func TestTestFuncs(t *testing.T) {
+	Convey("FilePathInTempDir returns a non-existent path in an existing tmp dir", t, func() {
+		basename := "foo"
+		path := FilePathInTempDir(t, basename)
+		fmt.Printf("got path %s\n", path)
+		So(path, ShouldStartWith, "/tmp")
+		So(path, ShouldEndWith, basename)
+		_, err := os.Open(filepath.Dir(path))
+		So(err, ShouldBeNil)
+		_, err = os.Open(path)
+		So(err, ShouldNotBeNil)
 
-// Sleep increases Elapsed and increments SleepInvoked, but doesn't actually
-// sleep.
-func (s *Sleeper) Sleep(ctx context.Context, d time.Duration) {
-	atomic.AddUint64(&s.sleepInvoked, 1)
-	atomic.AddInt64(&s.elapsed, int64(d))
-}
-
-// Invoked returns the number of times Sleep() has been called.
-func (s *Sleeper) Invoked() int {
-	return int(atomic.LoadUint64(&s.sleepInvoked))
-}
-
-// Elapsed returns the total elapsed time we were supposed to have slept for.
-func (s *Sleeper) Elapsed() time.Duration {
-	return time.Duration(atomic.LoadInt64(&s.elapsed))
+		Convey("FileAsString returns file content", func() {
+			content := "foo\nbar\n"
+			err = ioutil.WriteFile(path, []byte(content), 0600)
+			So(err, ShouldBeNil)
+			read := FileAsString(path)
+			So(read, ShouldEqual, content)
+		})
+	})
 }

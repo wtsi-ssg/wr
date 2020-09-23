@@ -23,10 +23,11 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-// mock contains a jittered implementation of backoff.Sleeper.
+// package time contains a real time-based implementation of backoff.Sleeper.
 package time
 
 import (
+	"context"
 	"time"
 )
 
@@ -34,8 +35,13 @@ import (
 // sleep using time.Sleep.
 type Sleeper struct{}
 
-// Sleep increases Elapsed and increments SleepInvoked, but doesn't actually
-// sleep.
-func (s *Sleeper) Sleep(d time.Duration) {
-	time.Sleep(d)
+// Sleep sleeps until the context is cancelled, or the given duration has
+// elapsed.
+func (s *Sleeper) Sleep(ctx context.Context, d time.Duration) {
+	select {
+	case <-time.After(d):
+		return
+	case <-ctx.Done():
+		return
+	}
 }
