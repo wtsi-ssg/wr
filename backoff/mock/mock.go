@@ -23,7 +23,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-// mock contains a mock implementation of backoff.Sleeper
+// package mock contains a mock implementation of backoff.Sleeper
 package mock
 
 import (

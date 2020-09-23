@@ -23,8 +23,8 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-// backoff is used to implement waiting for increasing periods of time between
-// attempts at doing something.
+// package backoff is used to implement waiting for increasing periods of time
+// between attempts at doing something.
 package backoff
 
 import (

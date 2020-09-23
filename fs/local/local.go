@@ -23,7 +23,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-// local contains a local implementation of VolumeUsageCalculator.
+// package local contains a local implementation of VolumeUsageCalculator.
 package local
 
 import (

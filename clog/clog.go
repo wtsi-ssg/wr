@@ -24,7 +24,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-// clog is used to do contextual logging with a global logger.
+// package clog is used to do contextual logging with a global logger.
 package clog
 
 import (

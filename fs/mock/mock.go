@@ -23,7 +23,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-// mock contains a mock implementation of VolumeUsageCalculator.
+// package mock contains a mock implementation of VolumeUsageCalculator.
 package mock
 
 import "context"

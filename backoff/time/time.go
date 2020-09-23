@@ -23,7 +23,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-// mock contains a jittered implementation of backoff.Sleeper.
+// package time contains a real time-based implementation of backoff.Sleeper.
 package time
 
 import (

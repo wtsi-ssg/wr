@@ -23,7 +23,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-// fs is for interacting with file systems.
+// package fs is for interacting with file systems.
 package fs
 
 import (
