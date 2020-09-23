@@ -26,25 +26,33 @@
 package internal
 
 import (
+	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/smartystreets/goconvey/convey"
+	. "github.com/smartystreets/goconvey/convey"
 )
 
-// FilePathInTempDir creates a new temporary directory and returns the
-// absolute path to a file called basename in that directory (without
-// actually creating the file).
-func FilePathInTempDir(t *testing.T, basename string) string {
-	tmpdir := t.TempDir()
-	return filepath.Join(tmpdir, basename)
-}
+func TestTestFuncs(t *testing.T) {
+	Convey("FilePathInTempDir returns a non-existant path in an existing tmp dir", t, func() {
+		basename := "foo"
+		path := FilePathInTempDir(t, basename)
+		fmt.Printf("got path %s\n", path)
+		So(path, ShouldStartWith, "/tmp")
+		So(path, ShouldEndWith, basename)
+		_, err := os.Open(filepath.Dir(path))
+		So(err, ShouldBeNil)
+		_, err = os.Open(path)
+		So(err, ShouldNotBeNil)
 
-// FileAsString returns the contents of a file as a string.
-func FileAsString(filePath string) string {
-	content, err := ioutil.ReadFile(filePath)
-	convey.So(err, convey.ShouldBeNil)
-
-	return string(content)
+		Convey("FileAsString returns file content", func() {
+			content := "foo\nbar\n"
+			err = ioutil.WriteFile(path, []byte(content), 0644)
+			So(err, ShouldBeNil)
+			read := FileAsString(path)
+			So(read, ShouldEqual, content)
+		})
+	})
 }

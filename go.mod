@@ -1,6 +1,6 @@
 module github.com/wtsi-ssg/wr
 
-go 1.14
+go 1.15
 
 require (
 	github.com/go-stack/stack v1.8.0 // indirect

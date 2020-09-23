@@ -158,8 +158,7 @@ func TestLogger(t *testing.T) {
 	})
 
 	Convey("You can log to a file", t, func() {
-		logPath, toDefer := internal.FilePathInTempDir("clog.log")
-		defer toDefer()
+		logPath := internal.FilePathInTempDir(t, "clog.log")
 
 		err := ToFileAtLevel(logPath, "debug")
 		So(err, ShouldBeNil)
