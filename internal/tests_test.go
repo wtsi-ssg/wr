@@ -36,7 +36,7 @@ import (
 )
 
 func TestTestFuncs(t *testing.T) {
-	Convey("FilePathInTempDir returns a non-existant path in an existing tmp dir", t, func() {
+	Convey("FilePathInTempDir returns a non-existent path in an existing tmp dir", t, func() {
 		basename := "foo"
 		path := FilePathInTempDir(t, basename)
 		fmt.Printf("got path %s\n", path)
@@ -49,7 +49,7 @@ func TestTestFuncs(t *testing.T) {
 
 		Convey("FileAsString returns file content", func() {
 			content := "foo\nbar\n"
-			err = ioutil.WriteFile(path, []byte(content), 0644)
+			err = ioutil.WriteFile(path, []byte(content), 0600)
 			So(err, ShouldBeNil)
 			read := FileAsString(path)
 			So(read, ShouldEqual, content)

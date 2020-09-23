@@ -38,6 +38,7 @@ import (
 // actually creating the file).
 func FilePathInTempDir(t *testing.T, basename string) string {
 	tmpdir := t.TempDir()
+
 	return filepath.Join(tmpdir, basename)
 }
 
