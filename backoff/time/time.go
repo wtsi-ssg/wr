@@ -29,6 +29,14 @@ package time
 import (
 	"context"
 	"time"
+
+	"github.com/wtsi-ssg/wr/backoff"
+)
+
+const (
+	secondsRangeMin    = 250 * time.Millisecond
+	secondsRangeMax    = 3 * time.Second
+	secondsRangeFactor = 1.5
 )
 
 // Sleeper represents an implementation of backoff.Sleeper. It does an actual
@@ -43,5 +51,17 @@ func (s *Sleeper) Sleep(ctx context.Context, d time.Duration) {
 		return
 	case <-ctx.Done():
 		return
+	}
+}
+
+// SecondsRangeBackoff returns a ready-to-use, generally useful backoff.Backoff
+// that uses our Sleeper to start sleeping in the sub-second range and soon
+// backs off to sleeping for a few seconds.
+func SecondsRangeBackoff() *backoff.Backoff {
+	return &backoff.Backoff{
+		Min:     secondsRangeMin,
+		Max:     secondsRangeMax,
+		Factor:  secondsRangeFactor,
+		Sleeper: &Sleeper{},
 	}
 }

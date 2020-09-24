@@ -32,6 +32,7 @@ import (
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
+	backoff "github.com/wtsi-ssg/wr/backoff/time"
 	"github.com/wtsi-ssg/wr/fs"
 )
 
@@ -54,5 +55,28 @@ func TestVolumeUsageCalculator(t *testing.T) {
 		calc := &VolumeUsageCalculator{}
 		So(calc.Size(ctx, path), ShouldEqual, expectedSize)
 		So(calc.Free(ctx, path), ShouldBeGreaterThan, 0)
+	})
+
+	Convey("NewVolume returns a useful Volume", t, func() {
+		path := os.TempDir()
+		volume := NewVolume(path)
+		So(volume, ShouldNotBeNil)
+		So(volume.Dir, ShouldEqual, path)
+		So(volume.UsageCalculator, ShouldNotBeNil)
+		cvc, ok := volume.UsageCalculator.(*fs.CachedVolumeUsageCalculator)
+		So(ok, ShouldBeTrue)
+		checkedvc, ok := cvc.UsageCalculator.(*fs.CheckedVolumeUsageCalculator)
+		So(ok, ShouldBeTrue)
+		So(checkedvc.UsageCalculator, ShouldHaveSameTypeAs, &VolumeUsageCalculator{})
+		So(checkedvc.Retries, ShouldEqual, usefulNumOfRetryChecks)
+		So(checkedvc.Backoff, ShouldResemble, backoff.SecondsRangeBackoff())
+
+		Convey("With which you can get the size of a Volume", func() {
+			So(volume.Size(ctx), ShouldBeGreaterThanOrEqualTo, 0)
+
+			Convey("And ask if there's no space left", func() {
+				So(volume.NoSpaceLeft(ctx), ShouldBeFalse)
+			})
+		})
 	})
 }
