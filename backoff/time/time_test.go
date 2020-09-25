@@ -60,4 +60,12 @@ func TestSleeper(t *testing.T) {
 		sleeper.Sleep(ctx, delay)
 		So(time.Now(), ShouldHappenBetween, tn.Add(cancelAfter), tn.Add(500*time.Millisecond))
 	})
+
+	Convey("SecondsRangeBackoff returns a generally useful Backoff in the seconds range", t, func() {
+		b := SecondsRangeBackoff()
+		So(b.Min, ShouldEqual, secondsRangeMin)
+		So(b.Max, ShouldEqual, secondsRangeMax)
+		So(b.Factor, ShouldEqual, secondsRangeFactor)
+		So(b.Sleeper, ShouldHaveSameTypeAs, &Sleeper{})
+	})
 }

@@ -34,22 +34,12 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-ssg/wr/backoff"
 	bm "github.com/wtsi-ssg/wr/backoff/mock"
-	"github.com/wtsi-ssg/wr/fs/local"
 	"github.com/wtsi-ssg/wr/fs/mock"
 )
 
 func TestVolume(t *testing.T) {
 	ctx := context.Background()
 	path := os.TempDir()
-
-	Convey("You can get the size of a Volume", t, func() {
-		volume := &Volume{Dir: path, UsageCalculator: &local.VolumeUsageCalculator{}}
-		So(volume.Size(ctx), ShouldBeGreaterThanOrEqualTo, 0)
-
-		Convey("And ask if there's no space left", func() {
-			So(volume.NoSpaceLeft(ctx), ShouldBeFalse)
-		})
-	})
 
 	Convey("Calling Size() multiple times calculates the size multiple times", t, func() {
 		expectedSize := 1
