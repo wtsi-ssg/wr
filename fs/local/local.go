@@ -30,7 +30,11 @@ import (
 	"context"
 
 	"github.com/ricochet2200/go-disk-usage/du"
+	backoff "github.com/wtsi-ssg/wr/backoff/time"
+	"github.com/wtsi-ssg/wr/fs"
 )
+
+const usefulNumOfRetryChecks = 6
 
 // VolumeUsageCalculator represents a local filesystem implementation of
 // fs.VolumeUsageCalculator.
@@ -44,4 +48,20 @@ func (v *VolumeUsageCalculator) Size(ctx context.Context, volumePath string) uin
 // Free returns the free space of the volume in bytes.
 func (v *VolumeUsageCalculator) Free(ctx context.Context, volumePath string) uint64 {
 	return du.NewDiskUsage(volumePath).Free()
+}
+
+// NewVolume is a convenience method for creating an fs.Volume with our own
+// VolumeUsageCalculator inside, wrapped with caching and checking (with a
+// sensible backoff and up to 6 retries).
+func NewVolume(dir string) *fs.Volume {
+	return &fs.Volume{
+		Dir: dir,
+		UsageCalculator: &fs.CachedVolumeUsageCalculator{
+			UsageCalculator: &fs.CheckedVolumeUsageCalculator{
+				UsageCalculator: &VolumeUsageCalculator{},
+				Retries:         usefulNumOfRetryChecks,
+				Backoff:         backoff.SecondsRangeBackoff(),
+			},
+		},
+	}
 }
