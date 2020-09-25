@@ -23,21 +23,25 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-// backoff is used to implement waiting for increasing periods of time between
-// attempts at doing something.
+// package backoff is used to implement waiting for increasing periods of time
+// between attempts at doing something.
 package backoff
 
 import (
+	"context"
 	"math"
 	"math/rand"
 	"sync/atomic"
 	"time"
+
+	"github.com/wtsi-ssg/wr/clog"
 )
 
 // Sleeper defines the Sleep method used by a Backoff.
 type Sleeper interface {
-	// Sleep sleeps for the given duration.
-	Sleep(time.Duration)
+	// Sleep sleeps for the given duration, stopping early if context is
+	// cancelled.
+	Sleep(context.Context, time.Duration)
 }
 
 // Backoff is used to sleep for increasing periods of time.
@@ -61,10 +65,17 @@ type Backoff struct {
 
 // Sleep will sleep (using Sleeper.Sleep()) for Min on the first call,
 // increasing the sleep duration by Factor up to Max on each subsequent call.
+//
 // Sleep times in between Min and Max are jittered so multiple Backoffs working
 // at the same time don't all sleep for the same time periods.
-func (b *Backoff) Sleep() {
-	b.Sleeper.Sleep(b.duration())
+//
+// If the supplied context is cancelled, we stop sleeping early.
+//
+// Sleep durations are logged using the global context logger at debug level.
+func (b *Backoff) Sleep(ctx context.Context) {
+	d := b.duration()
+	clog.Debug(ctx, "backoff", "sleep", d)
+	b.Sleeper.Sleep(ctx, d)
 }
 
 // duration calculates the next amount of time we should Sleep() for.

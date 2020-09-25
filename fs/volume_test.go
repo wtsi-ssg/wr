@@ -26,6 +26,7 @@
 package fs
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -38,14 +39,15 @@ import (
 )
 
 func TestVolume(t *testing.T) {
+	ctx := context.Background()
 	path := os.TempDir()
 
 	Convey("You can get the size of a Volume", t, func() {
 		volume := &Volume{Dir: path, UsageCalculator: &local.VolumeUsageCalculator{}}
-		So(volume.Size(), ShouldBeGreaterThanOrEqualTo, 0)
+		So(volume.Size(ctx), ShouldBeGreaterThanOrEqualTo, 0)
 
 		Convey("And ask if there's no space left", func() {
-			So(volume.NoSpaceLeft(), ShouldBeFalse)
+			So(volume.NoSpaceLeft(ctx), ShouldBeFalse)
 		})
 	})
 
@@ -57,16 +59,16 @@ func TestVolume(t *testing.T) {
 			},
 		}
 		volume := &Volume{Dir: path, UsageCalculator: m}
-		So(volume.Size(), ShouldEqual, expectedSize)
-		So(volume.Size(), ShouldEqual, expectedSize)
+		So(volume.Size(ctx), ShouldEqual, expectedSize)
+		So(volume.Size(ctx), ShouldEqual, expectedSize)
 		So(m.SizeInvoked, ShouldEqual, 2)
 
 		Convey("Unless a CachedVolumeUsageCalculator is used; then it is only calculated once", func() {
 			m.SizeInvoked = 0
 			cached := &CachedVolumeUsageCalculator{UsageCalculator: m}
 			volume.UsageCalculator = cached
-			So(volume.Size(), ShouldEqual, expectedSize)
-			So(volume.Size(), ShouldEqual, expectedSize)
+			So(volume.Size(ctx), ShouldEqual, expectedSize)
+			So(volume.Size(ctx), ShouldEqual, expectedSize)
 			So(m.SizeInvoked, ShouldEqual, 1)
 		})
 	})
@@ -78,14 +80,14 @@ func TestVolume(t *testing.T) {
 			return frees[m.FreeInvoked-1]
 		}
 		volume := &Volume{Dir: path, UsageCalculator: m}
-		So(volume.NoSpaceLeft(), ShouldBeTrue)
+		So(volume.NoSpaceLeft(ctx), ShouldBeTrue)
 
 		Convey("This result is not cached by a CachedVolumeUsageCalculator", func() {
 			m.FreeInvoked = 0
 			cached := &CachedVolumeUsageCalculator{UsageCalculator: m}
 			volume.UsageCalculator = cached
-			So(volume.NoSpaceLeft(), ShouldBeTrue)
-			So(volume.NoSpaceLeft(), ShouldBeTrue)
+			So(volume.NoSpaceLeft(ctx), ShouldBeTrue)
+			So(volume.NoSpaceLeft(ctx), ShouldBeTrue)
 			So(m.FreeInvoked, ShouldEqual, 2)
 		})
 	})
@@ -122,21 +124,21 @@ func TestVolume(t *testing.T) {
 		volume, m, _ := makeCheckedMockVolumeAndCalculator(attempts, 0*time.Millisecond, 0*time.Millisecond)
 
 		Convey("Free space is checked multiple times if 0", func() {
-			So(volume.NoSpaceLeft(), ShouldBeTrue)
+			So(volume.NoSpaceLeft(ctx), ShouldBeTrue)
 			So(m.FreeInvoked, ShouldEqual, attempts)
 		})
 
 		Convey("You can choose the number of attempts when checking", func() {
 			attempts = 4
 			volume, m, _ = makeCheckedMockVolumeAndCalculator(attempts, 0*time.Millisecond, 0*time.Millisecond)
-			So(volume.NoSpaceLeft(), ShouldBeTrue)
+			So(volume.NoSpaceLeft(ctx), ShouldBeTrue)
 			So(m.FreeInvoked, ShouldEqual, attempts)
 		})
 
 		Convey("You can choose how long to wait in between checks", func() {
 			var bm *bm.Sleeper
 			volume, m, bm = makeCheckedMockVolumeAndCalculator(attempts, 2*time.Millisecond, 2*time.Millisecond)
-			So(volume.NoSpaceLeft(), ShouldBeTrue)
+			So(volume.NoSpaceLeft(ctx), ShouldBeTrue)
 			So(m.FreeInvoked, ShouldEqual, attempts)
 			So(bm.Invoked(), ShouldEqual, attempts-1)
 			So(bm.Elapsed(), ShouldEqual, time.Duration((attempts-1)*2)*time.Millisecond)
@@ -146,7 +148,7 @@ func TestVolume(t *testing.T) {
 			m.FreeFn = func(volumePath string) uint64 {
 				return 1
 			}
-			So(volume.NoSpaceLeft(), ShouldBeTrue)
+			So(volume.NoSpaceLeft(ctx), ShouldBeTrue)
 			So(m.FreeInvoked, ShouldEqual, 1)
 		})
 	})
@@ -154,7 +156,7 @@ func TestVolume(t *testing.T) {
 	Convey("When using a CheckedVolumeUsageCalculator, size is checked multiple times if 0", t, func() {
 		attempts := 3
 		volume, m, bm := makeCheckedMockVolumeAndCalculator(attempts, 2*time.Millisecond, 1*time.Hour)
-		So(volume.Size(), ShouldEqual, 0)
+		So(volume.Size(ctx), ShouldEqual, 0)
 		So(m.SizeInvoked, ShouldEqual, attempts)
 		So(bm.Invoked(), ShouldEqual, attempts-1)
 		elapsed := bm.Elapsed()
@@ -164,7 +166,7 @@ func TestVolume(t *testing.T) {
 			m.SizeFn = func(volumePath string) uint64 {
 				return gb
 			}
-			So(volume.Size(), ShouldEqual, 1)
+			So(volume.Size(ctx), ShouldEqual, 1)
 			So(m.SizeInvoked, ShouldEqual, attempts+1)
 			So(bm.Invoked(), ShouldEqual, attempts-1)
 			So(bm.Elapsed(), ShouldEqual, elapsed)
@@ -178,7 +180,7 @@ func TestVolume(t *testing.T) {
 
 				return 0
 			}
-			So(volume.Size(), ShouldEqual, 1)
+			So(volume.Size(ctx), ShouldEqual, 1)
 			So(m.SizeInvoked, ShouldEqual, attempts+3)
 			So(bm.Invoked(), ShouldEqual, attempts)
 			So(bm.Elapsed(), ShouldEqual, elapsed+2*time.Millisecond)

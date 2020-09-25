@@ -23,35 +23,21 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-// package mock contains a mock implementation of backoff.Sleeper
-package mock
+package clog
 
 import (
-	"context"
-	"sync/atomic"
-	"time"
+	"testing"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
 
-// Sleeper represents a mock implementation of backoff.Sleeper. It is
-// concurrent safe.
-type Sleeper struct {
-	sleepInvoked uint64
-	elapsed      int64
-}
+func TestUniqueID(t *testing.T) {
+	Convey("UniqueID returns unique IDs", t, func() {
+		id1 := UniqueID()
+		So(len(id1), ShouldEqual, uniqueIDLength)
 
-// Sleep increases Elapsed and increments SleepInvoked, but doesn't actually
-// sleep.
-func (s *Sleeper) Sleep(ctx context.Context, d time.Duration) {
-	atomic.AddUint64(&s.sleepInvoked, 1)
-	atomic.AddInt64(&s.elapsed, int64(d))
-}
-
-// Invoked returns the number of times Sleep() has been called.
-func (s *Sleeper) Invoked() int {
-	return int(atomic.LoadUint64(&s.sleepInvoked))
-}
-
-// Elapsed returns the total elapsed time we were supposed to have slept for.
-func (s *Sleeper) Elapsed() time.Duration {
-	return time.Duration(atomic.LoadInt64(&s.elapsed))
+		id2 := UniqueID()
+		So(len(id2), ShouldEqual, uniqueIDLength)
+		So(id1, ShouldNotEqual, id2)
+	})
 }
