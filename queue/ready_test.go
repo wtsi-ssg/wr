@@ -37,18 +37,20 @@ import (
 func TestQueueReady(t *testing.T) {
 	num := 2
 	ips := newSetOfItemParameters(num)
+	ipsSameRG := newSetOfItemParameters(num)
 	backgroundCtx := context.Background()
 
 	Convey("Given a readyQueues", t, func() {
 		rqs := newReadyQueues()
-		items := make([]*Item, num)
-
-		for i := 0; i < num; i++ {
-			ips[i].ReserveGroup = fmt.Sprintf("%d", i+1)
-			items[i] = ips[i].toItem()
-		}
 
 		Convey("Items with different ReserveGroups can be pushed to it simultaneously", func() {
+			items := make([]*Item, num)
+
+			for i := 0; i < num; i++ {
+				ips[i].ReserveGroup = fmt.Sprintf("%d", i+1)
+				items[i] = ips[i].toItem()
+			}
+
 			canDoConcurrently(num, func(i int) error {
 				rqs.push(items[i-1])
 
@@ -91,7 +93,48 @@ func TestQueueReady(t *testing.T) {
 			})
 
 			Convey("You can change the ReserveGroup of items", func() {
+				So(rqs.queues[ips[0].ReserveGroup].len(), ShouldEqual, 1)
+				So(rqs.queues[ips[1].ReserveGroup].len(), ShouldEqual, 1)
 
+				rqs.changeItemReserveGroup(items[0], ips[1].ReserveGroup)
+				So(len(rqs.queues), ShouldEqual, 1)
+				So(rqs.queues[ips[1].ReserveGroup].len(), ShouldEqual, 2)
+
+				rqs.changeItemReserveGroup(items[0], ips[1].ReserveGroup)
+				So(len(rqs.queues), ShouldEqual, 1)
+				So(rqs.queues[ips[1].ReserveGroup].len(), ShouldEqual, 2)
+			})
+
+			Convey("ReserveGroups can be changed simultaneously", func() {
+				newGroup := "foo"
+				canDoConcurrently(num, func(i int) error {
+					rqs.changeItemReserveGroup(items[i-1], newGroup)
+
+					return nil
+				})
+
+				So(len(rqs.queues), ShouldEqual, 1)
+				So(rqs.queues[newGroup].len(), ShouldEqual, 2)
+				item := rqs.pop(backgroundCtx, newGroup)
+				So(item, ShouldNotBeNil)
+				So(item, ShouldEqual, items[0])
+
+				var failed bool
+				for j := 0; j < 100; j++ {
+					j := j
+					canDoConcurrently(num, func(i int) error {
+						rqs.changeItemReserveGroup(items[1], fmt.Sprintf("%d.%d", j, i))
+
+						return nil
+					})
+
+					if len(rqs.queues) != 1 {
+						failed = true
+
+						break
+					}
+				}
+				So(failed, ShouldBeFalse)
 			})
 		})
 
@@ -99,7 +142,6 @@ func TestQueueReady(t *testing.T) {
 			var failed bool
 
 			for j := 1; j < 10; j++ {
-				ipsSameRG := newSetOfItemParameters(num)
 				for i := 0; i < num; i++ {
 					rqs.push(ipsSameRG[i].toItem())
 				}

@@ -140,9 +140,9 @@ func (q *Queue) Get(key string) *Item {
 
 // Reserve is a way to get the highest priority (or for those with equal
 // priority, the largest, or for those with equal size, the oldest (by time
-// since the item was first Add()ed) item in the ready sub-queue, switching it
-// from the ready sub-queue to the run sub-queue, and in so doing starting its
-// ttr countdown.
+// since the item was first Add()ed) to the ready sub-queue, switching it from
+// the ready sub-queue to the run sub-queue, and in so doing starting its ttr
+// countdown.
 //
 // If the context is cancellable, we will wait until it is cancelled for an item
 // to appear in the ready sub-queue, if at least 1 isn't already there. If after
@@ -167,6 +167,18 @@ func (q *Queue) Remove(key string) {
 		if item, exists := q.items[key]; exists {
 			delete(q.items, key)
 			q.readyQueues.remove(item)
+		}
+	})
+}
+
+// ChangeReserveGroup changes the ReserveGroup of an item given its key, so that
+// the next time it is Reserve()ed, you would have had to have supplied the
+// given group to get it.
+func (q *Queue) ChangeReserveGroup(key string, newGroup string) {
+	q.threadSafeItemsWriteOperation(func() {
+		if item, exists := q.items[key]; exists {
+			// *** item.doIfInState(StateReady)
+			q.readyQueues.changeItemReserveGroup(item, newGroup)
 		}
 	})
 }

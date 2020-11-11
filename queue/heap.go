@@ -169,7 +169,7 @@ func (hq *HeapQueue) remove(item *Item) {
 	hq.mutex.Lock()
 	defer hq.mutex.Unlock()
 
-	if item.removed() { // || ! item.belongsTo(hq)
+	if item.removed() || !item.belongsTo(hq) {
 		return
 	}
 

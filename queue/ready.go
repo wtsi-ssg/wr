@@ -119,3 +119,24 @@ func (rq *readyQueues) remove(item *Item) {
 	defer rq.dropEmptyQueuesIfNotInUse()
 	hq.remove(item)
 }
+
+// changeItemReserveGroup atomically removes the item from one HeapQueue and
+// pushes it to another.
+func (rq *readyQueues) changeItemReserveGroup(item *Item, newGroup string) {
+	defer rq.dropEmptyQueuesIfNotInUse()
+	rq.mutex.Lock()
+	defer rq.mutex.Unlock()
+
+	oldGroup := item.ReserveGroup()
+	if oldGroup == newGroup {
+		return
+	}
+
+	hqOld := rq.reuseOrCreateHeapQueueForReserveGroup(oldGroup)
+	hqOld.remove(item)
+
+	hqNew := rq.reuseOrCreateHeapQueueForReserveGroup(newGroup)
+	item.SetReserveGroup(newGroup)
+	hqNew.push(item)
+	rq.inUse++
+}

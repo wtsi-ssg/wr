@@ -158,6 +158,14 @@ func (item *Item) setSubqueue(sq subQueue) {
 	item.subQueue = sq
 }
 
+// belongsTo tells you if the item is set to the given subQueue.
+func (item *Item) belongsTo(sq subQueue) bool {
+	item.mutex.RLock()
+	defer item.mutex.RUnlock()
+
+	return item.subQueue == sq
+}
+
 // index returns the index of this item in the subQueue it belongs to.
 func (item *Item) index() int {
 	item.mutex.RLock()

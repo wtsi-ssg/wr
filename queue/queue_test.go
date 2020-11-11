@@ -402,7 +402,7 @@ func TestQueueReserveWait(t *testing.T) {
 func TestQueueReserveGroups(t *testing.T) {
 	num := 2
 	ips := newSetOfItemParameters(num)
-	rg1, rg2 := "1", "2"
+	rg1, rg2, rg3 := "1", "2", "3"
 	ips[0].ReserveGroup = rg1
 	ips[1].ReserveGroup = rg2
 
@@ -421,6 +421,21 @@ func TestQueueReserveGroups(t *testing.T) {
 			So(item.Key(), ShouldEqual, ips[1].Key)
 
 			item = q.Reserve(backgroundCtx, rg1)
+			So(item, ShouldNotBeNil)
+			So(item.Key(), ShouldEqual, ips[0].Key)
+		})
+
+		Convey("You can change the group of an item and reserve it", func() {
+			q.ChangeReserveGroup(ips[0].Key, rg3)
+
+			item := q.Reserve(backgroundCtx, rg2)
+			So(item, ShouldNotBeNil)
+			So(item.Key(), ShouldEqual, ips[1].Key)
+
+			item = q.Reserve(backgroundCtx, rg1)
+			So(item, ShouldBeNil)
+
+			item = q.Reserve(backgroundCtx, rg3)
 			So(item, ShouldNotBeNil)
 			So(item.Key(), ShouldEqual, ips[0].Key)
 		})
