@@ -30,10 +30,61 @@ import (
 	"sync"
 )
 
-// readyQueues is a slice of *HeapQueue that will newly create or reuse a
-// HeapQueue for each item.reserveGroup push()ed to it.
+// prioritySizeAgeOrder implements heap.Interface, keeping items in
+// priority||size||age order.
+type prioritySizeAgeOrder struct {
+	items []*Item
+}
+
+// newReadySubQueue creates a *heapQueue that is ordered by priority||size||age.
+func newReadySubQueue() SubQueue {
+	return newHeapQueue(&prioritySizeAgeOrder{})
+}
+
+// Len is to implement heap.Interface.
+func (po *prioritySizeAgeOrder) Len() int { return len(po.items) }
+
+// Less is to implement heap.Interface.
+func (po *prioritySizeAgeOrder) Less(i, j int) bool {
+	ip := po.items[i].Priority()
+	jp := po.items[j].Priority()
+
+	if ip == jp {
+		is := po.items[i].Size()
+		js := po.items[j].Size()
+
+		if is == js {
+			return po.items[i].Created().Before(po.items[j].Created())
+		}
+
+		return is > js
+	}
+
+	return ip > jp
+}
+
+// Swap is to implement heap.Interface.
+func (po *prioritySizeAgeOrder) Swap(i, j int) {
+	heapSwap(po.items, i, j)
+}
+
+// Push is to implement heap.Interface.
+func (po *prioritySizeAgeOrder) Push(x interface{}) {
+	po.items = heapPush(po.items, x)
+}
+
+// Pop is to implement heap.Interface.
+func (po *prioritySizeAgeOrder) Pop() interface{} {
+	var item interface{}
+	po.items, item = heapPop(po.items)
+
+	return item
+}
+
+// readyQueues is a slice of ready SubQueue that will newly create or reuse a
+// SubQueue for each item.reserveGroup push()ed to it.
 type readyQueues struct {
-	queues map[string]*HeapQueue
+	queues map[string]SubQueue
 	inUse  int
 	mutex  sync.Mutex
 }
@@ -41,61 +92,61 @@ type readyQueues struct {
 // newReadyQueues creates a readyQueues.
 func newReadyQueues() *readyQueues {
 	return &readyQueues{
-		queues: make(map[string]*HeapQueue),
+		queues: make(map[string]SubQueue),
 	}
 }
 
-// push will newly create or reuse a *HeapQueue for the item's reserveGroup and
-// push the item to that HeapQueue.
+// push will newly create or reuse a SubQueue for the item's reserveGroup and
+// push the item to that SubQueue.
 func (rq *readyQueues) push(item *Item) {
 	rq.mutex.Lock()
 	defer rq.mutex.Unlock()
 
-	hq := rq.reuseOrCreateHeapQueueForReserveGroup(item.ReserveGroup())
-	hq.push(item)
+	sq := rq.reuseOrCreateReadyQueueForReserveGroup(item.ReserveGroup())
+	sq.push(item)
 }
 
-// reuseOrCreateHeapQueueForReserveGroup creates a new HeapQueue for the given
-// reserveGroup, or returns any existing one.
+// reuseOrCreateReadyQueueForReserveGroup creates a new ready SubQueue for the
+// given reserveGroup, or returns any existing one.
 //
 // You must hold the mutex lock before calling this.
-func (rq *readyQueues) reuseOrCreateHeapQueueForReserveGroup(reserveGroup string) *HeapQueue {
+func (rq *readyQueues) reuseOrCreateReadyQueueForReserveGroup(reserveGroup string) SubQueue {
 	var (
-		hq    *HeapQueue
+		sq    SubQueue
 		found bool
 	)
 
-	if hq, found = rq.queues[reserveGroup]; !found {
-		hq = NewHeapQueue()
-		rq.queues[reserveGroup] = hq
+	if sq, found = rq.queues[reserveGroup]; !found {
+		sq = newReadySubQueue()
+		rq.queues[reserveGroup] = sq
 	}
 
-	return hq
+	return sq
 }
 
-// pop will pop the next Item from the HeapQueue corresponding to the given
+// pop will pop the next Item from the SubQueue corresponding to the given
 // group.
 func (rq *readyQueues) pop(ctx context.Context, reserveGroup string) *Item {
-	hq := rq.getHeapQueueForUse(reserveGroup)
+	sq := rq.getHeapQueueForUse(reserveGroup)
 	defer rq.dropEmptyQueuesIfNotInUse()
 
-	return hq.pop(ctx)
+	return sq.pop(ctx)
 }
 
-// getHeapQueueForUse calls reuseOrCreateHeapQueueForReserveGroup() and
+// getHeapQueueForUse calls reuseOrCreateReadyQueueForReserveGroup() and
 // increments inUse. To be used in a paired call with
 // dropEmptyQueuesIfNotInUse().
-func (rq *readyQueues) getHeapQueueForUse(reserveGroup string) *HeapQueue {
+func (rq *readyQueues) getHeapQueueForUse(reserveGroup string) SubQueue {
 	rq.mutex.Lock()
-	hq := rq.reuseOrCreateHeapQueueForReserveGroup(reserveGroup)
+	sq := rq.reuseOrCreateReadyQueueForReserveGroup(reserveGroup)
 	rq.inUse++
 	rq.mutex.Unlock()
 
-	return hq
+	return sq
 }
 
-// dropEmptyQueuesIfNotInUse removes empty HeapQueues from our map if they
-// are empty and we are not in the middle of using any queues.
+// dropEmptyQueuesIfNotInUse removes empty SubQueues from our map if we are not
+// in the middle of using any SubQueues.
 func (rq *readyQueues) dropEmptyQueuesIfNotInUse() {
 	rq.mutex.Lock()
 	defer rq.mutex.Unlock()
@@ -105,22 +156,22 @@ func (rq *readyQueues) dropEmptyQueuesIfNotInUse() {
 		return
 	}
 
-	for reserveGroup, hq := range rq.queues {
-		if hq.len() == 0 {
+	for reserveGroup, sq := range rq.queues {
+		if sq.len() == 0 {
 			delete(rq.queues, reserveGroup)
 		}
 	}
 }
 
-// remove will remove the given Item from the HeapQueue corresponding to the
+// remove will remove the given Item from the SubQueue corresponding to the
 // item's reserveGroup.
 func (rq *readyQueues) remove(item *Item) {
-	hq := rq.getHeapQueueForUse(item.ReserveGroup())
+	sq := rq.getHeapQueueForUse(item.ReserveGroup())
 	defer rq.dropEmptyQueuesIfNotInUse()
-	hq.remove(item)
+	sq.remove(item)
 }
 
-// changeItemReserveGroup atomically removes the item from one HeapQueue and
+// changeItemReserveGroup atomically removes the item from one SubQueue and
 // pushes it to another.
 func (rq *readyQueues) changeItemReserveGroup(item *Item, newGroup string) {
 	defer rq.dropEmptyQueuesIfNotInUse()
@@ -132,11 +183,11 @@ func (rq *readyQueues) changeItemReserveGroup(item *Item, newGroup string) {
 		return
 	}
 
-	hqOld := rq.reuseOrCreateHeapQueueForReserveGroup(oldGroup)
-	hqOld.remove(item)
+	sqOld := rq.reuseOrCreateReadyQueueForReserveGroup(oldGroup)
+	sqOld.remove(item)
 
-	hqNew := rq.reuseOrCreateHeapQueueForReserveGroup(newGroup)
+	sqNew := rq.reuseOrCreateReadyQueueForReserveGroup(newGroup)
 	item.SetReserveGroup(newGroup)
-	hqNew.push(item)
+	sqNew.push(item)
 	rq.inUse++
 }

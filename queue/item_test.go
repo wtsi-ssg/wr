@@ -26,6 +26,7 @@
 package queue
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
@@ -35,11 +36,22 @@ import (
 
 type mockSubQueue struct {
 	updates int
+	sync.Mutex
 }
 
 func (sq *mockSubQueue) update(item *Item) {
+	sq.Lock()
+	defer sq.Unlock()
 	sq.updates++
 }
+
+func (sq *mockSubQueue) push(*Item) {}
+
+func (sq *mockSubQueue) pop(context.Context) *Item { return nil }
+
+func (sq *mockSubQueue) remove(*Item) {}
+
+func (sq *mockSubQueue) len() int { return 0 }
 
 func TestQueueItem(t *testing.T) {
 	Convey("You can make items from ItemParameters", t, func() {
@@ -59,6 +71,8 @@ func TestQueueItem(t *testing.T) {
 		So(item.Created(), ShouldHappenAfter, before)
 		So(item.Priority(), ShouldEqual, 0)
 		So(item.Size(), ShouldEqual, 0)
+		So(item.ttr, ShouldEqual, 0)
+		So(item.releaseAt, ShouldResemble, time.Time{})
 
 		p, s := uint8(5), uint8(3)
 		ip = &ItemParameters{
@@ -87,8 +101,9 @@ func TestQueueItem(t *testing.T) {
 			sq := &mockSubQueue{}
 			item.setSubqueue(sq)
 			So(item.subQueue, ShouldEqual, sq)
+			So(item.belongsTo(sq), ShouldBeTrue)
 
-			Convey("When you set priority or size, the subQueue is updated", func() {
+			Convey("When you set priority or size or Touch(), the subQueue is updated", func() {
 				new := uint8(10)
 				item.SetPriority(new)
 				So(item.Priority(), ShouldEqual, new)
@@ -97,10 +112,18 @@ func TestQueueItem(t *testing.T) {
 				item.SetSize(new)
 				So(item.Size(), ShouldEqual, new)
 				So(sq.updates, ShouldEqual, 2)
+
+				item.Touch()
+				t := time.Now()
+				So(item.releaseAt, ShouldHappenBetween, t, t.Add(DefaultTTR))
+				So(sq.updates, ShouldEqual, 3)
 			})
 
 			Convey("And then you can remove() it", func() {
 				remove()
+				So(item.subQueue, ShouldBeNil)
+				So(item.belongsTo(sq), ShouldBeFalse)
+				So(item.index(), ShouldEqual, indexOfRemovedItem)
 			})
 		})
 
@@ -116,50 +139,76 @@ func TestQueueItem(t *testing.T) {
 
 		Convey("You can set and get item properties simultaneously", func() {
 			sq := &mockSubQueue{}
+			newVal := uint8(10)
 
-			var wg sync.WaitGroup
-			wg.Add(5)
-
-			change := func(p, s uint8, index int, data interface{}) {
-				defer wg.Done()
-				item.SetReserveGroup("rg")
+			canDoInPairsConcurrently(func() {
 				item.setSubqueue(sq)
-				item.SetPriority(p)
-				item.SetSize(s)
-				item.remove()
-				item.setIndex(index)
-				item.SetData(data)
-			}
-
-			read := func() {
-				defer wg.Done()
-				item.Key()
-				item.ReserveGroup()
-				item.Created()
+				item.setIndex(int(newVal))
+				item.SetPriority(newVal)
+				item.SetSize(newVal)
+				item.SetData("foo")
+			}, func() {
+				item.belongsTo(sq)
+				item.index()
 				item.Priority()
 				item.Size()
-				item.removed()
-				item.index()
 				item.Data()
-			}
+				item.Key()
+				item.Created()
+			})
 
-			go change(10, 10, 10, "foo")
-			go read()
-			go change(11, 11, 11, "bar")
-			go func() {
-				defer wg.Done()
-				item.setIndex(12)
-			}()
-			go read()
-			wg.Wait()
+			canDoInPairsConcurrently(func() {
+				item.SetReserveGroup("rg")
+			}, func() {
+				item.ReserveGroup()
+			})
 
-			So(item.Size(), ShouldBeBetweenOrEqual, 10, 11)
-			So(item.Priority(), ShouldBeBetweenOrEqual, 10, 11)
-			So(item.index(), ShouldBeBetweenOrEqual, 10, 12)
+			canDoInPairsConcurrently(item.Touch, func() {
+				item.ReleaseAt()
+			})
+
+			So(item.Size(), ShouldEqual, newVal)
+			So(item.Priority(), ShouldEqual, newVal)
+			So(item.index(), ShouldEqual, int(newVal))
 			So(item.Data(), ShouldNotEqual, data)
 			So(item.Key(), ShouldEqual, key)
 			So(item.ReserveGroup(), ShouldEqual, "rg")
+			So(item.ReleaseAt(), ShouldHappenAfter, time.Now())
+
+			canDoInPairsConcurrently(item.remove, func() {
+				item.removed()
+			})
+
+			So(item.removed(), ShouldBeTrue)
+
+			canDoInPairsConcurrently(func() {
+				item.remove()
+				item.setSubqueue(sq)
+				item.setIndex(int(newVal))
+			}, func() {
+				item.removed()
+			})
+
 			So(item.removed(), ShouldBeFalse)
 		})
 	})
+}
+
+func canDoInPairsConcurrently(f1 func(), f2 func()) {
+	var wg sync.WaitGroup
+
+	for i := 1; i <= 10; i++ {
+		wg.Add(2)
+
+		go func() {
+			defer wg.Done()
+			f1()
+		}()
+		go func() {
+			defer wg.Done()
+			f2()
+		}()
+	}
+
+	wg.Wait()
 }

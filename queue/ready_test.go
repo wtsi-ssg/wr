@@ -34,6 +34,119 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
+func TestQueueReadyPushPop(t *testing.T) {
+	num := 6
+	ips := newSetOfItemParameters(num)
+	ctx := context.Background()
+
+	Convey("Given a ready SubQueue", t, func() {
+		sq := newReadySubQueue()
+
+		Convey("You can push() equal priority items in to it", func() {
+			pushItemsToSubQueue(sq, ips, func(item *Item, i int) {})
+
+			Convey("And then pop() them out in FIFO order", func() {
+				testPopsInInsertionOrder(ctx, sq, num, ips)
+			})
+		})
+
+		testPopsReverseOrder := func() {
+			popItemsFromSubQueue(sq, num, func(key string, i int) {
+				So(key, ShouldEqual, ips[num-1-i].Key)
+			})
+		}
+
+		Convey("You can push() different priority items in to it", func() {
+			pushItemsToSubQueue(sq, ips, func(item *Item, i int) {
+				item.priority = uint8(i)
+			})
+
+			Convey("And then pop() them out in priority order", func() {
+				testPopsReverseOrder()
+			})
+		})
+
+		Convey("You can push() different size items in to it", func() {
+			pushItemsToSubQueue(sq, ips, func(item *Item, i int) {
+				item.size = uint8(i)
+			})
+
+			Convey("And then pop() them out in size order", func() {
+				testPopsReverseOrder()
+			})
+		})
+
+		Convey("Priority has precedence over size which has precedence over age", func() {
+			pushItemsToSubQueue(sq, ips, func(item *Item, i int) {
+				switch i {
+				case 3:
+					item.priority = uint8(3)
+					item.size = uint8(4)
+				case 4:
+					item.priority = uint8(3)
+					item.size = uint8(5)
+				}
+			})
+
+			popItemsFromSubQueue(sq, num, func(key string, i int) {
+				switch i {
+				case 0:
+					So(key, ShouldEqual, ips[4].Key)
+				case 1:
+					So(key, ShouldEqual, ips[3].Key)
+				case 2, 3, 4:
+					So(key, ShouldEqual, ips[i-2].Key)
+				default:
+					So(key, ShouldEqual, ips[i].Key)
+				}
+			})
+		})
+	})
+}
+
+func TestQueueReadyUpdate(t *testing.T) {
+	num := 6
+	ips := newSetOfItemParameters(num)
+	for i := 0; i < num; i++ {
+		ips[i].Priority = 5
+		ips[i].Size = 5
+	}
+	ctx := context.Background()
+
+	Convey("Given a ready SubQueue with some items push()ed to it", t, func() {
+		sq := newReadySubQueue()
+		items := make([]*Item, num)
+		pushItemsToSubQueue(sq, ips, func(item *Item, i int) {
+			items[i] = item
+		})
+		So(sq.len(), ShouldEqual, num)
+
+		update2p := func() {
+			items[2].SetPriority(1)
+		}
+		update2s := func() {
+			items[2].SetSize(2)
+		}
+
+		Convey("You can update() an item's priority, which changes pop() order", func() {
+			update2p()
+			So(sq.len(), ShouldEqual, num)
+			testPopsInAlteredOrder(ctx, sq, num, ips)
+		})
+
+		Convey("You can update() an item's size, which changes pop() order", func() {
+			update2s()
+			So(sq.len(), ShouldEqual, num)
+			testPopsInAlteredOrder(ctx, sq, num, ips)
+		})
+
+		Convey("You can do simultaneous update()s", func() {
+			testSimultaneousUpdates(update2p, update2s)
+			testPopsInAlteredOrder(ctx, sq, num, ips)
+		})
+	})
+}
+
 func TestQueueReady(t *testing.T) {
 	num := 2
 	ips := newSetOfItemParameters(num)

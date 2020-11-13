@@ -30,6 +30,10 @@ import (
 	"time"
 )
 
+// DefaultTTR is the time to release used for items that were specified with a
+// 0 TTR.
+const DefaultTTR = 5 * time.Second
+
 const indexOfRemovedItem = -1
 
 // ItemParameters describe an item you want to add to the queue.
@@ -42,6 +46,7 @@ type ItemParameters struct {
 	Data         interface{}
 	Priority     uint8 // highest priority is 255
 	Size         uint8
+	TTR          time.Duration // if 0, defaults to DefaultTTR
 }
 
 // toItem creates an item based on our parameters.
@@ -53,6 +58,7 @@ func (ip *ItemParameters) toItem() *Item {
 		created:      time.Now(),
 		priority:     ip.Priority,
 		size:         ip.Size,
+		ttr:          ip.TTR,
 	}
 }
 
@@ -65,7 +71,9 @@ type Item struct {
 	created       time.Time
 	priority      uint8
 	size          uint8
-	subQueue      subQueue
+	ttr           time.Duration
+	releaseAt     time.Time
+	subQueue      SubQueue
 	subQueueIndex int
 	mutex         sync.RWMutex
 }
@@ -118,13 +126,13 @@ func (item *Item) Priority() uint8 {
 	return item.priority
 }
 
-// SetPriority sets a new priority for the item, and updates the subQueue it
+// SetPriority sets a new priority for the item, and updates the SubQueue it
 // belongs to.
 func (item *Item) SetPriority(p uint8) {
 	item.setAndUpdate(&item.priority, p)
 }
 
-// setAndUpdate sets a property and updates the subQueue in a thread-safe way.
+// setAndUpdate sets a property and updates the SubQueue in a thread-safe way.
 func (item *Item) setAndUpdate(property *uint8, new uint8) {
 	item.mutex.Lock()
 	*property = new
@@ -146,20 +154,50 @@ func (item *Item) Size() uint8 {
 	return item.size
 }
 
-// SetSize sets a new size for the item, and updates the subQueue it belongs to.
+// SetSize sets a new size for the item, and updates the SubQueue it belongs to.
 func (item *Item) SetSize(s uint8) {
 	item.setAndUpdate(&item.size, s)
 }
 
-// setSubqueue sets a new subQueue for the item.
-func (item *Item) setSubqueue(sq subQueue) {
+// Touch updates the releaseAt for the item to now+TTR, and updates the
+// SubQueue it belongs to.
+func (item *Item) Touch() {
+	item.mutex.Lock()
+
+	var ttr time.Duration
+	if item.ttr == 0 {
+		ttr = DefaultTTR
+	}
+
+	item.releaseAt = time.Now().Add(ttr)
+	sq := item.subQueue
+	item.mutex.Unlock()
+
+	if sq == nil {
+		return
+	}
+
+	sq.update(item)
+}
+
+// ReleaseAt returns the time that this item's TTR will run out. It will be the
+// zero time if this item has not yet been Touch()ed.
+func (item *Item) ReleaseAt() time.Time {
+	item.mutex.RLock()
+	defer item.mutex.RUnlock()
+
+	return item.releaseAt
+}
+
+// setSubqueue sets a new SubQueue for the item.
+func (item *Item) setSubqueue(sq SubQueue) {
 	item.mutex.Lock()
 	defer item.mutex.Unlock()
 	item.subQueue = sq
 }
 
 // belongsTo tells you if the item is set to the given subQueue.
-func (item *Item) belongsTo(sq subQueue) bool {
+func (item *Item) belongsTo(sq SubQueue) bool {
 	item.mutex.RLock()
 	defer item.mutex.RUnlock()
 

@@ -63,16 +63,28 @@ import (
 	"sync"
 )
 
-// subQueue is something that an Item belongs to, and that can update the Item's
-// position in itself when update() is called.
-type subQueue interface {
+// SubQueue is something that an Item belongs to, which stores the item in a
+// certain order for later retrieval.
+type SubQueue interface {
+	// push adds an item to the queue.
+	push(*Item)
+
+	// pop removes and returns an item in the queue based on a certain order.
+	pop(context.Context) *Item
+
+	// remove removes a given item from the queue.
+	remove(*Item)
+
 	// update changes the item's position in the queue if relevant item
 	// properties have changed.
 	update(*Item)
+
+	// len returns the number of items in the queue.
+	len() int
 }
 
-// Queue is an in-memory poll-free heap-based priorty queue with various
-// sub-queues for managing item progress.
+// Queue is an in-memory poll-free queue with various heap-based ordered
+// SubQueues for managing item progress.
 type Queue struct {
 	items       map[string]*Item
 	itemsMutex  sync.RWMutex
@@ -177,7 +189,7 @@ func (q *Queue) Remove(key string) {
 func (q *Queue) ChangeReserveGroup(key string, newGroup string) {
 	q.threadSafeItemsWriteOperation(func() {
 		if item, exists := q.items[key]; exists {
-			// *** item.doIfInState(StateReady)
+			// *** item.doIfInState(ItemStateReady)
 			q.readyQueues.changeItemReserveGroup(item, newGroup)
 		}
 	})

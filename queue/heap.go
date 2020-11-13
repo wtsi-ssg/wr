@@ -33,54 +33,53 @@ import (
 	"github.com/wtsi-ssg/wr/clog"
 )
 
-// HeapQueue holds Items in priority||size||age order. Use the private methods
-// (which are thread safe), not the public ones that are there to implement
-// heap.Interface.
-type HeapQueue struct {
-	items       []*Item
-	pushChs     map[string]chan *Item
-	waitingPops []string
-	mutex       sync.RWMutex
+// heapQueue holds Items in a heap. It implements the SubQueue interface.
+type heapQueue struct {
+	pushChs            map[string]chan *Item
+	waitingPops        []string
+	heapImplementation heap.Interface
+	mutex              sync.RWMutex
 }
 
-// NewHeapQueue returns an initialised heap-based queue.
-func NewHeapQueue() *HeapQueue {
-	hq := &HeapQueue{
-		pushChs: make(map[string]chan *Item),
+// newHeapQueue returns an initialised heap-based queue.
+func newHeapQueue(heapImplementation heap.Interface) *heapQueue {
+	hq := &heapQueue{
+		pushChs:            make(map[string]chan *Item),
+		heapImplementation: heapImplementation,
 	}
 
-	heap.Init(hq)
+	heap.Init(hq.heapImplementation)
 
 	return hq
 }
 
 // push adds an item to the queue.
-func (hq *HeapQueue) push(item *Item) {
+func (hq *heapQueue) push(item *Item) {
 	hq.mutex.Lock()
 	defer hq.mutex.Unlock()
 	defer hq.popIfWaiting()
 
 	item.setSubqueue(hq)
-	heap.Push(hq, item)
+	heap.Push(hq.heapImplementation, item)
 }
 
 // popIfWaiting pops the item we just pushed and sends it down the next pushCh,
 // if any exist.
 //
 // You must hold the mutex lock before calling this.
-func (hq *HeapQueue) popIfWaiting() {
+func (hq *heapQueue) popIfWaiting() {
 	pushCh := hq.getNextPushCh()
 	if pushCh == nil {
 		return
 	}
-	pushCh <- heap.Pop(hq).(*Item)
+	pushCh <- heap.Pop(hq.heapImplementation).(*Item)
 }
 
 // getNextPushCh finds the oldest waitingPops id that still has a pushChs
 // entry, deletes the entry and returns the corresponding channel.
 //
 // You must hold the mutex lock before calling this.
-func (hq *HeapQueue) getNextPushCh() chan *Item {
+func (hq *heapQueue) getNextPushCh() chan *Item {
 	for {
 		if len(hq.waitingPops) == 0 {
 			return nil
@@ -97,16 +96,16 @@ func (hq *HeapQueue) getNextPushCh() chan *Item {
 	}
 }
 
-// pop removes and returns the highest priority||size||oldest item in the queue.
+// pop removes and returns the next item in the queue.
 //
 // If there are currently no items in the queue, will wait for the context to be
 // cancelled and return the next item push()ed to the queue before then, or if
 // nothing gets pushed (or the context wasn't cancellable), nil.
-func (hq *HeapQueue) pop(ctx context.Context) *Item {
+func (hq *heapQueue) pop(ctx context.Context) *Item {
 	hq.mutex.Lock()
 
 	done := ctx.Done()
-	if hq.Len() == 0 {
+	if hq.heapImplementation.Len() == 0 {
 		if done == nil {
 			hq.mutex.Unlock()
 
@@ -126,13 +125,13 @@ func (hq *HeapQueue) pop(ctx context.Context) *Item {
 
 	defer hq.mutex.Unlock()
 
-	return heap.Pop(hq).(*Item)
+	return heap.Pop(hq.heapImplementation).(*Item)
 }
 
 // nextPushChannel returns a channel that will be sent the next item push()ed.
 //
 // You must hold the mutex lock before calling this.
-func (hq *HeapQueue) nextPushChannel() (string, chan *Item) {
+func (hq *heapQueue) nextPushChannel() (string, chan *Item) {
 	id := clog.UniqueID()
 	hq.waitingPops = append(hq.waitingPops, id)
 
@@ -148,7 +147,7 @@ func (hq *HeapQueue) nextPushChannel() (string, chan *Item) {
 //
 // Otherwise, we delete the id from pushChs, so that the next getNextPushCh()
 // doesn't try and use this channel.
-func (hq *HeapQueue) readFromPushChannelIfSentOn(id string, pushCh chan *Item) *Item {
+func (hq *heapQueue) readFromPushChannelIfSentOn(id string, pushCh chan *Item) *Item {
 	hq.mutex.Lock()
 	if _, exists := hq.pushChs[id]; !exists {
 		hq.mutex.Unlock()
@@ -165,7 +164,7 @@ func (hq *HeapQueue) readFromPushChannelIfSentOn(id string, pushCh chan *Item) *
 }
 
 // remove removes a given item from the queue.
-func (hq *HeapQueue) remove(item *Item) {
+func (hq *heapQueue) remove(item *Item) {
 	hq.mutex.Lock()
 	defer hq.mutex.Unlock()
 
@@ -173,72 +172,48 @@ func (hq *HeapQueue) remove(item *Item) {
 		return
 	}
 
-	heap.Remove(hq, item.index())
+	heap.Remove(hq.heapImplementation, item.index())
 }
 
-// update changes the item's position in the queue if its priority or size have
-// changed. This implements the subQueue interface.
-func (hq *HeapQueue) update(item *Item) {
+// update changes the item's position in the queue if its order properties have
+// changed.
+func (hq *heapQueue) update(item *Item) {
 	hq.mutex.Lock()
 	defer hq.mutex.Unlock()
-	heap.Fix(hq, item.index())
+	heap.Fix(hq.heapImplementation, item.index())
 }
 
 // len returns the number of items in the queue.
-func (hq *HeapQueue) len() int {
+func (hq *heapQueue) len() int {
 	hq.mutex.RLock()
 	defer hq.mutex.RUnlock()
 
-	return hq.Len()
+	return hq.heapImplementation.Len()
 }
 
-// Len is to implement heap.Interface.
-func (hq *HeapQueue) Len() int { return len(hq.items) }
-
-// Less is to implement heap.Interface.
-func (hq *HeapQueue) Less(i, j int) bool {
-	ip := hq.items[i].Priority()
-	jp := hq.items[j].Priority()
-
-	if ip == jp {
-		is := hq.items[i].Size()
-		js := hq.items[j].Size()
-
-		if is == js {
-			return hq.items[i].Created().Before(hq.items[j].Created())
-		}
-
-		return is > js
-	}
-
-	return ip > jp
+// heapSwap can be used to implement heap.Interface.Swap.
+func heapSwap(items []*Item, i, j int) {
+	items[i], items[j] = items[j], items[i]
+	items[i].setIndex(i)
+	items[j].setIndex(j)
 }
 
-// Swap is to implement heap.Interface.
-func (hq *HeapQueue) Swap(i, j int) {
-	hq.items[i], hq.items[j] = hq.items[j], hq.items[i]
-	hq.items[i].setIndex(i)
-	hq.items[j].setIndex(j)
-}
-
-// Push is to implement heap.Interface.
-func (hq *HeapQueue) Push(x interface{}) {
-	n := len(hq.items)
+func heapPush(items []*Item, x interface{}) []*Item {
+	n := len(items)
 	item := x.(*Item)
 	item.setIndex(n)
-	hq.items = append(hq.items, item)
+	return append(items, item)
 }
 
-// Pop is to implement heap.Interface.
-func (hq *HeapQueue) Pop() interface{} {
-	old := hq.items
-	n := len(old)
+// heapPop can be used to implement heap.Interface.Pop.
+func heapPop(items []*Item) ([]*Item, interface{}) {
+	n := len(items)
 
-	item := old[n-1]
-	old[n-1] = nil
-	hq.items = old[0 : n-1]
+	item := items[n-1]
+	items[n-1] = nil
+	new := items[0 : n-1]
 
 	item.remove()
 
-	return item
+	return new, item
 }

@@ -34,77 +34,59 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
+// mockOrder implements heap.Interface, keeping items in creation order.
+type mockOrder struct {
+	items []*Item
+}
+
+// newMockSubQueue creates a *heapQueue that is ordered by creation.
+func newMockSubQueue() SubQueue {
+	return newHeapQueue(&mockOrder{})
+}
+
+// Len is to implement heap.Interface.
+func (mo *mockOrder) Len() int { return len(mo.items) }
+
+// Less is to implement heap.Interface.
+func (mo *mockOrder) Less(i, j int) bool {
+	mo.items[i].mutex.RLock()
+	defer mo.items[i].mutex.RUnlock()
+	mo.items[j].mutex.RLock()
+	defer mo.items[j].mutex.RUnlock()
+	return mo.items[i].created.Before(mo.items[j].created)
+}
+
+// Swap is to implement heap.Interface.
+func (mo *mockOrder) Swap(i, j int) {
+	heapSwap(mo.items, i, j)
+}
+
+// Push is to implement heap.Interface.
+func (mo *mockOrder) Push(x interface{}) {
+	mo.items = heapPush(mo.items, x)
+}
+
+// Pop is to implement heap.Interface.
+func (mo *mockOrder) Pop() interface{} {
+	var item interface{}
+	mo.items, item = heapPop(mo.items)
+
+	return item
+}
+
 func TestQueueHeapPushPop(t *testing.T) {
 	num := 6
 	ips := newSetOfItemParameters(num)
 	ctx := context.Background()
 
-	Convey("Given a HeapQueue", t, func() {
-		hq := NewHeapQueue()
+	Convey("Given a SubQueue", t, func() {
+		sq := newMockSubQueue()
 
-		Convey("You can push() equal priority items in to it", func() {
-			pushItemsToHeap(hq, ips, func(item *Item, i int) {})
+		Convey("You can push() items in to it", func() {
+			pushItemsToSubQueue(sq, ips, func(item *Item, i int) {})
 
 			Convey("And then pop() them out in FIFO order", func() {
-				popItemsFromHeap(hq, num, func(key string, i int) {
-					So(key, ShouldEqual, ips[i].Key)
-					So(hq.len(), ShouldEqual, num-i-1)
-				})
-				item := hq.pop(ctx)
-				So(item, ShouldBeNil)
-				So(hq.len(), ShouldEqual, 0)
-			})
-		})
-
-		testPopsReverseOrder := func() {
-			popItemsFromHeap(hq, num, func(key string, i int) {
-				So(key, ShouldEqual, ips[num-1-i].Key)
-			})
-		}
-
-		Convey("You can push() different priority items in to it", func() {
-			pushItemsToHeap(hq, ips, func(item *Item, i int) {
-				item.priority = uint8(i)
-			})
-
-			Convey("And then pop() them out in priority order", func() {
-				testPopsReverseOrder()
-			})
-		})
-
-		Convey("You can push() different size items in to it", func() {
-			pushItemsToHeap(hq, ips, func(item *Item, i int) {
-				item.size = uint8(i)
-			})
-
-			Convey("And then pop() them out in size order", func() {
-				testPopsReverseOrder()
-			})
-		})
-
-		Convey("Priority has precedence over size which has precedence over age", func() {
-			pushItemsToHeap(hq, ips, func(item *Item, i int) {
-				switch i {
-				case 3:
-					item.priority = uint8(3)
-					item.size = uint8(4)
-				case 4:
-					item.priority = uint8(3)
-					item.size = uint8(5)
-				}
-			})
-
-			popItemsFromHeap(hq, num, func(key string, i int) {
-				switch i {
-				case 0:
-					So(key, ShouldEqual, ips[4].Key)
-				case 1:
-					So(key, ShouldEqual, ips[3].Key)
-				case 2, 3, 4:
-					So(key, ShouldEqual, ips[i-2].Key)
-				default:
-					So(key, ShouldEqual, ips[i].Key)
-				}
+				testPopsInInsertionOrder(ctx, sq, num, ips)
 			})
 		})
 
@@ -119,8 +101,8 @@ func TestQueueHeapPushPop(t *testing.T) {
 
 				for _, ip := range ips[first : first+half] {
 					item := ip.toItem()
-					hq.push(item)
-					if hq.len() <= 0 {
+					sq.push(item)
+					if sq.len() <= 0 {
 						allOK = false
 					}
 				}
@@ -130,7 +112,7 @@ func TestQueueHeapPushPop(t *testing.T) {
 			go pushHalf(half)
 			wg.Wait()
 
-			So(hq.len(), ShouldEqual, num)
+			So(sq.len(), ShouldEqual, num)
 			So(allOK, ShouldBeTrue)
 
 			Convey("And then 2 threads can pop() at once", func() {
@@ -138,34 +120,44 @@ func TestQueueHeapPushPop(t *testing.T) {
 				wg.Add(2)
 				popHalf := func() {
 					defer wg.Done()
-					popItemsFromHeap(hq, half, func(key string, i int) {})
+					popItemsFromSubQueue(sq, half, func(key string, i int) {})
 				}
 
 				go popHalf()
 				go popHalf()
 				wg.Wait()
 
-				So(hq.len(), ShouldEqual, 0)
+				So(sq.len(), ShouldEqual, 0)
 			})
 		})
 	})
 }
 
+func testPopsInInsertionOrder(ctx context.Context, sq SubQueue, num int, ips []*ItemParameters) {
+	popItemsFromSubQueue(sq, num, func(key string, i int) {
+		So(key, ShouldEqual, ips[i].Key)
+		So(sq.len(), ShouldEqual, num-i-1)
+	})
+	item := sq.pop(ctx)
+	So(item, ShouldBeNil)
+	So(sq.len(), ShouldEqual, 0)
+}
+
 // popper is used to test that popping happens after context cancellation.
 type popper struct {
-	hq        *HeapQueue
+	sq        SubQueue
 	done      bool
 	doneMutex sync.RWMutex
 }
 
 // newPopper makes a new *popper.
-func newPopper(hq *HeapQueue) *popper {
+func newPopper(sq SubQueue) *popper {
 	return &popper{
-		hq: hq,
+		sq: sq,
 	}
 }
 
-// pop calls pop on the HeapQueue in a goroutine and returns after the call has
+// pop calls pop on the SubQueue in a goroutine and returns after the call has
 // been made, but potentially before the pop completes. The result of the pop
 // can be read from the returned channel, after p.isDone() returns true.
 func (p *popper) pop(ctx context.Context) chan *Item {
@@ -178,7 +170,7 @@ func (p *popper) pop(ctx context.Context) chan *Item {
 			close(started)
 		}()
 
-		item := p.hq.pop(ctx)
+		item := p.sq.pop(ctx)
 		p.doneMutex.Lock()
 		p.done = true
 		p.doneMutex.Unlock()
@@ -189,7 +181,7 @@ func (p *popper) pop(ctx context.Context) chan *Item {
 	return itemCh
 }
 
-// isDone, if called after pop(), tells you when the pop from the HeapQueue has
+// isDone, if called after pop(), tells you when the pop from the SubQueue has
 // finished running.
 func (p *popper) isDone() bool {
 	<-time.After(1 * time.Millisecond)
@@ -200,19 +192,19 @@ func (p *popper) isDone() bool {
 }
 
 func TestQueueHeapPopWait(t *testing.T) {
-	Convey("Given a HeapQueue with no items", t, func() {
-		hq := NewHeapQueue()
+	Convey("Given a SubQueue with no items", t, func() {
+		sq := newMockSubQueue()
 		backgroundCtx := context.Background()
 		cancellableCtx, cancel := context.WithCancel(backgroundCtx)
 		defer cancel()
 
 		Convey("pop() with an uncancellable context returns nothing immediately", func() {
-			item := hq.pop(backgroundCtx)
+			item := sq.pop(backgroundCtx)
 			So(item, ShouldBeNil)
 		})
 
 		Convey("pop() with a cancellable context returns nothing after waiting", func() {
-			popper := newPopper(hq)
+			popper := newPopper(sq)
 			ich := popper.pop(cancellableCtx)
 			So(popper.isDone(), ShouldBeFalse)
 			cancel()
@@ -221,28 +213,28 @@ func TestQueueHeapPopWait(t *testing.T) {
 		})
 
 		Convey("After push()ing an item, pop() with a cancellable context  returns immediately", func() {
-			pushItemsToHeap(hq, newSetOfItemParameters(1), func(item *Item, i int) {})
-			item := hq.pop(cancellableCtx)
+			pushItemsToSubQueue(sq, newSetOfItemParameters(1), func(item *Item, i int) {})
+			item := sq.pop(cancellableCtx)
 			So(item, ShouldNotBeNil)
 		})
 
 		Convey("Before push()ing an item, pop() with a cancellable context returns immediately after push()ing", func() {
-			pushDuringPop(cancellableCtx, hq, newSetOfItemParameters(1))
+			pushDuringPop(cancellableCtx, sq, newSetOfItemParameters(1))
 		})
 
 		Convey("Multiple pop()s can wait at once", func() {
-			pushDuringPop(cancellableCtx, hq, newSetOfItemParameters(10))
+			pushDuringPop(cancellableCtx, sq, newSetOfItemParameters(10))
 		})
 
 		Convey("You can cancel the context on waiting pop()s while pushing", func() {
 			ips := newSetOfItemParameters(100)
-			poppers, ichs := makePoppers(cancellableCtx, hq, ips)
+			poppers, ichs := makePoppers(cancellableCtx, sq, ips)
 
 			var wg sync.WaitGroup
 			wg.Add(2)
 			go func() {
 				defer wg.Done()
-				pushItemsToHeap(hq, ips, func(item *Item, i int) {})
+				pushItemsToSubQueue(sq, ips, func(item *Item, i int) {})
 			}()
 			go func() {
 				defer wg.Done()
@@ -254,30 +246,30 @@ func TestQueueHeapPopWait(t *testing.T) {
 			notPopped := testSomePopsReturnedItems(ips, poppers, ichs)
 
 			for i := 0; i < notPopped; i++ {
-				item := hq.pop(backgroundCtx)
+				item := sq.pop(backgroundCtx)
 				So(item, ShouldNotBeNil)
 			}
 
-			So(hq.len(), ShouldEqual, 0)
+			So(sq.len(), ShouldEqual, 0)
 		})
 	})
 }
 
-func pushDuringPop(ctx context.Context, hq *HeapQueue, ips []*ItemParameters) {
-	poppers, ichs := makePoppers(ctx, hq, ips)
+func pushDuringPop(ctx context.Context, sq SubQueue, ips []*ItemParameters) {
+	poppers, ichs := makePoppers(ctx, sq, ips)
 
-	pushItemsToHeap(hq, ips, func(item *Item, i int) {})
+	pushItemsToSubQueue(sq, ips, func(item *Item, i int) {})
 
 	testAllPopsReturnedItems(ips, poppers, ichs)
 }
 
-func makePoppers(ctx context.Context, hq *HeapQueue, ips []*ItemParameters) ([]*popper, []chan *Item) {
+func makePoppers(ctx context.Context, sq SubQueue, ips []*ItemParameters) ([]*popper, []chan *Item) {
 	num := len(ips)
 	poppers := make([]*popper, num)
 	ichs := make([]chan *Item, num)
 
 	for i := 0; i < num; i++ {
-		poppers[i] = newPopper(hq)
+		poppers[i] = newPopper(sq)
 		ichs[i] = poppers[i].pop(ctx)
 		So(poppers[i].isDone(), ShouldBeFalse)
 	}
@@ -333,23 +325,23 @@ func TestQueueHeapRemoveUpdate(t *testing.T) {
 	ips := newSetOfItemParameters(num)
 	ctx := context.Background()
 
-	Convey("Given a HeapQueue with some items push()ed to it", t, func() {
-		hq := NewHeapQueue()
+	Convey("Given a SubQueue with some items push()ed to it", t, func() {
+		sq := newMockSubQueue()
 		items := make([]*Item, num)
-		pushItemsToHeap(hq, ips, func(item *Item, i int) {
+		pushItemsToSubQueue(sq, ips, func(item *Item, i int) {
 			items[i] = item
 		})
-		So(hq.len(), ShouldEqual, num)
+		So(sq.len(), ShouldEqual, num)
 
 		Convey("You can remove() an item ", func() {
-			So(items[2].subQueue, ShouldEqual, hq)
-			hq.remove(items[2])
-			So(hq.len(), ShouldEqual, num-1)
+			So(items[2].subQueue, ShouldEqual, sq)
+			sq.remove(items[2])
+			So(sq.len(), ShouldEqual, num-1)
 			So(items[2].removed(), ShouldBeTrue)
 			So(items[2].subQueue, ShouldBeNil)
 
 			Convey("And then pop() the remainder out", func() {
-				popItemsFromHeap(hq, num-1, func(key string, i int) {
+				popItemsFromSubQueue(sq, num-1, func(key string, i int) {
 					switch i {
 					case 0, 1:
 						So(key, ShouldEqual, ips[i].Key)
@@ -357,7 +349,7 @@ func TestQueueHeapRemoveUpdate(t *testing.T) {
 						So(key, ShouldEqual, ips[i+1].Key)
 					}
 				})
-				So(hq.len(), ShouldEqual, 0)
+				So(sq.len(), ShouldEqual, 0)
 			})
 		})
 
@@ -366,76 +358,78 @@ func TestQueueHeapRemoveUpdate(t *testing.T) {
 			wg.Add(2)
 			removeItem := func(item *Item) {
 				defer wg.Done()
-				hq.remove(item)
+				sq.remove(item)
 			}
 			go removeItem(items[2])
 			go removeItem(items[4])
 			wg.Wait()
-			So(hq.len(), ShouldEqual, num-2)
+			So(sq.len(), ShouldEqual, num-2)
 
 			Convey("And remove()ing an item twice is harmless", func() {
-				hq.remove(items[2])
-				So(hq.len(), ShouldEqual, num-2)
+				sq.remove(items[2])
+				So(sq.len(), ShouldEqual, num-2)
 			})
 		})
 
-		popAlteredOrder := func() {
-			popItemsFromHeap(hq, num, func(key string, i int) {
-				switch i {
-				case 0:
-					So(key, ShouldEqual, ips[2].Key)
-				case 1, 2:
-					So(key, ShouldEqual, ips[i-1].Key)
-				default:
-					So(key, ShouldEqual, ips[i].Key)
-				}
-			})
-			So(hq.len(), ShouldEqual, 0)
-			item := hq.pop(ctx)
-			So(item, ShouldBeNil)
+		update := func() {
+			item := items[2]
+			item.mutex.Lock()
+			item.created = time.Now()
+			item.mutex.Unlock()
+			sq.update(item)
 		}
 
-		update2p := func() {
-			items[2].SetPriority(1)
-		}
-		update2s := func() {
-			items[2].SetSize(2)
-		}
-
-		Convey("You can update() an item's priority, which changes pop() order", func() {
-			update2p()
-			So(hq.len(), ShouldEqual, num)
-			popAlteredOrder()
-		})
-
-		Convey("You can update() an item's size, which changes pop() order", func() {
-			update2s()
-			So(hq.len(), ShouldEqual, num)
-			popAlteredOrder()
+		Convey("You can update() an item's created, which changes pop() order", func() {
+			update()
+			So(sq.len(), ShouldEqual, num)
+			testPopsInAlteredOrder(ctx, sq, num, ips)
 		})
 
 		Convey("You can do simultaneous update()s", func() {
-			var wg sync.WaitGroup
-			wg.Add(2)
-			update := func(method func()) {
-				defer wg.Done()
-				method()
-			}
-
-			go update(update2p)
-			go update(update2s)
-			wg.Wait()
-			popAlteredOrder()
+			testSimultaneousUpdates(update, update)
+			testPopsInAlteredOrder(ctx, sq, num, ips)
 		})
 	})
+}
+
+func testPopsInAlteredOrder(ctx context.Context, sq SubQueue, num int, ips []*ItemParameters) {
+	popItemsFromSubQueue(sq, num, func(key string, i int) {
+		switch i {
+		case 0, 1:
+			So(key, ShouldEqual, ips[i].Key)
+		case 5:
+			So(key, ShouldEqual, ips[2].Key)
+		default:
+			So(key, ShouldEqual, ips[i+1].Key)
+		}
+	})
+	So(sq.len(), ShouldEqual, 0)
+	item := sq.pop(ctx)
+	So(item, ShouldBeNil)
+}
+
+func testSimultaneousUpdates(update1, update2 func()) {
+	var wg sync.WaitGroup
+
+	updateSim := func(method func()) {
+		defer wg.Done()
+		method()
+	}
+
+	wg.Add(2)
+
+	go updateSim(update1)
+	go updateSim(update2)
+
+	wg.Wait()
 }
 
 func TestQueueHeapSimultaneous(t *testing.T) {
 	num := 1000
 	ips := newSetOfItemParameters(num)
 
-	Convey("You can do all HeapQueue operations simultaneously", t, func() {
-		hq := NewHeapQueue()
+	Convey("You can do all SubQueue operations simultaneously", t, func() {
+		sq := newMockSubQueue()
 		var wg sync.WaitGroup
 
 		addAtLeast := 500
@@ -444,7 +438,7 @@ func TestQueueHeapSimultaneous(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			pushItemsToHeap(hq, ips, func(item *Item, i int) {
+			pushItemsToSubQueue(sq, ips, func(item *Item, i int) {
 				if i < addAtLeast {
 					items[i] = item
 				}
@@ -476,7 +470,7 @@ func TestQueueHeapSimultaneous(t *testing.T) {
 			defer wg.Done()
 			<-updated
 			for i := 0; i < addAtLeast; i++ {
-				hq.remove(items[i])
+				sq.remove(items[i])
 
 				if i == removeAtLeast {
 					close(removed)
@@ -488,27 +482,27 @@ func TestQueueHeapSimultaneous(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-removed
-			popItemsFromHeap(hq, addAtLeast, func(key string, i int) {})
+			popItemsFromSubQueue(sq, addAtLeast, func(key string, i int) {})
 		}()
 
 		wg.Wait()
-		So(hq.len(), ShouldBeBetweenOrEqual, 0, num-addAtLeast)
+		So(sq.len(), ShouldBeBetweenOrEqual, 0, num-addAtLeast)
 	})
 }
 
-func pushItemsToHeap(hq *HeapQueue, ips []*ItemParameters, f func(*Item, int)) {
+func pushItemsToSubQueue(sq SubQueue, ips []*ItemParameters, f func(*Item, int)) {
 	for i, ip := range ips {
 		item := ip.toItem()
 		f(item, i)
-		hq.push(item)
+		sq.push(item)
 	}
 }
 
-func popItemsFromHeap(hq *HeapQueue, num int, f func(string, int)) {
+func popItemsFromSubQueue(sq SubQueue, num int, f func(string, int)) {
 	ctx := context.Background()
 
 	for i := 0; i < num; i++ {
-		item := hq.pop(ctx)
+		item := sq.pop(ctx)
 		if item != nil {
 			f(item.Key(), i)
 		} else {
