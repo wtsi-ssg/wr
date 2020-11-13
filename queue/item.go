@@ -26,6 +26,7 @@
 package queue
 
 import (
+	"fmt"
 	"sync"
 	"time"
 )
@@ -34,7 +35,73 @@ import (
 // 0 TTR.
 const DefaultTTR = 5 * time.Second
 
+// DefaultDelay is the time spent in the delay SubQueue for items that were
+// specified with a 0 Delay.
+const DefaultDelay = 5 * time.Second
+
 const indexOfRemovedItem = -1
+
+// ItemState is how we describe the possible item states.
+type ItemState string
+
+// ItemState* constants represent all the possible item states.
+const (
+	ItemStateReady     ItemState = "ready"
+	ItemStateRun       ItemState = "run"
+	ItemStateDelay     ItemState = "delay"
+	ItemStateBury      ItemState = "bury"
+	ItemStateDependent ItemState = "dependent"
+	ItemStateRemoved   ItemState = "removed"
+)
+
+// ItemTransitionError is returned by Item.SwitchState() for invalid state
+// transitions.
+type ItemTransitionError struct {
+	item string
+	from ItemState
+	to   ItemState
+}
+
+// Error implements the error interface.
+func (e *ItemTransitionError) Error() string {
+	return fmt.Sprintf("item %s cannot transition from %s to %s", e.item, e.from, e.to)
+}
+
+// checkStateTransition returns a function that returns an error if you're not
+// allowed to transition from ItemState a to b.
+func checkStateTransition() func(item *Item, a, b ItemState) error {
+	rdr := map[ItemState]bool{
+		ItemStateReady:     true,
+		ItemStateDependent: true,
+		ItemStateRemoved:   true,
+	}
+	constMap := map[ItemState]map[ItemState]bool{
+		ItemStateReady: {
+			ItemStateRun:       true,
+			ItemStateDependent: true,
+			ItemStateRemoved:   true,
+		},
+		ItemStateRun: {
+			ItemStateDelay:     true,
+			ItemStateBury:      true,
+			ItemStateDependent: true,
+		},
+		ItemStateDelay:     rdr,
+		ItemStateBury:      rdr,
+		ItemStateDependent: {ItemStateReady: true, ItemStateRemoved: true},
+		ItemStateRemoved:   {},
+	}
+
+	return func(item *Item, a, b ItemState) error {
+		if _, exists := constMap[a][b]; !exists {
+			return &ItemTransitionError{item.key, a, b}
+		}
+
+		return nil
+	}
+}
+
+// var stateTransitionChecker = checkStateTransition()
 
 // ItemParameters describe an item you want to add to the queue.
 //
@@ -46,6 +113,7 @@ type ItemParameters struct {
 	Data         interface{}
 	Priority     uint8 // highest priority is 255
 	Size         uint8
+	Delay        time.Duration // if 0, defaults to DebfaultDelay
 	TTR          time.Duration // if 0, defaults to DefaultTTR
 }
 
@@ -58,7 +126,9 @@ func (ip *ItemParameters) toItem() *Item {
 		created:      time.Now(),
 		priority:     ip.Priority,
 		size:         ip.Size,
+		delay:        ip.Delay,
 		ttr:          ip.TTR,
+		state:        ItemStateReady,
 	}
 }
 
@@ -71,10 +141,13 @@ type Item struct {
 	created       time.Time
 	priority      uint8
 	size          uint8
+	delay         time.Duration
 	ttr           time.Duration
+	readyAt       time.Time
 	releaseAt     time.Time
 	subQueue      SubQueue
 	subQueueIndex int
+	state         ItemState
 	mutex         sync.RWMutex
 }
 
@@ -129,11 +202,11 @@ func (item *Item) Priority() uint8 {
 // SetPriority sets a new priority for the item, and updates the SubQueue it
 // belongs to.
 func (item *Item) SetPriority(p uint8) {
-	item.setAndUpdate(&item.priority, p)
+	item.setAndUpdateUint(&item.priority, p)
 }
 
-// setAndUpdate sets a property and updates the SubQueue in a thread-safe way.
-func (item *Item) setAndUpdate(property *uint8, new uint8) {
+// setAndUpdateUint sets a uint property and updates the SubQueue.
+func (item *Item) setAndUpdateUint(property *uint8, new uint8) {
 	item.mutex.Lock()
 	*property = new
 	sq := item.subQueue
@@ -156,20 +229,24 @@ func (item *Item) Size() uint8 {
 
 // SetSize sets a new size for the item, and updates the SubQueue it belongs to.
 func (item *Item) SetSize(s uint8) {
-	item.setAndUpdate(&item.size, s)
+	item.setAndUpdateUint(&item.size, s)
 }
 
 // Touch updates the releaseAt for the item to now+TTR, and updates the
 // SubQueue it belongs to.
 func (item *Item) Touch() {
+	item.setAndUpdateTime(item.ttr, DefaultTTR, &item.releaseAt)
+}
+
+// setAndUpdateTime sets a time property and updates the SubQueue.
+func (item *Item) setAndUpdateTime(d, defaultD time.Duration, property *time.Time) {
 	item.mutex.Lock()
 
-	var ttr time.Duration
-	if item.ttr == 0 {
-		ttr = DefaultTTR
+	if d == 0 {
+		d = defaultD
 	}
 
-	item.releaseAt = time.Now().Add(ttr)
+	*property = time.Now().Add(d)
 	sq := item.subQueue
 	item.mutex.Unlock()
 
@@ -187,6 +264,21 @@ func (item *Item) ReleaseAt() time.Time {
 	defer item.mutex.RUnlock()
 
 	return item.releaseAt
+}
+
+// restart updates the readyAt for the item to now+delay, and updates the
+// SubQueue it belongs to, for when the item is put in to the delay SubQueue.
+func (item *Item) restart() {
+	item.setAndUpdateTime(item.delay, DefaultDelay, &item.readyAt)
+}
+
+// ReadyAt returns the time that this item can go to the ready SubQueue. It will
+// be the zero time if this item is not in the delay SubQueue.
+func (item *Item) ReadyAt() time.Time {
+	item.mutex.RLock()
+	defer item.mutex.RUnlock()
+
+	return item.readyAt
 }
 
 // setSubqueue sets a new SubQueue for the item.
@@ -230,4 +322,33 @@ func (item *Item) remove() {
 // setIndex().
 func (item *Item) removed() bool {
 	return item.index() == indexOfRemovedItem
+}
+
+// State returns the state of the item.
+func (item *Item) State() ItemState {
+	// item.mutex.RLock()
+	// defer item.mutex.RUnlock()
+	return item.state
+}
+
+// SwitchState switches the item's state from the current state to the given
+// state. Returns an error if this transition isn't possible.
+func (item *Item) SwitchState(to ItemState) error {
+	// item.mutex.Lock()
+	// defer item.mutex.Unlock()
+	from := item.state
+	if err := checkStateTransition()(item, from, to); err != nil {
+		return err
+	}
+
+	switch to {
+	case ItemStateRun:
+		item.Touch()
+	case ItemStateDelay:
+		item.restart()
+	}
+
+	item.state = to
+
+	return nil
 }

@@ -53,6 +53,7 @@ func (mo *mockOrder) Less(i, j int) bool {
 	defer mo.items[i].mutex.RUnlock()
 	mo.items[j].mutex.RLock()
 	defer mo.items[j].mutex.RUnlock()
+
 	return mo.items[i].created.Before(mo.items[j].created)
 }
 
@@ -138,6 +139,7 @@ func testPopsInInsertionOrder(ctx context.Context, sq SubQueue, num int, ips []*
 		So(key, ShouldEqual, ips[i].Key)
 		So(sq.len(), ShouldEqual, num-i-1)
 	})
+
 	item := sq.pop(ctx)
 	So(item, ShouldBeNil)
 	So(sq.len(), ShouldEqual, 0)

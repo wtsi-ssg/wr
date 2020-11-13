@@ -34,6 +34,7 @@ import (
 	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/wtsi-ssg/wr/clog"
 )
 
 var errNoItem = errors.New("no item")
@@ -438,6 +439,37 @@ func TestQueueReserveGroups(t *testing.T) {
 			item = q.Reserve(backgroundCtx, rg3)
 			So(item, ShouldNotBeNil)
 			So(item.Key(), ShouldEqual, ips[0].Key)
+		})
+	})
+}
+
+func TestQueueRun(t *testing.T) {
+	num := 2
+	ips := newSetOfItemParameters(num)
+	backgroundCtx := context.Background()
+
+	Convey("Given a queue with items added", t, func() {
+		q := New()
+		q.Add(ips...)
+
+		Convey("Reserving an item moves it to the run SubQueue and starts its TTR", func() {
+			So(q.readyQueues.numItems(), ShouldEqual, 2)
+			So(q.runQueue.len(), ShouldEqual, 0)
+			item := q.Reserve(backgroundCtx, "")
+			t := time.Now()
+			So(item, ShouldNotBeNil)
+			So(q.readyQueues.numItems(), ShouldEqual, 1)
+			So(q.runQueue.len(), ShouldEqual, 1)
+			So(item.releaseAt, ShouldHappenBetween, t, t.Add(DefaultTTR))
+
+			Convey("You wouldn't be able to put it on the run SubQueue again", func() {
+				buff := clog.ToBufferAtLevel("eror")
+				defer clog.ToDefault()
+				q.pushToRunQueue(backgroundCtx, item)
+				errStr := buff.String()
+				So(errStr, ShouldContainSubstring, "lvl=eror")
+				So(errStr, ShouldContainSubstring, `err="item key0 cannot transition from run to run"`)
+			})
 		})
 	})
 }

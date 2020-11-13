@@ -105,13 +105,14 @@ func TestQueueReadyPushPop(t *testing.T) {
 }
 
 func TestQueueReadyUpdate(t *testing.T) {
+	ctx := context.Background()
 	num := 6
 	ips := newSetOfItemParameters(num)
+
 	for i := 0; i < num; i++ {
 		ips[i].Priority = 5
 		ips[i].Size = 5
 	}
-	ctx := context.Background()
 
 	Convey("Given a ready SubQueue with some items push()ed to it", t, func() {
 		sq := newReadySubQueue()
@@ -170,6 +171,7 @@ func TestQueueReady(t *testing.T) {
 				return nil
 			})
 			So(len(rqs.queues), ShouldEqual, num)
+			So(rqs.numItems(), ShouldEqual, num)
 
 			Convey("Then they can be simultaneously pop()ed", func() {
 				okCh := make(chan bool, num)
@@ -181,6 +183,7 @@ func TestQueueReady(t *testing.T) {
 				})
 
 				So(len(rqs.queues), ShouldEqual, 0)
+				So(rqs.numItems(), ShouldEqual, 0)
 
 				for i := 0; i < num; i++ {
 					ok := <-okCh
@@ -200,6 +203,7 @@ func TestQueueReady(t *testing.T) {
 				})
 
 				So(len(rqs.queues), ShouldEqual, 0)
+				So(rqs.numItems(), ShouldEqual, 0)
 				item := rqs.pop(backgroundCtx, "")
 				So(item, ShouldBeNil)
 				So(rqs.inUse, ShouldEqual, 0)
@@ -216,6 +220,7 @@ func TestQueueReady(t *testing.T) {
 				rqs.changeItemReserveGroup(items[0], ips[1].ReserveGroup)
 				So(len(rqs.queues), ShouldEqual, 1)
 				So(rqs.queues[ips[1].ReserveGroup].len(), ShouldEqual, 2)
+				So(rqs.numItems(), ShouldEqual, num)
 			})
 
 			Convey("ReserveGroups can be changed simultaneously", func() {
@@ -289,6 +294,17 @@ func TestQueueReady(t *testing.T) {
 			}
 
 			So(failed, ShouldBeFalse)
+		})
+
+		Convey("SubQueues are not dropped while we are in use", func() {
+			rqs.queues["foo"] = newReadySubQueue()
+			rqs.dropEmptyQueuesIfNotInUse()
+			So(len(rqs.queues), ShouldEqual, 0)
+
+			rqs.queues["foo"] = newReadySubQueue()
+			rqs.inUse = 2
+			rqs.dropEmptyQueuesIfNotInUse()
+			So(len(rqs.queues), ShouldEqual, 1)
 		})
 	})
 }

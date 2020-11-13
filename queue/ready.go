@@ -96,6 +96,19 @@ func newReadyQueues() *readyQueues {
 	}
 }
 
+// numItems returns the number of items in total across all our ready SubQueues.
+func (rq *readyQueues) numItems() int {
+	rq.mutex.Lock()
+	defer rq.mutex.Unlock()
+
+	n := 0
+	for _, sq := range rq.queues {
+		n += sq.len()
+	}
+
+	return n
+}
+
 // push will newly create or reuse a SubQueue for the item's reserveGroup and
 // push the item to that SubQueue.
 func (rq *readyQueues) push(item *Item) {

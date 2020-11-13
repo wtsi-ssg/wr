@@ -61,6 +61,8 @@ package queue
 import (
 	"context"
 	"sync"
+
+	"github.com/wtsi-ssg/wr/clog"
 )
 
 // SubQueue is something that an Item belongs to, which stores the item in a
@@ -89,6 +91,7 @@ type Queue struct {
 	items       map[string]*Item
 	itemsMutex  sync.RWMutex
 	readyQueues *readyQueues
+	runQueue    SubQueue
 }
 
 // New returns a new *Queue.
@@ -96,6 +99,7 @@ func New() *Queue {
 	return &Queue{
 		items:       make(map[string]*Item),
 		readyQueues: newReadyQueues(),
+		runQueue:    newRunSubQueue(),
 	}
 }
 
@@ -170,7 +174,26 @@ func (q *Queue) Get(key string) *Item {
 // you can't handle it right now, but someone else might be able to later, you
 // can manually call Release(), which moves it to the delay sub-queue.
 func (q *Queue) Reserve(ctx context.Context, reserveGroup string) *Item {
-	return q.readyQueues.pop(ctx, reserveGroup)
+	item := q.readyQueues.pop(ctx, reserveGroup)
+	q.pushToRunQueue(ctx, item)
+
+	return item
+}
+
+// pushToRunQueue Touch()es the item and pushes it to the runQueue, if non-nil.
+func (q *Queue) pushToRunQueue(ctx context.Context, item *Item) {
+	if item == nil {
+		return
+	}
+
+	err := item.SwitchState(ItemStateRun)
+	if err != nil {
+		clog.Error(ctx, "queue failure", "err", err)
+
+		return
+	}
+
+	q.runQueue.push(item)
 }
 
 // Remove removes an item from the queue.

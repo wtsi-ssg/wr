@@ -72,7 +72,7 @@ func TestQueueItem(t *testing.T) {
 		So(item.Priority(), ShouldEqual, 0)
 		So(item.Size(), ShouldEqual, 0)
 		So(item.ttr, ShouldEqual, 0)
-		So(item.releaseAt, ShouldResemble, time.Time{})
+		So(item.releaseAt, ShouldBeZeroValue)
 
 		p, s := uint8(5), uint8(3)
 		ip = &ItemParameters{
@@ -103,7 +103,7 @@ func TestQueueItem(t *testing.T) {
 			So(item.subQueue, ShouldEqual, sq)
 			So(item.belongsTo(sq), ShouldBeTrue)
 
-			Convey("When you set priority or size or Touch(), the subQueue is updated", func() {
+			Convey("When you set priority or size or Touch() or Reset(), the subQueue is updated", func() {
 				new := uint8(10)
 				item.SetPriority(new)
 				So(item.Priority(), ShouldEqual, new)
@@ -117,6 +117,11 @@ func TestQueueItem(t *testing.T) {
 				t := time.Now()
 				So(item.releaseAt, ShouldHappenBetween, t, t.Add(DefaultTTR))
 				So(sq.updates, ShouldEqual, 3)
+
+				item.restart()
+				t = time.Now()
+				So(item.readyAt, ShouldHappenBetween, t, t.Add(DefaultDelay))
+				So(sq.updates, ShouldEqual, 4)
 			})
 
 			Convey("And then you can remove() it", func() {
@@ -135,6 +140,23 @@ func TestQueueItem(t *testing.T) {
 				item.SetPriority(new)
 				So(item.Priority(), ShouldEqual, new)
 			})
+		})
+
+		Convey("Touch() and restart() use TTR and Delay properties", func() {
+			d := 1 * time.Second
+			ip = &ItemParameters{
+				TTR:   d,
+				Delay: d,
+			}
+			item = ip.toItem()
+
+			item.Touch()
+			t := time.Now()
+			So(item.releaseAt, ShouldHappenBetween, t, t.Add(d))
+
+			item.restart()
+			t = time.Now()
+			So(item.readyAt, ShouldHappenBetween, t, t.Add(d))
 		})
 
 		Convey("You can set and get item properties simultaneously", func() {
@@ -163,6 +185,10 @@ func TestQueueItem(t *testing.T) {
 				item.ReserveGroup()
 			})
 
+			canDoInPairsConcurrently(item.restart, func() {
+				item.ReadyAt()
+			})
+
 			canDoInPairsConcurrently(item.Touch, func() {
 				item.ReleaseAt()
 			})
@@ -173,6 +199,7 @@ func TestQueueItem(t *testing.T) {
 			So(item.Data(), ShouldNotEqual, data)
 			So(item.Key(), ShouldEqual, key)
 			So(item.ReserveGroup(), ShouldEqual, "rg")
+			So(item.ReadyAt(), ShouldHappenAfter, time.Now())
 			So(item.ReleaseAt(), ShouldHappenAfter, time.Now())
 
 			canDoInPairsConcurrently(item.remove, func() {
@@ -194,6 +221,88 @@ func TestQueueItem(t *testing.T) {
 	})
 }
 
+func TestQueueItemTransitions(t *testing.T) {
+	Convey("Given an item", t, func() {
+		ip := &ItemParameters{
+			Key:  "key",
+			Data: "data",
+		}
+		item := ip.toItem()
+		So(item.State(), ShouldEqual, ItemStateReady)
+		So(item.readyAt, ShouldBeZeroValue)
+		So(item.releaseAt, ShouldBeZeroValue)
+
+		Convey("You can switch from ready to run", func() {
+			canSwitchTo(item, ItemStateRun)
+			So(item.releaseAt, ShouldNotBeZeroValue)
+			So(item.readyAt, ShouldBeZeroValue)
+
+			Convey("You can switch from run to delay", func() {
+				canSwitchTo(item, ItemStateDelay)
+				So(item.readyAt, ShouldNotBeZeroValue)
+
+				canSwitchToRDR(item)
+
+				Convey("You can't switch from delay to run or bury", func() {
+					cannotSwitchTo(item, ItemStateDelay, ItemStateRun, ItemStateBury)
+				})
+			})
+
+			Convey("You can switch from run to bury", func() {
+				canSwitchTo(item, ItemStateBury)
+
+				canSwitchToRDR(item)
+
+				Convey("You can't switch from bury to run or delay", func() {
+					cannotSwitchTo(item, ItemStateBury, ItemStateRun, ItemStateDelay)
+				})
+			})
+
+			Convey("You can switch from run to dependent", func() {
+				canSwitchTo(item, ItemStateDependent)
+			})
+
+			Convey("You can't switch from run to ready or removed", func() {
+				cannotSwitchTo(item, ItemStateRun, ItemStateReady, ItemStateRemoved)
+			})
+		})
+
+		Convey("You can switch from ready to dependent", func() {
+			canSwitchTo(item, ItemStateDependent)
+
+			Convey("You can switch from dependent to ready", func() {
+				canSwitchTo(item, ItemStateReady)
+			})
+
+			Convey("You can switch from dependent to removed", func() {
+				canSwitchTo(item, ItemStateRemoved)
+			})
+
+			Convey("You can't switch from dependent to run, delay or bury", func() {
+				cannotSwitchTo(item, ItemStateDependent, ItemStateRun, ItemStateDelay, ItemStateBury)
+			})
+		})
+
+		Convey("You can switch from ready to removed", func() {
+			canSwitchTo(item, ItemStateRemoved)
+
+			Convey("You can't switch from removed to anything else", func() {
+				cannotSwitchTo(item, ItemStateRemoved,
+					ItemStateReady,
+					ItemStateRun,
+					ItemStateDelay,
+					ItemStateBury,
+					ItemStateDependent,
+				)
+			})
+		})
+
+		Convey("You can't switch from ready to delay or bury", func() {
+			cannotSwitchTo(item, ItemStateReady, ItemStateDelay, ItemStateBury)
+		})
+	})
+}
+
 func canDoInPairsConcurrently(f1 func(), f2 func()) {
 	var wg sync.WaitGroup
 
@@ -211,4 +320,32 @@ func canDoInPairsConcurrently(f1 func(), f2 func()) {
 	}
 
 	wg.Wait()
+}
+
+func canSwitchTo(item *Item, to ItemState) {
+	err := item.SwitchState(to)
+	So(err, ShouldBeNil)
+	So(item.State(), ShouldEqual, to)
+}
+
+func cannotSwitchTo(item *Item, from ItemState, tos ...ItemState) {
+	for _, to := range tos {
+		err := item.SwitchState(to)
+		So(err, ShouldNotBeNil)
+		So(item.State(), ShouldEqual, from)
+	}
+}
+
+func canSwitchToRDR(item *Item) {
+	Convey("You can switch from delay to ready", func() {
+		canSwitchTo(item, ItemStateReady)
+	})
+
+	Convey("You can switch from delay to dependent", func() {
+		canSwitchTo(item, ItemStateDependent)
+	})
+
+	Convey("You can switch from delay to removed", func() {
+		canSwitchTo(item, ItemStateRemoved)
+	})
 }

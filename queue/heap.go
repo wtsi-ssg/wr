@@ -202,6 +202,7 @@ func heapPush(items []*Item, x interface{}) []*Item {
 	n := len(items)
 	item := x.(*Item)
 	item.setIndex(n)
+
 	return append(items, item)
 }
 
