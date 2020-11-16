@@ -180,7 +180,8 @@ func (q *Queue) Reserve(ctx context.Context, reserveGroup string) *Item {
 	return item
 }
 
-// pushToRunQueue Touch()es the item and pushes it to the runQueue, if non-nil.
+// pushToRunQueue Touch()es the item and pushes it to the runQueue, if non-nil
+// and allowed.
 func (q *Queue) pushToRunQueue(ctx context.Context, item *Item) {
 	if item == nil {
 		return

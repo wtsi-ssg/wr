@@ -300,6 +300,18 @@ func TestQueueItemTransitions(t *testing.T) {
 		Convey("You can't switch from ready to delay or bury", func() {
 			cannotSwitchTo(item, ItemStateReady, ItemStateDelay, ItemStateBury)
 		})
+
+		Convey("You can attempt to switch states and read state simultaneously", func() {
+			errCh := make(chan error, 10)
+			canDoInPairsConcurrently(func() {
+				errCh <- item.SwitchState(ItemStateRun)
+			}, func() {
+				item.State()
+			})
+
+			So(item.State(), ShouldEqual, ItemStateRun)
+			So(<-errCh, ShouldBeNil)
+		})
 	})
 }
 

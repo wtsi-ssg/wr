@@ -101,7 +101,7 @@ func checkStateTransition() func(item *Item, a, b ItemState) error {
 	}
 }
 
-// var stateTransitionChecker = checkStateTransition()
+var stateTransitionChecker = checkStateTransition()
 
 // ItemParameters describe an item you want to add to the queue.
 //
@@ -326,29 +326,36 @@ func (item *Item) removed() bool {
 
 // State returns the state of the item.
 func (item *Item) State() ItemState {
-	// item.mutex.RLock()
-	// defer item.mutex.RUnlock()
+	item.mutex.RLock()
+	defer item.mutex.RUnlock()
 	return item.state
 }
 
 // SwitchState switches the item's state from the current state to the given
 // state. Returns an error if this transition isn't possible.
 func (item *Item) SwitchState(to ItemState) error {
-	// item.mutex.Lock()
-	// defer item.mutex.Unlock()
-	from := item.state
-	if err := checkStateTransition()(item, from, to); err != nil {
+	item.mutex.Lock()
+
+	if err := stateTransitionChecker(item, item.state, to); err != nil {
+		item.mutex.Unlock()
+
 		return err
 	}
 
+	item.state = to
+
 	switch to {
 	case ItemStateRun:
+		item.mutex.Unlock()
 		item.Touch()
 	case ItemStateDelay:
+		item.mutex.Unlock()
 		item.restart()
+	case ItemStateReady, ItemStateBury, ItemStateDependent, ItemStateRemoved:
+		item.releaseAt = time.Time{}
+		item.readyAt = time.Time{}
+		item.mutex.Unlock()
 	}
-
-	item.state = to
 
 	return nil
 }
