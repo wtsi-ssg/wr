@@ -61,7 +61,6 @@ package queue
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/wtsi-ssg/wr/clog"
 )
@@ -93,27 +92,22 @@ type SubQueue interface {
 // Queue is an in-memory poll-free queue with various heap-based ordered
 // SubQueues for managing item progress.
 type Queue struct {
-	items             map[string]*Item
-	itemsMutex        sync.RWMutex
-	readyQueues       *readyQueues
-	runQueue          SubQueue
-	releaseTime       time.Time
-	releaseMutex      sync.RWMutex
-	updateReleaseTime chan bool
-	delayQueue        SubQueue
-	close             chan struct{}
+	items       map[string]*Item
+	itemsMutex  sync.RWMutex
+	readyQueues *readyQueues
+	runQueue    SubQueue
+	delayQueue  SubQueue
 }
 
 // New returns a new *Queue.
 func New() *Queue {
 	q := &Queue{
-		items:             make(map[string]*Item),
-		readyQueues:       newReadyQueues(),
-		runQueue:          newRunSubQueue(func(*Item) {}),
-		updateReleaseTime: make(chan bool),
-		delayQueue:        newRunSubQueue(func(*Item) {}),
-		close:             make(chan struct{}),
+		items:       make(map[string]*Item),
+		readyQueues: newReadyQueues(),
 	}
+
+	q.runQueue = newRunSubQueue(q.ttrHandler)
+	q.delayQueue = newRunSubQueue(func(*Item) {})
 
 	return q
 }
@@ -232,4 +226,17 @@ func (q *Queue) ChangeReserveGroup(key string, newGroup string) {
 			q.readyQueues.changeItemReserveGroup(item, newGroup)
 		}
 	})
+}
+
+// ttrHandler gets called with items that were in the run SubQueue but expired.
+func (q *Queue) ttrHandler(item *Item) {
+	q.runQueue.remove(item)
+
+	if err := item.SwitchState(ItemStateDelay); err != nil {
+		clog.Error(context.Background(), "queue failure", "err", err)
+
+		return
+	}
+
+	q.delayQueue.push(item)
 }
