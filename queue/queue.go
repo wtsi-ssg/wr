@@ -61,6 +61,7 @@ package queue
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/wtsi-ssg/wr/clog"
 )
@@ -74,6 +75,10 @@ type SubQueue interface {
 	// pop removes and returns an item in the queue based on a certain order.
 	pop(context.Context) *Item
 
+	// peek returns the next item that pop() would return, but without actually
+	// removing it from the SubQueue
+	peek() *Item
+
 	// remove removes a given item from the queue.
 	remove(*Item)
 
@@ -83,24 +88,40 @@ type SubQueue interface {
 
 	// len returns the number of items in the queue.
 	len() int
+
+	// newNextItem should be sent an item when it newly becomes the next item
+	// that would be pop()ed.
+	newNextItem(*Item)
 }
 
 // Queue is an in-memory poll-free queue with various heap-based ordered
 // SubQueues for managing item progress.
 type Queue struct {
-	items       map[string]*Item
-	itemsMutex  sync.RWMutex
-	readyQueues *readyQueues
-	runQueue    SubQueue
+	items             map[string]*Item
+	itemsMutex        sync.RWMutex
+	readyQueues       *readyQueues
+	runQueue          SubQueue
+	releaseTime       time.Time
+	releaseMutex      sync.RWMutex
+	updateReleaseTime chan bool
+	delayQueue        SubQueue
+	close             chan struct{}
 }
 
 // New returns a new *Queue.
 func New() *Queue {
-	return &Queue{
-		items:       make(map[string]*Item),
-		readyQueues: newReadyQueues(),
-		runQueue:    newRunSubQueue(),
+	q := &Queue{
+		items:             make(map[string]*Item),
+		readyQueues:       newReadyQueues(),
+		runQueue:          newRunSubQueue(func(*Item) {}),
+		updateReleaseTime: make(chan bool),
+		delayQueue:        newRunSubQueue(func(*Item) {}),
+		close:             make(chan struct{}),
 	}
+
+	go q.processTTRItems()
+
+	return q
 }
 
 // Add creates items with the given parameters and adds them to the queue.
@@ -195,6 +216,7 @@ func (q *Queue) pushToRunQueue(ctx context.Context, item *Item) {
 	}
 
 	q.runQueue.push(item)
+	q.updateRelease(item)
 }
 
 // Remove removes an item from the queue.
@@ -217,4 +239,71 @@ func (q *Queue) ChangeReserveGroup(key string, newGroup string) {
 			q.readyQueues.changeItemReserveGroup(item, newGroup)
 		}
 	})
+}
+
+// processTTRItems starts waiting for run items to be released and switches them
+// to the delay SubQueue.
+func (q *Queue) processTTRItems() {
+	// *** this stuff should happen in run SubQueue code. Creating a run
+	// SubQueue should return an item channel that we read from here.
+	for {
+		q.releaseMutex.Lock()
+
+		var timeUntilNextRelease time.Duration
+		if q.runQueue.len() > 0 {
+			timeUntilNextRelease = time.Until(q.runQueue.peek().ReleaseAt())
+		} else {
+			timeUntilNextRelease = 1 * time.Hour
+		}
+
+		q.releaseTime = time.Now().Add(timeUntilNextRelease)
+		nextRelease := time.After(time.Until(q.releaseTime))
+		q.releaseMutex.Unlock()
+
+		select {
+		case <-nextRelease:
+			length := q.runQueue.len()
+			for i := 0; i < length; i++ {
+				item := q.runQueue.peek()
+
+				if !item.Releasable() {
+					break
+				}
+
+				q.runQueue.remove(item)
+
+				if err := item.SwitchState(ItemStateDelay); err != nil {
+					clog.Error(context.Background(), "queue failure", "err", err)
+
+					return
+				}
+
+				q.delayQueue.push(item)
+			}
+		case <-q.updateReleaseTime:
+			continue
+		case <-q.close:
+			return
+		}
+	}
+}
+
+// updateRelease checks if this item's ReleaseAt() is before the next time we
+// are going to check for a released item, and if so triggers processTTRItems()
+// to check at the earlier time.
+func (q *Queue) updateRelease(item *Item) {
+	q.releaseMutex.RLock()
+	if q.releaseTime.After(item.ReleaseAt()) {
+		q.releaseMutex.RUnlock()
+		q.updateReleaseTime <- true
+	} else {
+		q.releaseMutex.RUnlock()
+	}
+}
+
+// Close should be called when you're done with a Queue to stop TTR and Delay
+// processing. Don't use the queue after calling this, since TTR and Delay will
+// no longer work, but you won't get any errors.
+func (q *Queue) Close() {
+	close(q.close)
 }

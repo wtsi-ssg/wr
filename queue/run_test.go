@@ -39,7 +39,7 @@ func TestQueueRunPushPop(t *testing.T) {
 	ctx := context.Background()
 
 	Convey("Given a run SubQueue", t, func() {
-		sq := newRunSubQueue()
+		sq := newRunSubQueue(func(*Item) {})
 
 		Convey("You can push() increasing releaseAt items in to it", func() {
 			pushItemsToSubQueue(sq, ips, func(item *Item, i int) {
@@ -71,7 +71,7 @@ func TestQueueRunUpdate(t *testing.T) {
 	ctx := context.Background()
 
 	Convey("Given a run SubQueue with some items push()ed to it", t, func() {
-		sq := newRunSubQueue()
+		sq := newRunSubQueue(func(*Item) {})
 		items := make([]*Item, num)
 		pushItemsToSubQueue(sq, ips, func(item *Item, i int) {
 			item.Touch()

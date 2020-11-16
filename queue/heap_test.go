@@ -39,9 +39,9 @@ type mockOrder struct {
 	items []*Item
 }
 
-// newMockSubQueue creates a *heapQueue that is ordered by creation.
+// newMockSubQueue creates a SubQueue that is ordered by creation.
 func newMockSubQueue() SubQueue {
-	return newHeapQueue(&mockOrder{})
+	return newHeapQueue(&mockOrder{}, func(*Item) {})
 }
 
 // Len is to implement heap.Interface.
@@ -74,6 +74,9 @@ func (mo *mockOrder) Pop() interface{} {
 
 	return item
 }
+
+// Peek is to implement heapWithPeek interface.
+func (mo *mockOrder) Peek() interface{} { return mo.items[0] }
 
 func TestQueueHeapPushPop(t *testing.T) {
 	num := 6

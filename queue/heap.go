@@ -33,19 +33,32 @@ import (
 	"github.com/wtsi-ssg/wr/clog"
 )
 
+type heapWithPeek interface {
+	heap.Interface
+
+	// Peek returns the next item that would be Pop()ed.
+	Peek() interface{}
+}
+
+// newNextItemCB is a function that gets called when the given Item newly
+// becomes the next that would be Pop()ed.
+type newNextItemCB func(*Item)
+
 // heapQueue holds Items in a heap. It implements the SubQueue interface.
 type heapQueue struct {
 	pushChs            map[string]chan *Item
 	waitingPops        []string
-	heapImplementation heap.Interface
+	heapImplementation heapWithPeek
+	nniCB              newNextItemCB
 	mutex              sync.RWMutex
 }
 
 // newHeapQueue returns an initialised heap-based queue.
-func newHeapQueue(heapImplementation heap.Interface) *heapQueue {
+func newHeapQueue(heapImplementation heapWithPeek, nniCB newNextItemCB) *heapQueue {
 	hq := &heapQueue{
 		pushChs:            make(map[string]chan *Item),
 		heapImplementation: heapImplementation,
+		nniCB:              nniCB,
 	}
 
 	heap.Init(hq.heapImplementation)
@@ -189,6 +202,26 @@ func (hq *heapQueue) len() int {
 	defer hq.mutex.RUnlock()
 
 	return hq.heapImplementation.Len()
+}
+
+// peek returns the next item in the queue without removing it.
+//
+// If there are currently no items in the queue, will return nil.
+func (hq *heapQueue) peek() *Item {
+	hq.mutex.Lock()
+	defer hq.mutex.Unlock()
+
+	if hq.heapImplementation.Len() == 0 {
+		return nil
+	}
+
+	return hq.heapImplementation.Peek().(*Item)
+}
+
+// newNextItem should be called by an Item when it becomes the next item
+// eligible to be pop()ed.
+func (hq *heapQueue) newNextItem(item *Item) {
+	hq.nniCB(item)
 }
 
 // heapSwap can be used to implement heap.Interface.Swap.

@@ -25,14 +25,14 @@
 
 package queue
 
+import (
+	"sync"
+	"time"
+)
+
 // releaseOrder implements heap.Interface, keeping items in releaseAt order.
 type releaseOrder struct {
 	items []*Item
-}
-
-// newRunSubQueue creates a *heapQueue that is ordered by releaseAt.
-func newRunSubQueue() SubQueue {
-	return newHeapQueue(&releaseOrder{})
 }
 
 // Len is to implement heap.Interface.
@@ -59,4 +59,84 @@ func (ro *releaseOrder) Pop() interface{} {
 	ro.items, item = heapPop(ro.items)
 
 	return item
+}
+
+// Peek is to implement heapWithPeek interface.
+func (ro *releaseOrder) Peek() interface{} { return ro.items[0] }
+
+// expirationCB is something that will be called when an item expires.
+type expirationCB func(*Item)
+
+// expireSubQueue is a heapQueue that deals with items that are older than
+// one of their time.Time properties by passing them to a callback.
+type expireSubQueue struct {
+	*heapQueue
+	expireCB               expirationCB
+	expireTime             time.Time
+	expireMutex            sync.RWMutex
+	updateNextItemToExpire chan *Item
+	closeCh                chan struct{}
+}
+
+// newRunSubQueue creates a SubQueue that is ordered by releaseAt and passes
+// expired releaseAt items to the given callback.
+func newRunSubQueue(expireCB expirationCB) SubQueue {
+	esq := &expireSubQueue{
+		expireCB:               expireCB,
+		updateNextItemToExpire: make(chan *Item),
+		closeCh:                make(chan struct{}),
+	}
+
+	hq := newHeapQueue(&releaseOrder{}, esq.newNextItemCB)
+	esq.heapQueue = hq
+
+	go esq.processExpiringItems()
+
+	return esq
+}
+
+// newNextItemCB is our newNextItemCB, called when an Item becomes the next that
+// would be pop()ed.
+func (esq *expireSubQueue) newNextItemCB(item *Item) {
+	esq.expireMutex.RLock()
+	if esq.expireTime.After(item.ReleaseAt()) {
+		esq.expireMutex.RUnlock()
+		esq.updateNextItemToExpire <- item
+	} else {
+		esq.expireMutex.RUnlock()
+	}
+}
+
+// processExpiringItems starts waiting for items to be Releasable() and calls
+// our expireCB when they are.
+func (esq *expireSubQueue) processExpiringItems() {
+	var item *Item
+
+	for {
+		esq.expireMutex.Lock()
+
+		var timeUntilNextExpire time.Duration
+		if item != nil {
+			timeUntilNextExpire = time.Until(item.ReleaseAt())
+		} else {
+			timeUntilNextExpire = 1 * time.Hour
+		}
+
+		esq.expireTime = time.Now().Add(timeUntilNextExpire)
+		nextExpire := time.After(time.Until(esq.expireTime))
+		esq.expireMutex.Unlock()
+
+		select {
+		case <-nextExpire:
+			if item != nil && item.Releasable() {
+				esq.expireCB(item)
+			}
+
+			item = nil
+		case item = <-esq.updateNextItemToExpire:
+			continue
+		case <-esq.closeCh:
+			return
+		}
+	}
 }

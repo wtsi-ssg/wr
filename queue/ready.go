@@ -36,9 +36,9 @@ type prioritySizeAgeOrder struct {
 	items []*Item
 }
 
-// newReadySubQueue creates a *heapQueue that is ordered by priority||size||age.
+// newReadySubQueue creates a SubQueue that is ordered by priority||size||age.
 func newReadySubQueue() SubQueue {
-	return newHeapQueue(&prioritySizeAgeOrder{})
+	return newHeapQueue(&prioritySizeAgeOrder{}, func(*Item) {})
 }
 
 // Len is to implement heap.Interface.
@@ -80,6 +80,9 @@ func (po *prioritySizeAgeOrder) Pop() interface{} {
 
 	return item
 }
+
+// Peek is to implement heapWithPeek interface.
+func (po *prioritySizeAgeOrder) Peek() interface{} { return po.items[0] }
 
 // readyQueues is a slice of ready SubQueue that will newly create or reuse a
 // SubQueue for each item.reserveGroup push()ed to it.

@@ -35,7 +35,8 @@ import (
 )
 
 type mockSubQueue struct {
-	updates int
+	updates  int
+	newNexts int
 	sync.Mutex
 }
 
@@ -49,9 +50,17 @@ func (sq *mockSubQueue) push(*Item) {}
 
 func (sq *mockSubQueue) pop(context.Context) *Item { return nil }
 
+func (sq *mockSubQueue) peek() *Item { return nil }
+
 func (sq *mockSubQueue) remove(*Item) {}
 
 func (sq *mockSubQueue) len() int { return 0 }
+
+func (sq *mockSubQueue) newNextItem(*Item) {
+	sq.Lock()
+	defer sq.Unlock()
+	sq.newNexts++
+}
 
 func TestQueueItem(t *testing.T) {
 	Convey("You can make items from ItemParameters", t, func() {
@@ -88,7 +97,7 @@ func TestQueueItem(t *testing.T) {
 		So(item.ReserveGroup(), ShouldEqual, "rg")
 		So(item.Priority(), ShouldEqual, p)
 		So(item.Size(), ShouldEqual, s)
-		So(item.index(), ShouldEqual, 0)
+		So(item.index(), ShouldEqual, indexOfRemovedItem)
 
 		remove := func() {
 			item.remove()
@@ -102,6 +111,11 @@ func TestQueueItem(t *testing.T) {
 			item.setSubqueue(sq)
 			So(item.subQueue, ShouldEqual, sq)
 			So(item.belongsTo(sq), ShouldBeTrue)
+
+			So(sq.newNexts, ShouldEqual, 0)
+			item.setIndex(0)
+			So(item.subQueueIndex, ShouldEqual, 0)
+			So(sq.newNexts, ShouldEqual, 1)
 
 			Convey("When you set priority or size or Touch() or Reset(), the subQueue is updated", func() {
 				new := uint8(10)

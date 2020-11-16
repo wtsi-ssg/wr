@@ -120,15 +120,16 @@ type ItemParameters struct {
 // toItem creates an item based on our parameters.
 func (ip *ItemParameters) toItem() *Item {
 	return &Item{
-		key:          ip.Key,
-		reserveGroup: ip.ReserveGroup,
-		data:         ip.Data,
-		created:      time.Now(),
-		priority:     ip.Priority,
-		size:         ip.Size,
-		delay:        ip.Delay,
-		ttr:          ip.TTR,
-		state:        ItemStateReady,
+		key:           ip.Key,
+		reserveGroup:  ip.ReserveGroup,
+		data:          ip.Data,
+		created:       time.Now(),
+		priority:      ip.Priority,
+		size:          ip.Size,
+		delay:         ip.Delay,
+		ttr:           ip.TTR,
+		state:         ItemStateReady,
+		subQueueIndex: indexOfRemovedItem,
 	}
 }
 
@@ -266,6 +267,19 @@ func (item *Item) ReleaseAt() time.Time {
 	return item.releaseAt
 }
 
+// Releasable tells you if the TTR on this item has run out. Returns false if
+// ReleaseAt() is the zero time.
+func (item *Item) Releasable() bool {
+	item.mutex.RLock()
+	defer item.mutex.RUnlock()
+
+	if item.releaseAt.IsZero() {
+		return false
+	}
+
+	return item.releaseAt.Before(time.Now())
+}
+
 // restart updates the readyAt for the item to now+delay, and updates the
 // SubQueue it belongs to, for when the item is put in to the delay SubQueue.
 func (item *Item) restart() {
@@ -288,7 +302,7 @@ func (item *Item) setSubqueue(sq SubQueue) {
 	item.subQueue = sq
 }
 
-// belongsTo tells you if the item is set to the given subQueue.
+// belongsTo tells you if the item is set to the given SubQueue.
 func (item *Item) belongsTo(sq SubQueue) bool {
 	item.mutex.RLock()
 	defer item.mutex.RUnlock()
@@ -296,7 +310,7 @@ func (item *Item) belongsTo(sq SubQueue) bool {
 	return item.subQueue == sq
 }
 
-// index returns the index of this item in the subQueue it belongs to.
+// index returns the index of this item in the SubQueue it belongs to.
 func (item *Item) index() int {
 	item.mutex.RLock()
 	defer item.mutex.RUnlock()
@@ -304,11 +318,16 @@ func (item *Item) index() int {
 	return item.subQueueIndex
 }
 
-// setIndex sets a new subQueueIndex for the item.
+// setIndex sets a new subQueueIndex for the item. If the index is 0, we tell
+// the SubQueue.
 func (item *Item) setIndex(i int) {
 	item.mutex.Lock()
 	defer item.mutex.Unlock()
 	item.subQueueIndex = i
+
+	if i == 0 {
+		item.subQueue.newNextItem(item)
+	}
 }
 
 // remove sets the subQueueIndex of the item to indexOfRemovedItem to indicate
@@ -328,6 +347,7 @@ func (item *Item) removed() bool {
 func (item *Item) State() ItemState {
 	item.mutex.RLock()
 	defer item.mutex.RUnlock()
+
 	return item.state
 }
 
