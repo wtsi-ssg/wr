@@ -75,9 +75,6 @@ func (mo *mockOrder) Pop() interface{} {
 	return item
 }
 
-// Peek is to implement heapWithPeek interface.
-func (mo *mockOrder) Peek() interface{} { return mo.items[0] }
-
 func TestQueueHeapPushPop(t *testing.T) {
 	num := 6
 	ips := newSetOfItemParameters(num)

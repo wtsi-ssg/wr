@@ -322,8 +322,8 @@ func (item *Item) index() int {
 // the SubQueue.
 func (item *Item) setIndex(i int) {
 	item.mutex.Lock()
-	defer item.mutex.Unlock()
 	item.subQueueIndex = i
+	item.mutex.Unlock()
 
 	if i == 0 {
 		item.subQueue.newNextItem(item)

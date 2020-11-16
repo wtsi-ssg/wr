@@ -81,9 +81,6 @@ func (po *prioritySizeAgeOrder) Pop() interface{} {
 	return item
 }
 
-// Peek is to implement heapWithPeek interface.
-func (po *prioritySizeAgeOrder) Peek() interface{} { return po.items[0] }
-
 // readyQueues is a slice of ready SubQueue that will newly create or reuse a
 // SubQueue for each item.reserveGroup push()ed to it.
 type readyQueues struct {

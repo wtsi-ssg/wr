@@ -61,9 +61,6 @@ func (ro *releaseOrder) Pop() interface{} {
 	return item
 }
 
-// Peek is to implement heapWithPeek interface.
-func (ro *releaseOrder) Peek() interface{} { return ro.items[0] }
-
 // expirationCB is something that will be called when an item expires.
 type expirationCB func(*Item)
 

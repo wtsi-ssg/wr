@@ -50,8 +50,6 @@ func (sq *mockSubQueue) push(*Item) {}
 
 func (sq *mockSubQueue) pop(context.Context) *Item { return nil }
 
-func (sq *mockSubQueue) peek() *Item { return nil }
-
 func (sq *mockSubQueue) remove(*Item) {}
 
 func (sq *mockSubQueue) len() int { return 0 }
