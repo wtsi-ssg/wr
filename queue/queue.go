@@ -83,10 +83,6 @@ type SubQueue interface {
 
 	// len returns the number of items in the queue.
 	len() int
-
-	// newNextItem should be sent an item when it newly becomes the next item
-	// that would be pop()ed.
-	newNextItem(*Item)
 }
 
 // Queue is an in-memory poll-free queue with various heap-based ordered

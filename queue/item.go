@@ -344,10 +344,6 @@ func (item *Item) setIndex(i int) {
 	item.mutex.Lock()
 	item.subQueueIndex = i
 	item.mutex.Unlock()
-
-	if i == 0 {
-		item.subQueue.newNextItem(item)
-	}
 }
 
 // remove sets the subQueueIndex of the item to indexOfRemovedItem to indicate

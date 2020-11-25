@@ -58,6 +58,11 @@ func (ro *releaseOrder) Pop() interface{} {
 	return item
 }
 
+// Peek is to implement heapWithPeek.
+func (ro *releaseOrder) Peek(n int) *Item {
+	return heapPeek(ro.items, n)
+}
+
 // newRunSubQueue creates a SubQueue that is ordered by releaseAt and passes
 // expired releaseAt items to the given callback.
 func newRunSubQueue(expireCB expirationCB) SubQueue {

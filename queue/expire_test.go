@@ -45,10 +45,10 @@ func TestQueueExpire(t *testing.T) {
 	// ctx := context.Background()
 
 	Convey("Given a ready-based expire SubQueue with some items push()ed to it", t, func() {
-		items := make([]*Item, num)
+		items := make([]*Item, num*2)
 		expiredItems := 0
 		var eiMutex sync.RWMutex
-		itemCh := make(chan *Item, num)
+		itemCh := make(chan *Item, num*2)
 		ecb := func(item *Item) {
 			eiMutex.Lock()
 			expiredItems++
@@ -62,14 +62,13 @@ func TestQueueExpire(t *testing.T) {
 			items[i] = item
 		})
 		So(sq.len(), ShouldEqual, num)
+		So(expiredItems, ShouldEqual, 0)
+
+		firstExpire := items[0].ReadyAt()
+		beforeFirstExpire := firstExpire.Add(-1 * time.Millisecond)
+		afterFirstExpire := firstExpire.Add(50 * time.Millisecond)
 
 		Convey("After delay, the items get sent to our callback", func() {
-			So(expiredItems, ShouldEqual, 0)
-
-			firstExpire := items[0].ReadyAt()
-			beforeFirstExpire := firstExpire.Add(-1 * time.Millisecond)
-			afterFirstExpire := firstExpire.Add(50 * time.Millisecond)
-
 			<-time.After(time.Until(beforeFirstExpire))
 			eiMutex.RLock()
 			So(expiredItems, ShouldEqual, 0)
@@ -79,16 +78,40 @@ func TestQueueExpire(t *testing.T) {
 			<-time.After(time.Until(afterFirstExpire))
 			fmt.Printf("\ntesting after first expire at %s\n", time.Now())
 			eiMutex.RLock()
-			So(expiredItems, ShouldEqual, 1)
+			So(expiredItems, ShouldBeBetweenOrEqual, 1, num)
 			eiMutex.RUnlock()
 
 			for i := 0; i < num; i++ {
-				ips[i].Delay = delay
 				item := <-itemCh
 				So(item.Key(), ShouldEqual, items[i].Key())
 			}
 
 			So(expiredItems, ShouldEqual, num)
+		})
+
+		Convey("You can push new items while others expire", func() {
+			ipsNew := newSetOfItemParameters(num)
+
+			for i := 0; i < num; i++ {
+				ipsNew[i].Key = ips[i].Key + ".new"
+				ipsNew[i].Delay = delay
+			}
+
+			item := <-itemCh
+			So(item, ShouldNotBeNil)
+
+			pushItemsToSubQueue(sq, ipsNew, func(item *Item, i int) {
+				item.restart()
+				items[i+num] = item
+			})
+			So(sq.len(), ShouldEqual, num*2)
+
+			for i := 0; i < num*2-1; i++ {
+				item := <-itemCh
+				So(item.Key(), ShouldEqual, items[i+1].Key())
+			}
+
+			So(expiredItems, ShouldEqual, num*2)
 		})
 	})
 }

@@ -39,10 +39,19 @@ type expirationCB func(*Item)
 // expired.
 type itemTimeCB func(*Item) time.Time
 
+type heapWithPeek interface {
+	heap.Interface
+
+	// Peek returns the nth item them would be Pop()ed, or nil if there are not
+	// that many items.
+	Peek(n int) *Item
+}
+
 // expireSubQueue is a heapQueue that deals with items that are older than
 // one of their time.Time properties by passing them to a callback.
 type expireSubQueue struct {
 	*heapQueue
+	peeker                 heapWithPeek
 	expireCB               expirationCB
 	timeCB                 itemTimeCB
 	expireTime             time.Time
@@ -51,8 +60,9 @@ type expireSubQueue struct {
 	closeCh                chan struct{}
 }
 
-func newExpireSubQueue(expireCB expirationCB, timeCB itemTimeCB, heapImplementation heap.Interface) SubQueue {
+func newExpireSubQueue(expireCB expirationCB, timeCB itemTimeCB, peeker heapWithPeek) SubQueue {
 	esq := &expireSubQueue{
+		peeker:                 peeker,
 		expireCB:               expireCB,
 		timeCB:                 timeCB,
 		expireTime:             time.Now().Add(unsetItemExpiry),
@@ -60,7 +70,7 @@ func newExpireSubQueue(expireCB expirationCB, timeCB itemTimeCB, heapImplementat
 		closeCh:                make(chan struct{}),
 	}
 
-	hq := newHeapQueue(heapImplementation, esq.newNextItemCB)
+	hq := newHeapQueue(peeker)
 	esq.heapQueue = hq
 
 	go esq.processExpiringItems()
@@ -68,19 +78,44 @@ func newExpireSubQueue(expireCB expirationCB, timeCB itemTimeCB, heapImplementat
 	return esq
 }
 
-// newNextItemCB is our newNextItemCB, called when an Item becomes the next that
-// would be pop()ed.
-func (esq *expireSubQueue) newNextItemCB(item *Item) {
-	esq.expireMutex.RLock()
-	fmt.Printf("checking %s vs %s\n", esq.expireTime, esq.timeCB(item))
-	if esq.expireTime.After(esq.timeCB(item)) {
-		fmt.Printf("expired!\n")
-		esq.expireMutex.RUnlock()
+// push is like heapQueue's push(), but we also consider the item's expiry.
+func (esq *expireSubQueue) push(item *Item) {
+	esq.heapQueue.push(item)
+	esq.checkItemExpiry(item)
+}
+
+// checkItemExpiry checks if the given item expires sooner than we are currently
+// waiting for, and triggers an update of the wait time if so.
+func (esq *expireSubQueue) checkItemExpiry(item *Item) {
+	esq.expireMutex.Lock()
+	t := esq.timeCB(item)
+	if item != nil {
+		fmt.Printf("checkItemExpiry for %s\n", item.key)
+	}
+	if esq.expireTime.After(t) {
+		if item != nil {
+			fmt.Printf("checkItemExpiry item %s expires sooner\n", item.key)
+		}
+		esq.expireTime = t
+		esq.expireMutex.Unlock()
 		esq.updateNextItemToExpire <- item
 	} else {
-		esq.expireMutex.RUnlock()
+		esq.expireMutex.Unlock()
 	}
 }
+
+func (esq *expireSubQueue) peek(n int) *Item {
+	esq.heapQueue.mutex.RLock()
+	defer esq.heapQueue.mutex.RUnlock()
+
+	return esq.peeker.Peek(n)
+}
+
+// update is like heapQueue's update(), but we also consider the item's expiry.
+// func (esq *expireSubQueue) update(item *Item) {
+// 	esq.heapQueue.update(item)
+// 	esq.checkItemExpiry(item)
+// }
 
 // processExpiringItems starts waiting for items to expire and calls our
 // expireCB when they are.
@@ -88,18 +123,26 @@ func (esq *expireSubQueue) processExpiringItems() {
 	fmt.Printf("processing\n")
 	item := <-esq.updateNextItemToExpire
 
+	peek := 0
 	for {
 		itemExpires := esq.itemExpires(item)
 
 		select {
 		case <-itemExpires.C:
-			fmt.Printf("sending %+v\n", item)
+			if item != nil {
+				fmt.Printf("sending %s\n", item.key)
+			} else {
+				fmt.Printf("sending nil\n")
+			}
+
 			itemExpires.Stop()
 			esq.sendItemToExpireCB(item)
-			item = nil
+			peek++
+			item = esq.peek(peek)
 		case item = <-esq.updateNextItemToExpire:
 			fmt.Printf("read\n")
 			itemExpires.Stop()
+			peek = 0
 		case <-esq.closeCh:
 			itemExpires.Stop()
 
@@ -108,14 +151,16 @@ func (esq *expireSubQueue) processExpiringItems() {
 	}
 }
 
-// itemExpires returns a channel that is sent on when the given item is
-// supposed to expire. If the item is nil, effectively never sends.
+// itemExpires returns a timer for when the given item is supposed to expire. If
+// the item is nil, effectively never sends.
 func (esq *expireSubQueue) itemExpires(item *Item) *time.Timer {
 	esq.expireMutex.Lock()
 	defer esq.expireMutex.Unlock()
 
 	esq.expireTime = esq.timeCB(item)
-	fmt.Printf("making timer that expires at %s\n", esq.expireTime)
+	if item != nil {
+		fmt.Printf("expireTime set based on %s\n", item.key)
+	}
 
 	return time.NewTimer(time.Until(esq.expireTime))
 }
@@ -125,4 +170,12 @@ func (esq *expireSubQueue) sendItemToExpireCB(item *Item) {
 	if item != nil {
 		esq.expireCB(item)
 	}
+}
+
+func heapPeek(items []*Item, n int) *Item {
+	if len(items) <= n {
+		return nil
+	}
+
+	return items[n]
 }

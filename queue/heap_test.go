@@ -41,7 +41,7 @@ type mockOrder struct {
 
 // newMockSubQueue creates a SubQueue that is ordered by creation.
 func newMockSubQueue() SubQueue {
-	return newHeapQueue(&mockOrder{}, func(*Item) {})
+	return newHeapQueue(&mockOrder{})
 }
 
 // Len is to implement heap.Interface.

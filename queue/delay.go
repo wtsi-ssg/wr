@@ -58,6 +58,11 @@ func (ro *readyOrder) Pop() interface{} {
 	return item
 }
 
+// Peek is to implement heapWithPeek.
+func (ro *readyOrder) Peek(n int) *Item {
+	return heapPeek(ro.items, n)
+}
+
 // newDelaySubQueue creates a SubQueue that is ordered by readyAt and passes
 // expired readyAt items to the given callback.
 func newDelaySubQueue(expireCB expirationCB) SubQueue {
