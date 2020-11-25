@@ -26,10 +26,10 @@
 package limiter
 
 import (
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
-	"sync"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
