@@ -107,7 +107,7 @@ func New() *Queue {
 	}
 
 	q.runQueue = newRunSubQueue(q.ttrHandler)
-	q.delayQueue = newRunSubQueue(func(*Item) {})
+	q.delayQueue = newDelaySubQueue(func(*Item) {})
 
 	return q
 }

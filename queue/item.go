@@ -35,6 +35,9 @@ import (
 // 0 TTR.
 const DefaultTTR = 5 * time.Second
 
+// unsetItemExpiry is how long from now an item will expire.
+const unsetItemExpiry = 24 * 365 * time.Hour
+
 // DefaultDelay is the time spent in the delay SubQueue for items that were
 // specified with a 0 Delay.
 const DefaultDelay = 5 * time.Second
@@ -113,7 +116,7 @@ type ItemParameters struct {
 	Data         interface{}
 	Priority     uint8 // highest priority is 255
 	Size         uint8
-	Delay        time.Duration // if 0, defaults to DebfaultDelay
+	Delay        time.Duration // if 0, defaults to DefaultDelay
 	TTR          time.Duration // if 0, defaults to DefaultTTR
 }
 
@@ -258,17 +261,25 @@ func (item *Item) setAndUpdateTime(d, defaultD time.Duration, property *time.Tim
 	sq.update(item)
 }
 
-// ReleaseAt returns the time that this item's TTR will run out. It will be the
-// zero time if this item has not yet been Touch()ed.
+// ReleaseAt returns the time that this item's TTR will run out. It will be a
+// year from now if this item has not yet been Touch()ed or this is a nil item.
 func (item *Item) ReleaseAt() time.Time {
+	if item == nil {
+		return time.Now().Add(unsetItemExpiry)
+	}
+
 	item.mutex.RLock()
 	defer item.mutex.RUnlock()
+
+	if item.releaseAt.IsZero() {
+		return time.Now().Add(unsetItemExpiry)
+	}
 
 	return item.releaseAt
 }
 
 // Releasable tells you if the TTR on this item has run out. Returns false if
-// ReleaseAt() is the zero time.
+// ReleaseAt() is the zero time. *** not needed any more
 func (item *Item) Releasable() bool {
 	item.mutex.RLock()
 	defer item.mutex.RUnlock()
@@ -287,10 +298,19 @@ func (item *Item) restart() {
 }
 
 // ReadyAt returns the time that this item can go to the ready SubQueue. It will
-// be the zero time if this item is not in the delay SubQueue.
+// be a year from now if this item has not yet been reset() or this is a nil
+// item.
 func (item *Item) ReadyAt() time.Time {
+	if item == nil {
+		return time.Now().Add(unsetItemExpiry)
+	}
+
 	item.mutex.RLock()
 	defer item.mutex.RUnlock()
+
+	if item.readyAt.IsZero() {
+		return time.Now().Add(unsetItemExpiry)
+	}
 
 	return item.readyAt
 }

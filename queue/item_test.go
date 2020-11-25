@@ -80,6 +80,9 @@ func TestQueueItem(t *testing.T) {
 		So(item.Size(), ShouldEqual, 0)
 		So(item.ttr, ShouldEqual, 0)
 		So(item.releaseAt, ShouldBeZeroValue)
+		So(item.readyAt, ShouldBeZeroValue)
+		So(item.ReleaseAt(), ShouldHappenAfter, before.Add(unsetItemExpiry))
+		So(item.ReadyAt(), ShouldHappenAfter, before.Add(unsetItemExpiry))
 
 		p, s := uint8(5), uint8(3)
 		ip = &ItemParameters{
@@ -230,6 +233,15 @@ func TestQueueItem(t *testing.T) {
 
 			So(item.removed(), ShouldBeFalse)
 		})
+	})
+
+	Convey("ReleaseAt() and ReadyAt() work on nil items", t, func() {
+		before := time.Now()
+
+		var item *Item
+
+		So(item.ReleaseAt(), ShouldHappenAfter, before.Add(unsetItemExpiry))
+		So(item.ReadyAt(), ShouldHappenAfter, before.Add(unsetItemExpiry))
 	})
 }
 
