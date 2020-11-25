@@ -29,8 +29,8 @@ package limiter
 // package, the Limiter.
 
 import (
+	"sync"
 	"time"
-	"sync" 
 )
 
 // SetLimitCallback is provided to New(). Your function should take the name of
