@@ -56,6 +56,11 @@ issues:
     - path: clog.go
       linters:
         - gochecknoinits
+    - path: limiter_test.go
+      linters:
+        - nestif
+        - gocognit
+        - gocyclo
   max-issues-per-linter: 0
   max-same-issues: 0
   new-from-rev: master
