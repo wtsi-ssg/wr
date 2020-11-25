@@ -11,5 +11,4 @@ require (
 	github.com/sb10/l15h v0.0.0-20170510122137-64c488bf8e22
 	github.com/smartystreets/goconvey v1.6.4
 	golang.org/x/sys v0.0.0-20200918174421-af09f7315aff // indirect
-	github.com/sasha-s/go-deadlock v0.2.1-0.20190427202633-1595213edefa
 )
