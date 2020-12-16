@@ -25,11 +25,15 @@
 
 package queue
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // readyOrder implements heap.Interface, keeping items in readyAt order.
 type readyOrder struct {
-	items []*Item
+	items            []*Item
+	newExpiringItems chan *Item
 }
 
 // Len is to implement heap.Interface.
@@ -42,31 +46,33 @@ func (ro *readyOrder) Less(i, j int) bool {
 
 // Swap is to implement heap.Interface.
 func (ro *readyOrder) Swap(i, j int) {
-	heapSwap(ro.items, i, j)
+	fmt.Printf("ro.Swap called\n")
+	heapExpireSwap(ro.newExpiringItems, ro.items, i, j)
+	fmt.Printf("ro.Swap returning\n")
 }
 
 // Push is to implement heap.Interface.
 func (ro *readyOrder) Push(x interface{}) {
-	ro.items = heapPush(ro.items, x)
+	ro.items = heapExpirePush(ro.newExpiringItems, ro.items, x)
 }
 
 // Pop is to implement heap.Interface.
 func (ro *readyOrder) Pop() interface{} {
+	fmt.Printf("ro.Pop called\n")
 	var item interface{}
 	ro.items, item = heapPop(ro.items)
+	fmt.Printf("ro.Pop returning\n")
 
 	return item
 }
 
-// Peek is to implement heapWithPeek.
-func (ro *readyOrder) Peek(n int) *Item {
-	return heapPeek(ro.items, n)
-}
-
 // newDelaySubQueue creates a SubQueue that is ordered by readyAt and passes
 // expired readyAt items to the given callback.
-func newDelaySubQueue(expireCB expirationCB) SubQueue {
-	return newExpireSubQueue(expireCB, getItemReady, &readyOrder{})
+func newDelaySubQueue(cb func(*Item)) SubQueue {
+	newExpiringItems := make(chan *Item)
+	return newExpireSubQueue(func(*Item) bool {
+		return true
+	}, getItemReady, newExpiringItems, &readyOrder{newExpiringItems: newExpiringItems})
 }
 
 // getItemReady is run SubQueue's itemTimeCB.

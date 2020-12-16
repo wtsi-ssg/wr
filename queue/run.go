@@ -29,7 +29,8 @@ import "time"
 
 // releaseOrder implements heap.Interface, keeping items in releaseAt order.
 type releaseOrder struct {
-	items []*Item
+	items            []*Item
+	newExpiringItems chan *Item
 }
 
 // Len is to implement heap.Interface.
@@ -42,12 +43,12 @@ func (ro *releaseOrder) Less(i, j int) bool {
 
 // Swap is to implement heap.Interface.
 func (ro *releaseOrder) Swap(i, j int) {
-	heapSwap(ro.items, i, j)
+	heapExpireSwap(ro.newExpiringItems, ro.items, i, j)
 }
 
 // Push is to implement heap.Interface.
 func (ro *releaseOrder) Push(x interface{}) {
-	ro.items = heapPush(ro.items, x)
+	ro.items = heapExpirePush(ro.newExpiringItems, ro.items, x)
 }
 
 // Pop is to implement heap.Interface.
@@ -58,15 +59,13 @@ func (ro *releaseOrder) Pop() interface{} {
 	return item
 }
 
-// Peek is to implement heapWithPeek.
-func (ro *releaseOrder) Peek(n int) *Item {
-	return heapPeek(ro.items, n)
-}
-
 // newRunSubQueue creates a SubQueue that is ordered by releaseAt and passes
 // expired releaseAt items to the given callback.
-func newRunSubQueue(expireCB expirationCB) SubQueue {
-	return newExpireSubQueue(expireCB, getItemRelease, &releaseOrder{})
+func newRunSubQueue(cb func(*Item)) SubQueue {
+	newExpiringItems := make(chan *Item)
+	return newExpireSubQueue(func(*Item) bool {
+		return true
+	}, getItemRelease, newExpiringItems, &releaseOrder{newExpiringItems: newExpiringItems})
 }
 
 // getItemRelease is run SubQueue's itemTimeCB.

@@ -40,7 +40,7 @@ func TestQueueExpire(t *testing.T) {
 	delay := 5 * time.Millisecond
 
 	for i := 0; i < num; i++ {
-		ips[i].Delay = delay
+		ips[i].Delay = delay + time.Duration(i)*time.Nanosecond
 	}
 	// ctx := context.Background()
 
@@ -49,14 +49,19 @@ func TestQueueExpire(t *testing.T) {
 		expiredItems := 0
 		var eiMutex sync.RWMutex
 		itemCh := make(chan *Item, num*2)
-		ecb := func(item *Item) {
+		ecb := func(item *Item) bool {
 			eiMutex.Lock()
+			fmt.Printf("ecb locked\n")
 			expiredItems++
 			eiMutex.Unlock()
 			itemCh <- item
+			fmt.Printf("item sent to test itemCh\n")
+
+			return true
 		}
 
-		sq := newExpireSubQueue(ecb, getItemReady, &readyOrder{})
+		newExpiringItems := make(chan *Item, 1)
+		sq := newExpireSubQueue(ecb, getItemReady, newExpiringItems, &readyOrder{newExpiringItems: newExpiringItems})
 		pushItemsToSubQueue(sq, ips, func(item *Item, i int) {
 			item.restart()
 			items[i] = item
@@ -98,13 +103,15 @@ func TestQueueExpire(t *testing.T) {
 			}
 
 			item := <-itemCh
-			So(item, ShouldNotBeNil)
+			if item == nil {
+				So(false, ShouldBeTrue)
+			}
 
 			pushItemsToSubQueue(sq, ipsNew, func(item *Item, i int) {
 				item.restart()
 				items[i+num] = item
 			})
-			So(sq.len(), ShouldEqual, num*2)
+			So(sq.len(), ShouldBeLessThanOrEqualTo, num*2)
 
 			for i := 0; i < num*2-1; i++ {
 				item := <-itemCh

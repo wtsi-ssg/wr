@@ -28,6 +28,7 @@ package queue
 import (
 	"container/heap"
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/wtsi-ssg/wr/clog"
@@ -165,14 +166,19 @@ func (hq *heapQueue) readFromPushChannelIfSentOn(id string, pushCh chan *Item) *
 
 // remove removes a given item from the queue.
 func (hq *heapQueue) remove(item *Item) {
+	fmt.Printf("will get hq lock\n")
 	hq.mutex.Lock()
 	defer hq.mutex.Unlock()
+	fmt.Printf("got hq lock\n")
 
 	if item.removed() || !item.belongsTo(hq) {
+		fmt.Printf("removed or doesn't belong\n")
 		return
 	}
 
+	fmt.Printf("will call heap.Remove\n")
 	heap.Remove(hq.heapImplementation, item.index())
+	fmt.Printf("heap.Remove()d\n")
 }
 
 // update changes the item's position in the queue if its order properties have
@@ -198,6 +204,7 @@ func heapSwap(items []*Item, i, j int) {
 	items[j].setIndex(j)
 }
 
+// heapPush can be used to implement heap.Interface.Push.
 func heapPush(items []*Item, x interface{}) []*Item {
 	n := len(items)
 	item := x.(*Item)
