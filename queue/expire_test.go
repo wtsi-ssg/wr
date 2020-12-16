@@ -55,13 +55,12 @@ func TestQueueExpire(t *testing.T) {
 			expiredItems++
 			eiMutex.Unlock()
 			itemCh <- item
-			fmt.Printf("item sent to test itemCh\n")
+			fmt.Printf("item [%s] sent to test itemCh\n", item.Key())
 
 			return true
 		}
 
-		newExpiringItems := make(chan *Item, 1)
-		sq := newExpireSubQueue(ecb, getItemReady, newExpiringItems, &readyOrder{newExpiringItems: newExpiringItems})
+		sq := newExpireSubQueue(ecb, getItemReady, &readyOrder{})
 		pushItemsToSubQueue(sq, ips, func(item *Item, i int) {
 			item.restart()
 			items[i] = item
@@ -106,6 +105,7 @@ func TestQueueExpire(t *testing.T) {
 			if item == nil {
 				So(false, ShouldBeTrue)
 			}
+			fmt.Printf("\n\ngot item %s\n", item.Key())
 
 			pushItemsToSubQueue(sq, ipsNew, func(item *Item, i int) {
 				item.restart()

@@ -34,16 +34,26 @@ import (
 	"github.com/wtsi-ssg/wr/clog"
 )
 
+// heapWithNext is the heap.Interface interface with an additional Next()
+// method.
+type heapWithNext interface {
+	heap.Interface
+
+	// Next returns the next item that would be Pop()ed without actually
+	// removing it.
+	Next() interface{}
+}
+
 // heapQueue holds Items in a heap. It implements the SubQueue interface.
 type heapQueue struct {
 	pushChs            map[string]chan *Item
 	waitingPops        []string
-	heapImplementation heap.Interface
+	heapImplementation heapWithNext
 	mutex              sync.RWMutex
 }
 
 // newHeapQueue returns an initialised heap-based queue.
-func newHeapQueue(heapImplementation heap.Interface) *heapQueue {
+func newHeapQueue(heapImplementation heapWithNext) *heapQueue {
 	hq := &heapQueue{
 		pushChs:            make(map[string]chan *Item),
 		heapImplementation: heapImplementation,
@@ -197,6 +207,19 @@ func (hq *heapQueue) len() int {
 	return hq.heapImplementation.Len()
 }
 
+// nextItem returns the next item in the queue that would be pop()ed.
+func (hq *heapQueue) nextItem() *Item {
+	hq.mutex.RLock()
+	defer hq.mutex.RUnlock()
+
+	next := hq.heapImplementation.Next()
+	if next == nil {
+		return nil
+	}
+
+	return next.(*Item)
+}
+
 // heapSwap can be used to implement heap.Interface.Swap.
 func heapSwap(items []*Item, i, j int) {
 	items[i], items[j] = items[j], items[i]
@@ -224,4 +247,13 @@ func heapPop(items []*Item) ([]*Item, interface{}) {
 	item.remove()
 
 	return new, item
+}
+
+// heapNext can be used to implement heapWithNext.Next.
+func heapNext(items []*Item) interface{} {
+	if len(items) == 0 {
+		return nil
+	}
+
+	return items[0]
 }

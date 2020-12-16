@@ -26,7 +26,7 @@
 package queue
 
 import (
-	"container/heap"
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -50,15 +50,16 @@ type expireSubQueue struct {
 	expireTime             time.Time
 	expireMutex            sync.RWMutex
 	updateNextItemToExpire chan *Item
+	nextExpiringItem       *Item
 	closeCh                chan struct{}
 }
 
-func newExpireSubQueue(expireCB expirationCB, timeCB itemTimeCB, newExpiringItems chan *Item, heapImplementation heap.Interface) SubQueue {
+func newExpireSubQueue(expireCB expirationCB, timeCB itemTimeCB, heapImplementation heapWithNext) SubQueue {
 	esq := &expireSubQueue{
 		expireCB:               expireCB,
 		timeCB:                 timeCB,
 		expireTime:             time.Now().Add(unsetItemExpiry),
-		updateNextItemToExpire: newExpiringItems,
+		updateNextItemToExpire: make(chan *Item),
 		closeCh:                make(chan struct{}),
 	}
 
@@ -70,40 +71,64 @@ func newExpireSubQueue(expireCB expirationCB, timeCB itemTimeCB, newExpiringItem
 	return esq
 }
 
-// newNextItemCB is our newNextItemCB, called when an Item becomes the next that
-// would be pop()ed.
-// func (esq *expireSubQueue) newNextItemCB(item *Item) {
-// 	esq.expireMutex.RLock()
-// 	fmt.Printf("checking %s vs %s\n", esq.expireTime, esq.timeCB(item))
+// push adds an item to the queue.
+func (esq *expireSubQueue) push(item *Item) {
+	esq.expireMutex.Lock()
+	esq.heapQueue.push(item)
+	fmt.Printf("consider next due to push\n")
+	// if many pushes during the time period we are removing an expired item,
+	// we will end up sending the expired item to be processed after we removed
+	// it
+	esq.considerNextExpiringItem()
+}
 
-// 	if esq.expireTime.After(esq.timeCB(item)) {
-// 		fmt.Printf("expired!\n")
-// 		esq.expireMutex.RUnlock()
-// 		esq.updateNextItemToExpire <- item
-// 	} else {
-// 		esq.expireMutex.RUnlock()
-// 	}
-// }
+// considerNextExpiringItem will trigger processing of the next item that would
+// be popped. You must hold the expireMutex lock before calling this.
+func (esq *expireSubQueue) considerNextExpiringItem() {
+	item := esq.heapQueue.nextItem()
+	beingConsidered := esq.nextExpiringItem
+	esq.expireMutex.Unlock()
 
-// checkItemExpiry checks if the given item expires sooner than we are currently
-// waiting for, and triggers an update of the wait time if so.
-// func (esq *expireSubQueue) checkItemExpiry(item *Item) {
-// 	esq.expireMutex.Lock()
-// 	t := esq.timeCB(item)
-// 	if item != nil {
-// 		fmt.Printf("checkItemExpiry for %s\n", item.key)
-// 	}
-// 	if esq.expireTime.After(t) {
-// 		if item != nil {
-// 			fmt.Printf("checkItemExpiry item %s expires sooner\n", item.key)
-// 		}
-// 		esq.expireTime = t
-// 		esq.expireMutex.Unlock()
-// 		esq.updateNextItemToExpire <- item
-// 	} else {
-// 		esq.expireMutex.Unlock()
-// 	}
-// }
+	if item == nil {
+		return
+	}
+
+	if beingConsidered != nil {
+		if item.Key() == beingConsidered.Key() {
+			return
+		}
+	}
+
+	fmt.Printf("sending item %s with index %d down channel\n", item.key, item.subQueueIndex)
+	esq.updateNextItemToExpire <- item
+}
+
+// pop removes and returns the next item in the queue, waiting like heapQueue.
+func (esq *expireSubQueue) pop(ctx context.Context) *Item {
+	esq.expireMutex.Lock()
+	item := esq.heapQueue.pop(ctx)
+	fmt.Printf("consider next due to pop\n")
+	esq.considerNextExpiringItem()
+
+	return item
+}
+
+// remove removes a given item from the queue.
+func (esq *expireSubQueue) remove(item *Item) {
+	esq.expireMutex.Lock()
+	esq.heapQueue.remove(item)
+	fmt.Printf("consider next due to remove\n")
+	esq.considerNextExpiringItem()
+}
+
+// update changes the item's position in the queue if its order properties have
+// changed.
+func (esq *expireSubQueue) update(item *Item) {
+	esq.expireMutex.Lock()
+	esq.heapQueue.update(item)
+	fmt.Printf("consider next due to update\n")
+	esq.considerNextExpiringItem()
+}
 
 // processExpiringItems starts waiting for items to expire and calls our
 // expireCB when they are.
@@ -118,16 +143,19 @@ func (esq *expireSubQueue) processExpiringItems() {
 		select {
 		case <-itemExpires.C:
 			if item != nil {
-				fmt.Printf("sending %s\n", item.key)
+				fmt.Printf("item %s just expired\n", item.key)
 			} else {
-				fmt.Printf("sending nil\n")
+				fmt.Printf("item nil just expired\n")
 			}
 
 			itemExpires.Stop()
-			esq.sendItemToExpireCB(item)
-			item = nil
+			item = esq.sendItemToExpireCB(item)
 		case item = <-esq.updateNextItemToExpire:
-			fmt.Printf("read\n")
+			ik := "nil"
+			if item != nil {
+				ik = item.Key()
+			}
+			fmt.Printf("item %s was sent down updateNextItemToExpire ch\n", ik)
 			itemExpires.Stop()
 		case <-esq.closeCh:
 			itemExpires.Stop()
@@ -144,6 +172,7 @@ func (esq *expireSubQueue) itemExpires(item *Item) *time.Timer {
 	defer esq.expireMutex.Unlock()
 
 	esq.expireTime = esq.timeCB(item)
+	esq.nextExpiringItem = item
 
 	if item != nil {
 		fmt.Printf("expireTime set based on %s\n", item.key)
@@ -152,42 +181,25 @@ func (esq *expireSubQueue) itemExpires(item *Item) *time.Timer {
 	return time.NewTimer(time.Until(esq.expireTime))
 }
 
-// sendItemToExpireCB sends non-nil items to our expireCB.
-func (esq *expireSubQueue) sendItemToExpireCB(item *Item) {
+// sendItemToExpireCB sends non-nil items to our expireCB and returns the next
+// item to expire.
+func (esq *expireSubQueue) sendItemToExpireCB(item *Item) *Item {
 	if item != nil {
 		fmt.Printf("sending item to expireCB\n")
 		if remove := esq.expireCB(item); remove {
 			fmt.Printf("item should be removed since expired\n")
-			go esq.heapQueue.remove(item)
-			fmt.Printf("item removed since expired\n")
+			esq.expireMutex.Lock()
+			esq.heapQueue.remove(item)
+			next := esq.heapQueue.nextItem()
+			esq.expireMutex.Unlock()
+			nk := "nil"
+			if next != nil {
+				nk = next.Key()
+			}
+			fmt.Printf("item %s removed since expired, next to expire is %s\n", item.Key(), nk)
+			return next
 		}
 	}
-}
 
-// heapExpireSwap can be used to implement heap.Interface.Swap.
-func heapExpireSwap(newExpiringItems chan *Item, items []*Item, i, j int) {
-	fmt.Printf("heapExpireSwap called with %d items, i=%d;j=%d\n", len(items), i, j)
-	heapSwap(items, i, j)
-	fmt.Printf("normal heapSwap worked\n")
-	sendIfItemExpiresNext(newExpiringItems, items[i], i)
-	sendIfItemExpiresNext(newExpiringItems, items[j], j)
-}
-
-// heapExpirePush can be used to implement heap.Interface.Push.
-func heapExpirePush(newExpiringItems chan *Item, items []*Item, x interface{}) []*Item {
-	n := len(items)
-	items = heapPush(items, x)
-
-	defer sendIfItemExpiresNext(newExpiringItems, items[n], n)
-
-	return items
-}
-
-// sendIfItemExpiresNext will send the given item down the given channel if the
-// given number is 0.
-func sendIfItemExpiresNext(newExpiringItems chan *Item, item *Item, n int) {
-	if n == 0 {
-		fmt.Printf("n is 0, so sending item %s with index %d down channel\n", item.key, item.subQueueIndex)
-		newExpiringItems <- item
-	}
+	return nil
 }

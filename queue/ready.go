@@ -81,6 +81,11 @@ func (po *prioritySizeAgeOrder) Pop() interface{} {
 	return item
 }
 
+// Next is to implement heapWithNext.
+func (po *prioritySizeAgeOrder) Next() interface{} {
+	return heapNext(po.items)
+}
+
 // readyQueues is a slice of ready SubQueue that will newly create or reuse a
 // SubQueue for each item.reserveGroup push()ed to it.
 type readyQueues struct {

@@ -75,6 +75,11 @@ func (mo *mockOrder) Pop() interface{} {
 	return item
 }
 
+// Next is to implement heapWithNext.
+func (mo *mockOrder) Next() interface{} {
+	return mo.items[0]
+}
+
 func TestQueueHeapPushPop(t *testing.T) {
 	num := 6
 	ips := newSetOfItemParameters(num)
