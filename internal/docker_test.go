@@ -152,15 +152,6 @@ func removeContainer(cntrList []types.Container, containerID string) []types.Con
 	return remainingCntr
 }
 
-// createContainerStats returns the stats of a container, in this case it's a dummy data.
-func createContainerStats() types.ContainerStats {
-	// create the stats
-	readerVar := ioutil.NopCloser(bytes.NewReader([]byte(readerCloserStats)))
-	stats := types.ContainerStats{Body: readerVar, OSType: "linux"}
-
-	return stats
-}
-
 // getContainerStats creates and returns the container's stats
 // if the container id is found in the given list of containers.
 func getContainerStats(cntrList []types.Container, containerID string) (types.ContainerStats, error) {
@@ -179,6 +170,15 @@ func getContainerStats(cntrList []types.Container, containerID string) (types.Co
 	}
 
 	return createContainerStats(), nil
+}
+
+// createContainerStats returns the stats of a container, in this case it's a dummy data.
+func createContainerStats() types.ContainerStats {
+	// create the stats
+	readerVar := ioutil.NopCloser(bytes.NewReader([]byte(readerCloserStats)))
+	stats := types.ContainerStats{Body: readerVar, OSType: "linux"}
+
+	return stats
 }
 
 func TestDockerFuncs(t *testing.T) {
