@@ -1,3 +1,28 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Genome Research Ltd.
+ *
+ * Authors: Sendu Bala <sb10@sanger.ac.uk>, Ashwini Chhipa <ac55@sanger.ac.uk>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+  ******************************************************************************/
+
 package internal
 
 // this file has functions for dealing with docker
@@ -15,7 +40,7 @@ import (
 
 const (
 	ErrContainerNotFound   = "Container not found"
-	ErrContainerListEmpty  = "Container list is empty"
+	ErrContainerList       = "Could not list the containers"
 	ErrNoNewContainerFound = "No new container found"
 )
 
@@ -49,10 +74,27 @@ type DockerClient struct {
 
 // NewDockerClient creates a new DockerClient, connecting to docker using
 // the standard environment variables to define options.
-//
-// eg of creating.....
-// client, err := client.NewEnvClient()
-// Refer: https://github.com/moby/moby/blob/1.13.x/client/client.go.
+// Refer: https://github.com/moby/moby/blob/1.13.x/client/client.go
+// eg of creating in production code...
+/*
+	import	"github.com/docker/docker/client"
+	....
+	cli, err := client.NewEnvClient()
+	if err != nil {
+		panic(err)
+	}
+
+	dockerClient := &DockerClient{
+		client:             cli,
+		existingContainers: make(map[string]bool),
+	}
+
+	cntrList, err := dockerClient.GetCurrentContainers(ctx)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(cntrList)
+*/
 func NewDockerClient(docInteractor DockerInteractor) *DockerClient {
 	return &DockerClient{
 		client:             docInteractor,
@@ -61,16 +103,16 @@ func NewDockerClient(docInteractor DockerInteractor) *DockerClient {
 }
 
 // GetCurrentContainers returns current containers.
-func (d *DockerClient) GetCurrentContainers() ([]types.Container, error) {
-	return d.client.ContainerList(context.Background(), types.ContainerListOptions{})
+func (d *DockerClient) GetCurrentContainers(ctx context.Context) ([]types.Container, error) {
+	return d.client.ContainerList(ctx, types.ContainerListOptions{})
 }
 
 // RememberCurrentContainerIDs calls GetCurrentContainerIDs() and stores the
 // results, for the benefit of a future GetNewDockerContainerID() call.
-func (d *DockerClient) RememberCurrentContainerIDs() error {
-	containers, err := d.GetCurrentContainers()
+func (d *DockerClient) RememberCurrentContainerIDs(ctx context.Context) error {
+	containers, err := d.GetCurrentContainers(ctx)
 	if err != nil {
-		return &ContainerError{Type: ErrContainerListEmpty, Err: err}
+		return &ContainerError{Type: ErrContainerList, Err: err}
 	}
 
 	for _, container := range containers {
@@ -80,37 +122,49 @@ func (d *DockerClient) RememberCurrentContainerIDs() error {
 	return nil
 }
 
-// GetNewDockerContainerID returns the first docker container ID that now exists
-// that wasn't previously remembered by a RememberCurrentContainerIDs() call.
-func (d *DockerClient) GetNewDockerContainerID() (string, error) {
-	containers, err := d.GetCurrentContainers()
+// GetNewDockerContainerIDs returns the ids of all the docker containers that now exist
+// and weren't previously remembered by a RememberCurrentContainerIDs() call.
+func (d *DockerClient) GetNewDockerContainerIDs(ctx context.Context) ([]string, error) {
+	containers, err := d.GetCurrentContainers(ctx)
 	if err != nil {
-		return "", &ContainerError{Type: ErrContainerListEmpty}
+		return []string{}, &ContainerError{Type: ErrContainerList, Err: err}
+	}
+
+	newCntrsIDs := []string{}
+
+	for _, container := range containers {
+		if !d.existingContainers[container.ID] {
+			newCntrsIDs = append(newCntrsIDs, container.ID)
+		}
+	}
+
+	if len(newCntrsIDs) == 0 {
+		return []string{}, &ContainerError{Type: ErrNoNewContainerFound}
+	}
+
+	return newCntrsIDs, nil
+}
+
+// GetNewDockerContainerIDByName returns the id of the container with given name.
+// Only new containers (those not remembered by the last RememberCurrentContainerIDs() call)
+// are considered when searching for a container with that name.
+func (d *DockerClient) GetNewDockerContainerIDByName(ctx context.Context, name string) (string, error) {
+	containers, err := d.GetCurrentContainers(ctx)
+	if err != nil {
+		return "", &ContainerError{Type: ErrContainerList, Err: err}
 	}
 
 	for _, container := range containers {
 		if !d.existingContainers[container.ID] {
-			return container.ID, nil
+			id, err := getIDByName(name, container)
+
+			if id != "" {
+				return id, err
+			}
 		}
 	}
 
 	return "", &ContainerError{Type: ErrNoNewContainerFound}
-}
-
-// verifyID checks if the given id is the ID of a current container.
-func (d *DockerClient) verifyID(id string) (bool, error) {
-	containers, err := d.GetCurrentContainers()
-	if err != nil {
-		return false, &ContainerError{Type: ErrContainerListEmpty}
-	}
-
-	for _, container := range containers {
-		if container.ID == id {
-			return true, nil
-		}
-	}
-
-	return false, &ContainerError{Type: ErrContainerNotFound}
 }
 
 // getIDByName returns the id of a container with a given name,
@@ -126,28 +180,32 @@ func getIDByName(name string, container types.Container) (string, error) {
 	return "", &ContainerError{Type: ErrContainerNotFound}
 }
 
-// GetNewDockerContainerIDByName returns id of the container with given name
-// only new containers (those not remembered by the last RememberCurrentContainerIDs() call)
-// are considered when searching for a container with that name.
-func (d *DockerClient) GetNewDockerContainerIDByName(name string) (string, error) {
-	containers, err := d.GetCurrentContainers()
-	if err != nil {
-		return "", &ContainerError{Type: ErrContainerListEmpty}
+// GetDockerContainerIDByPath returns the ID of the container from a file path
+// you gave to --cidfile argument of your docker container. Docker writes the
+// container ID out to this file. If you have some other process that generates a --cidfile
+// name for you, your file path name can contain ? (any non-separator character)
+// and * (any number of non-separator characters) wildcards.
+// The first file to match the glob that also contains a valid id is the one used.
+//
+// In case the name is a relative file path, the second argument is the
+// absolute path to the working directory where your container was created.
+func (d *DockerClient) GetDockerContainerIDByPath(ctx context.Context, path string, dir string) (string, error) {
+	// if name is a relative file path, then create the absolute path with dir
+	cidPath := relativeToAbsolutePath(path, dir)
+
+	_, err := os.Stat(cidPath)
+	if err == nil {
+		return d.cidPathToID(ctx, cidPath)
 	}
 
-	for _, container := range containers {
-		if !d.existingContainers[container.ID] {
-			return getIDByName(name, container)
-		}
-	}
-
-	return "", &ContainerError{Type: ErrNoNewContainerFound}
+	// or it might be a file path with globs
+	return d.cidPathGlobToID(ctx, cidPath)
 }
 
 // cidPathToID takes the absolute path to a file that exists, reads the first
 // line, and checks that it is the ID of a current container. If so, returns
 // that ID.
-func (d *DockerClient) cidPathToID(cidPath string) (string, error) {
+func (d *DockerClient) cidPathToID(ctx context.Context, cidPath string) (string, error) {
 	b, err := ioutil.ReadFile(cidPath)
 	if err != nil {
 		return "", err
@@ -155,7 +213,7 @@ func (d *DockerClient) cidPathToID(cidPath string) (string, error) {
 
 	id := strings.TrimSuffix(string(b), "\n")
 
-	ok, err := d.verifyID(id)
+	ok, err := d.verifyID(ctx, id)
 	if ok {
 		return id, nil
 	}
@@ -163,19 +221,35 @@ func (d *DockerClient) cidPathToID(cidPath string) (string, error) {
 	return "", err
 }
 
+// verifyID checks if the given id is the ID of a current container.
+func (d *DockerClient) verifyID(ctx context.Context, id string) (bool, error) {
+	containers, err := d.GetCurrentContainers(ctx)
+	if err != nil {
+		return false, &ContainerError{Type: ErrContainerList, Err: err}
+	}
+
+	for _, container := range containers {
+		if container.ID == id {
+			return true, nil
+		}
+	}
+
+	return false, &ContainerError{Type: ErrContainerNotFound}
+}
+
 // cidPathGlobToID is like cidPathToID, but cidPath (which should not be
 // relative) can contain standard glob characters such as ? and * and matching
 // files will be checked until 1 contains a valid id, which gets returned.
-func (d *DockerClient) cidPathGlobToID(cidGlobPath string) (string, error) {
+func (d *DockerClient) cidPathGlobToID(ctx context.Context, cidGlobPath string) (string, error) {
 	paths, err := filepath.Glob(cidGlobPath)
 	if err != nil {
 		return "", err
 	}
 
 	for _, path := range paths {
-		id, err := d.cidPathToID(path)
+		id, err := d.cidPathToID(ctx, path)
 		if err != nil {
-			return "", err
+			continue
 		}
 
 		if id != "" {
@@ -186,56 +260,20 @@ func (d *DockerClient) cidPathGlobToID(cidGlobPath string) (string, error) {
 	return "", nil
 }
 
-// getContainerIDByPath returns the container id from a file given it's path.
-func getContainerIDByPath(d *DockerClient, path string) (string, error) {
-	id, err := d.cidPathToID(path)
-	if id != "" {
-		return id, nil
+// ContainerStats asks docker for the current memory usage (RSS) and total CPU
+// usage of the container with the given id.
+// This memory uses is returned in MB and cpu usages is returned in seconds.
+func (d *DockerClient) ContainerStats(ctx context.Context, containerID string) (memMB int, cpuSec int, err error) {
+	stats, err := d.client.ContainerStats(ctx, containerID, false)
+	if err != nil {
+		return 0, 0, err
 	}
 
-	return "", err
+	return decodeContainerStats(stats)
 }
 
-// GetDockerContainerIDByPath returns the ID of the container from a file path
-// you gave to --cidfile. If you have some // other process that generates a --cidfile
-// name for you, your file path name
-// can contain ? (any non-separator character) and * (any number of
-// non-separator characters) wildcards. The first file to match the glob that
-// also contains a valid id is the one used.
-//
-// In the case that name is relative file path, the second argument is the
-// absolute path to the working directory where your container was created.
-func (d *DockerClient) GetDockerContainerIDByPath(path string, dir string) (string, error) {
-	// if name is a relative file path, then create the absolute path with dir
-	cidPath := path
-	if !strings.HasPrefix(cidPath, "/") {
-		cidPath = filepath.Join(dir, cidPath)
-	}
-
-	_, err := os.Stat(cidPath)
-	if err == nil {
-		return getContainerIDByPath(d, cidPath)
-	}
-
-	// or it might be a file path with globs
-	return d.cidPathGlobToID(cidPath)
-}
-
-// nanosecondsToSec converts nanoseconds to sec for cpu stats.
-func nanosecondsToSec(tm uint64) int {
-	var divisor uint64 = 1000000000
-
-	return int(tm / divisor)
-}
-
-// bytesToMB converts bytes to MB for memory stats.
-func bytesToMB(bt uint64) int {
-	var divisor uint64 = 1024
-
-	return int(bt / divisor / divisor)
-}
-
-// decodeContainerStats takes type.ContainerStats and return mem and cpu stats.
+// decodeContainerStats takes type.ContainerStats and return memory and cpu stats.
+// The memory stat is returned in MB and the cpu stat is returned in seconds.
 func decodeContainerStats(cntrStats types.ContainerStats) (int, int, error) {
 	var ds *types.Stats
 
@@ -252,18 +290,7 @@ func decodeContainerStats(cntrStats types.ContainerStats) (int, int, error) {
 	return memMB, cpuSec, err
 }
 
-// ContainerStats asks docker for the current memory usage (RSS) and total CPU
-// usage of the container with the given id.
-func (d *DockerClient) ContainerStats(containerID string) (memMB int, cpuSec int, err error) {
-	stats, err := d.client.ContainerStats(context.Background(), containerID, false)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	return decodeContainerStats(stats)
-}
-
 // KillContainer kills the container with the given ID.
-func (d *DockerClient) KillContainer(containerID string) error {
-	return d.client.ContainerKill(context.Background(), containerID, "SIGKILL")
+func (d *DockerClient) KillContainer(ctx context.Context, containerID string) error {
+	return d.client.ContainerKill(ctx, containerID, "SIGKILL")
 }

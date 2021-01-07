@@ -1,3 +1,28 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Genome Research Ltd.
+ *
+ * Author: Ashwini Chhipa <ac55@sanger.ac.uk>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ ******************************************************************************/
+
 package internal
 
 import (
@@ -5,6 +30,7 @@ import (
 	"context"
 	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -13,8 +39,6 @@ import (
 )
 
 type mockDockerClient struct {
-	// ContainerListEmptyFn      func() error
-	// ContainerListEmptyInvoked int
 	ContainerListFn       func() ([]types.Container, error)
 	ContainerListInvoked  int
 	ContainerKillFn       func(string) error
@@ -110,9 +134,11 @@ const (
 			"id":"container_id2",
 			"networks":{}
 		}`
+
+	dockerFileMode os.FileMode = 0600
 )
 
-// removeContainer removed the container from container list if found
+// removeContainer removes the container from container list if found
 // and returns the remaining containers.
 func removeContainer(cntrList []types.Container, containerID string) []types.Container {
 	remainingCntr := []types.Container{}
@@ -126,7 +152,17 @@ func removeContainer(cntrList []types.Container, containerID string) []types.Con
 	return remainingCntr
 }
 
-// getContainerStats returns the container's stats given it's id and a list of all the containers.
+// createContainerStats returns the stats of a container, in this case it's a dummy data.
+func createContainerStats() types.ContainerStats {
+	// create the stats
+	readerVar := ioutil.NopCloser(bytes.NewReader([]byte(readerCloserStats)))
+	stats := types.ContainerStats{Body: readerVar, OSType: "linux"}
+
+	return stats
+}
+
+// getContainerStats creates and returns the container's stats
+// if the container id is found in the given list of containers.
 func getContainerStats(cntrList []types.Container, containerID string) (types.ContainerStats, error) {
 	found := 0
 
@@ -142,29 +178,17 @@ func getContainerStats(cntrList []types.Container, containerID string) (types.Co
 		return types.ContainerStats{}, &ContainerError{Type: ErrContainerNotFound}
 	}
 
-	readerVar := ioutil.NopCloser(bytes.NewReader([]byte(readerCloserStats)))
-	stats := types.ContainerStats{Body: readerVar, OSType: "linux"}
-
-	return stats, nil
+	return createContainerStats(), nil
 }
 
 func TestDockerFuncs(t *testing.T) {
-	Convey("Test to check nanosecondsToSec", t, func() {
-		So(nanosecondsToSec(634736438394834), ShouldEqual, 634736)
-		So(nanosecondsToSec(634736), ShouldEqual, 0)
-		So(nanosecondsToSec(0), ShouldEqual, 0)
-	})
-
-	Convey("Test to check bytesToMB", t, func() {
-		So(bytesToMB(634736438), ShouldEqual, 605)
-		So(bytesToMB(1048576), ShouldEqual, 1)
-		So(bytesToMB(0), ShouldEqual, 0)
-	})
-
 	Convey("Given a NewDockerClient get the current container list", t, func() {
+		// Create a context
+		ctx := context.Background()
+
 		// Create a list of dummy containers
 		cntrList := []types.Container{{
-			ID: "container_id1", Names: []string{"/test_container1"},
+			ID: "container_id1", Names: []string{"/test_container1", "/test_container1_2"},
 		}, {
 			ID: "container_id2", Names: []string{"/test_container2"},
 		}, {
@@ -196,250 +220,238 @@ func TestDockerFuncs(t *testing.T) {
 			},
 		)
 
-		clist, err := dockerClient.GetCurrentContainers()
+		clist, err := dockerClient.GetCurrentContainers(ctx)
 		So(err, ShouldBeNil)
-		So(clist, ShouldNotBeNil)
 		So(len(clist), ShouldEqual, 3)
 
 		// Create a docker client with no containers
 		empDockerClient := NewDockerClient(&mockDockerClient{ContainerListFn: func() ([]types.Container, error) {
-			return []types.Container{}, &ContainerError{Type: ErrContainerListEmpty}
+			return []types.Container{}, &ContainerError{Type: ErrContainerList}
 		}})
 
-		emplist, err := empDockerClient.GetCurrentContainers()
+		emplist, err := empDockerClient.GetCurrentContainers(ctx)
 		So(err, ShouldNotBeNil)
-		So(emplist, ShouldBeEmpty)
 		So(len(emplist), ShouldEqual, 0)
 
-		// Create some files containing container id
-		dockerTempDir, err := ioutil.TempDir("/tmp", "docker_temp_")
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		dockerContainerFile := filepath.Join(dockerTempDir, "Container.txt")
-		err = ioutil.WriteFile(dockerContainerFile, []byte("container_id2"), 0600)
-		So(err, ShouldBeNil)
-
-		dockerNewContainerFile := filepath.Join(dockerTempDir, "NewContainer.txt")
-		err = ioutil.WriteFile(dockerNewContainerFile, []byte("container_id4"), 0600)
-		So(err, ShouldBeNil)
-
-		dockerNonExistingFile := filepath.Join(dockerTempDir, "dockerNonExisting.txt")
-
-		dockerWrongCntrFile := filepath.Join(dockerTempDir, "dockerWrongCntr.txt")
-		err = ioutil.WriteFile(dockerWrongCntrFile, []byte("container_id5"), 0600)
-		So(err, ShouldBeNil)
-
-		dockerEmptyFile := filepath.Join(dockerTempDir, "dockerEmpty.txt")
-		err = ioutil.WriteFile(dockerEmptyFile, []byte(""), 0600)
-		So(err, ShouldBeNil)
+		// Mark container_id3 as true in exisiting container, making it an "old" container
+		dockerClient.existingContainers["container_id3"] = true
+		So(dockerClient.existingContainers["container_id3"], ShouldBeTrue)
 
 		Convey("Remember the current container IDs", func() {
-			// For client with empty list of containers
-			err := empDockerClient.RememberCurrentContainerIDs()
-			So(err, ShouldNotBeNil)
+			Convey("For a client with empty list of containers", func() {
+				err = empDockerClient.RememberCurrentContainerIDs(ctx)
+				So(err, ShouldNotBeNil)
+			})
 
-			// For client with list of containers
-			err = dockerClient.RememberCurrentContainerIDs()
-			So(err, ShouldBeNil)
-			So(dockerClient.existingContainers["container_id1"], ShouldBeTrue)
-			So(dockerClient.existingContainers["container_id2"], ShouldBeTrue)
-			So(dockerClient.existingContainers["container_id3"], ShouldBeTrue)
+			Convey("For a client with non-empty list of containers", func() {
+				err = dockerClient.RememberCurrentContainerIDs(ctx)
+				So(err, ShouldBeNil)
+				So(dockerClient.existingContainers["container_id1"], ShouldBeTrue)
+				So(dockerClient.existingContainers["container_id2"], ShouldBeTrue)
+				So(dockerClient.existingContainers["container_id3"], ShouldBeTrue)
 
-			// Check for an unknown container
-			So(dockerClient.existingContainers["container_id4"], ShouldBeFalse)
+				Convey("Check for an unknown container", func() {
+					So(dockerClient.existingContainers["container_id4"], ShouldBeFalse)
+				})
 
-			// Create and add new dummy container
-			newCntr := types.Container{
-				ID: "container_id4", Names: []string{"/test_container4", "/test_container4_new"},
+				Convey("Create and check for a new container", func() {
+					newCntr := types.Container{
+						ID: "container_id4", Names: []string{"/test_container4", "/test_container4_new"},
+					}
+					cntrList = append(cntrList, newCntr)
+
+					clist, err = dockerClient.GetCurrentContainers(ctx)
+					So(err, ShouldBeNil)
+					So(len(clist), ShouldEqual, 4)
+
+					So(dockerClient.existingContainers["container_id4"], ShouldBeFalse)
+
+					err = dockerClient.RememberCurrentContainerIDs(ctx)
+					So(err, ShouldBeNil)
+					So(dockerClient.existingContainers["container_id4"], ShouldBeTrue)
+				})
+			})
+		})
+
+		Convey("Get the container ids of the new containers", func() {
+			Convey("For a client with empty list of containers", func() {
+				idList, errc := empDockerClient.GetNewDockerContainerIDs(ctx)
+				So(errc, ShouldNotBeNil)
+				So(len(idList), ShouldEqual, 0)
+			})
+
+			Convey("For a client with non-empty list of containers", func() {
+				idList, err := dockerClient.GetNewDockerContainerIDs(ctx)
+				So(err, ShouldBeNil)
+				So(len(idList), ShouldEqual, 2)
+
+				err = dockerClient.RememberCurrentContainerIDs(ctx)
+				So(err, ShouldBeNil)
+
+				idList, err = dockerClient.GetNewDockerContainerIDs(ctx)
+				So(err, ShouldNotBeNil)
+				So(len(idList), ShouldEqual, 0)
+			})
+		})
+
+		Convey("Get container id given a name from its list of names", func() {
+			container1 := clist[0]
+			Convey("For a wrong name of the container", func() {
+				name, err := getIDByName("wrong_name", container1)
+				So(name, ShouldBeEmpty)
+				So(err, ShouldNotBeNil)
+			})
+
+			Convey("For a correct name of the container", func() {
+				name, err := getIDByName("test_container1_2", container1)
+				So(name, ShouldEqual, "container_id1")
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("Get new container's id given a name from a container list", func() {
+			Convey("For a client with empty list of containers", func() {
+				name, err := empDockerClient.GetNewDockerContainerIDByName(ctx, "wrong_name")
+				So(name, ShouldBeEmpty)
+				So(err, ShouldNotBeNil)
+			})
+
+			Convey("For a client with non-empty list of containers", func() {
+				Convey("When the container name is wrong", func() {
+					name, err := dockerClient.GetNewDockerContainerIDByName(ctx, "wrong_name")
+					So(name, ShouldBeEmpty)
+					So(err, ShouldNotBeNil)
+				})
+
+				Convey("When a new container name is passed", func() {
+					name, err := dockerClient.GetNewDockerContainerIDByName(ctx, "test_container2")
+					So(name, ShouldEqual, "container_id2")
+					So(err, ShouldBeNil)
+				})
+
+				Convey("When an old container name is passed", func() {
+					name, err := dockerClient.GetNewDockerContainerIDByName(ctx, "test_container3")
+					So(name, ShouldBeEmpty)
+					So(err, ShouldNotBeNil)
+				})
+			})
+		})
+
+		Convey("Verify a container id from a container list", func() {
+			Convey("For a client with an empty list of containers", func() {
+				boolOut, err := empDockerClient.verifyID(ctx, "wrong_id")
+				So(boolOut, ShouldBeFalse)
+				So(err, ShouldNotBeNil)
+			})
+
+			Convey("For a client with a non-empty list of containers", func() {
+				Convey("When the container id is wrong", func() {
+					boolOut, err := dockerClient.verifyID(ctx, "wrong_id")
+					So(boolOut, ShouldBeFalse)
+					So(err, ShouldNotBeNil)
+				})
+
+				Convey("When the container id is correct", func() {
+					boolOut, err := dockerClient.verifyID(ctx, "container_id1")
+					So(boolOut, ShouldBeTrue)
+					So(err, ShouldBeNil)
+				})
+			})
+		})
+
+		Convey("Given a file path/glob path, return the container id", func() {
+			// Create some files containing container id
+			dockerTempDir, err := ioutil.TempDir("/tmp", "docker_temp_")
+			if err != nil {
+				log.Fatal(err)
 			}
-			cntrList = append(cntrList, newCntr)
 
-			clist, err = dockerClient.GetCurrentContainers()
+			dockerContainerFile := filepath.Join(dockerTempDir, "Container.txt")
+			err = ioutil.WriteFile(dockerContainerFile, []byte("container_id2"), dockerFileMode)
 			So(err, ShouldBeNil)
-			So(clist, ShouldNotBeEmpty)
-			So(len(clist), ShouldEqual, 4)
 
-			So(dockerClient.existingContainers["container_id4"], ShouldBeFalse)
-
-			// Remember the new container and check it gets added to exisiting containers
-			err = dockerClient.RememberCurrentContainerIDs()
+			dockerNewContainerFile := filepath.Join(dockerTempDir, "NewContainer.txt")
+			err = ioutil.WriteFile(dockerNewContainerFile, []byte("container_id4"), dockerFileMode)
 			So(err, ShouldBeNil)
-			So(dockerClient.existingContainers["container_id4"], ShouldBeTrue)
 
-			// Mark container_id4 marked as false in exisiting container, making it "new" container
-			dockerClient.existingContainers["container_id4"] = false
-			So(dockerClient.existingContainers["container_id4"], ShouldBeFalse)
+			dockerWrongCntrFile := filepath.Join(dockerTempDir, "dockerWrongCntr.txt")
+			err = ioutil.WriteFile(dockerWrongCntrFile, []byte("container_id5"), dockerFileMode)
+			So(err, ShouldBeNil)
 
-			Convey("Get the container id of a new container", func() {
-				// For client with empty list of containers
-				id, err := empDockerClient.GetNewDockerContainerID()
-				So(err, ShouldNotBeNil)
-				So(id, ShouldBeEmpty)
+			dockerEmptyFile := filepath.Join(dockerTempDir, "dockerEmpty.txt")
+			err = ioutil.WriteFile(dockerEmptyFile, []byte(""), dockerFileMode)
+			So(err, ShouldBeNil)
 
-				// For client with list of containers with container_id4 considered as a new container
-				id, err = dockerClient.GetNewDockerContainerID()
-				So(err, ShouldBeNil)
-				So(id, ShouldEqual, "container_id4")
+			Convey("When the file path", func() {
+				Convey("doesn't exist", func() {
+					dockerNonExistingFile := filepath.Join(dockerTempDir, "dockerNonExisting.txt")
+					id, err := dockerClient.cidPathToID(ctx, dockerNonExistingFile)
+					So(id, ShouldBeEmpty)
+					So(err, ShouldNotBeNil)
+				})
 
-				// Mark the new container as seen now
-				err = dockerClient.RememberCurrentContainerIDs()
-				So(err, ShouldBeNil)
+				Convey("has an empty file", func() {
+					id, err := dockerClient.cidPathToID(ctx, dockerEmptyFile)
+					So(id, ShouldBeEmpty)
+					So(err, ShouldNotBeNil)
+				})
 
-				id, err = dockerClient.GetNewDockerContainerID()
-				So(err, ShouldNotBeNil)
-				So(id, ShouldBeEmpty)
+				Convey("contains a file with correct container id", func() {
+					id, err := dockerClient.cidPathToID(ctx, dockerContainerFile)
+					So(id, ShouldEqual, "container_id2")
+					So(err, ShouldBeNil)
+				})
+
+				Convey("contains a file with wrong container id", func() {
+					id, err := dockerClient.cidPathToID(ctx, dockerWrongCntrFile)
+					So(id, ShouldBeEmpty)
+					So(err, ShouldNotBeNil)
+				})
 			})
 
-			Convey("Verify a container id from a container list", func() {
-				// For client with empty list of containers
-				boolOut, err := empDockerClient.verifyID("wrong_id")
-				So(boolOut, ShouldBeFalse)
-				So(err, ShouldNotBeNil)
+			Convey("When the file path is a glob and", func() {
+				Convey("the path pattern is correct", func() {
+					id, err := dockerClient.cidPathGlobToID(ctx, dockerTempDir+"/*")
+					So(id, ShouldEqual, "container_id2")
+					So(err, ShouldBeNil)
+				})
 
-				// For client with list of containers
-				boolOut, err = dockerClient.verifyID("wrong_id")
-				So(boolOut, ShouldBeFalse)
-				So(err, ShouldNotBeNil)
+				Convey("the path doesn't exist", func() {
+					id, err := dockerClient.cidPathGlobToID(ctx, "/randomDockerPath/*")
+					So(id, ShouldBeEmpty)
+					So(err, ShouldBeNil)
+				})
 
-				boolOut, err = dockerClient.verifyID("container_id1")
-				So(boolOut, ShouldBeTrue)
-				So(err, ShouldBeNil)
+				Convey("path pattern is wrong", func() {
+					id, err := dockerClient.cidPathGlobToID(ctx, "[")
+					So(id, ShouldBeEmpty)
+					So(err, ShouldNotBeNil)
+				})
+
+				Convey("there is no file containing the container id in the path", func() {
+					id, err := dockerClient.cidPathGlobToID(ctx, dockerTempDir+"/docker*")
+					So(id, ShouldBeEmpty)
+					So(err, ShouldBeNil)
+				})
 			})
 
-			Convey("Get container id given a name from its list of names", func() {
-				container4 := clist[3]
-				name, err := getIDByName("wrong_name", container4)
-				So(name, ShouldBeEmpty)
-				So(err, ShouldNotBeNil)
+			Convey("Given a file path/glob file path and return a valid container id", func() {
+				Convey("For a correct file path", func() {
+					id, err := dockerClient.GetDockerContainerIDByPath(ctx, "Container.txt", dockerTempDir)
+					So(id, ShouldEqual, "container_id2")
+					So(err, ShouldBeNil)
+				})
 
-				name, err = getIDByName("test_container4_new", container4)
-				So(name, ShouldEqual, "container_id4")
-				So(err, ShouldBeNil)
+				Convey("For a correct glob path", func() {
+					id, err := dockerClient.GetDockerContainerIDByPath(ctx, dockerTempDir+"/*", "")
+					So(id, ShouldEqual, "container_id2")
+					So(err, ShouldBeNil)
+				})
 			})
+		})
 
-			Convey("Get new container's id given a name from a container list", func() {
-				// For client with empty list of containers
-				name, err := empDockerClient.GetNewDockerContainerIDByName("wrong_name")
-				So(name, ShouldBeEmpty)
-				So(err, ShouldNotBeNil)
-
-				// For client with list of containers
-				name, err = dockerClient.GetNewDockerContainerIDByName("wrong_name")
-				So(name, ShouldBeEmpty)
-				So(err, ShouldNotBeNil)
-
-				// New Container
-				name, err = dockerClient.GetNewDockerContainerIDByName("test_container4")
-				So(name, ShouldEqual, "container_id4")
-				So(err, ShouldBeNil)
-
-				// Remember the new container and check it gets added to exisiting containers
-				err = dockerClient.RememberCurrentContainerIDs()
-				So(err, ShouldBeNil)
-				So(dockerClient.existingContainers["container_id4"], ShouldBeTrue)
-
-				// Get id if there is no new container
-				name, err = dockerClient.GetNewDockerContainerIDByName("test_container1")
-				So(name, ShouldBeEmpty)
-				So(err, ShouldNotBeNil)
-
-				// Mark container_id4 marked as false in exisiting container, making it "new" container
-				dockerClient.existingContainers["container_id4"] = false
-				So(dockerClient.existingContainers["container_id4"], ShouldBeFalse)
-			})
-
-			Convey("Given a file path read and return container id from a file", func() {
-				// cidPathToID
-				// File doesn't exists
-				id, err := dockerClient.cidPathToID(dockerNonExistingFile)
-				So(id, ShouldBeEmpty)
-				So(err, ShouldNotBeNil)
-
-				// Empty file
-				id, err = dockerClient.cidPathToID(dockerEmptyFile)
-				So(id, ShouldBeEmpty)
-				So(err, ShouldNotBeNil)
-
-				// Correct container id in file
-				id, err = dockerClient.cidPathToID(dockerContainerFile)
-				So(id, ShouldEqual, "container_id2")
-				So(err, ShouldBeNil)
-
-				// Wrong container id in file
-				id, err = dockerClient.cidPathToID(dockerWrongCntrFile)
-				So(id, ShouldBeEmpty)
-				So(err, ShouldNotBeNil)
-
-				// getContainerIDByPath
-				// Correct container id in file
-				id, err = getContainerIDByPath(dockerClient, dockerContainerFile)
-				So(id, ShouldEqual, "container_id2")
-				So(err, ShouldBeNil)
-
-				// Wrong container id in file
-				id, err = getContainerIDByPath(dockerClient, dockerWrongCntrFile)
-				So(id, ShouldBeEmpty)
-				So(err, ShouldNotBeNil)
-			})
-
-			Convey("Given a glob file path read and return a valid container id from a file", func() {
-				// Correct paths pattern
-				id, err := dockerClient.cidPathGlobToID(dockerTempDir + "/*")
-				So(id, ShouldEqual, "container_id2")
-				So(err, ShouldBeNil)
-
-				// Path doesn't exists
-				id, err = dockerClient.cidPathGlobToID("/tmp/randomDockerPath/*")
-				So(id, ShouldBeEmpty)
-				So(err, ShouldBeNil)
-
-				// Bad Pattern to glob
-				id, err = dockerClient.cidPathGlobToID("[")
-				So(id, ShouldBeEmpty)
-				So(err, ShouldNotBeNil)
-
-				// Paths without container id containing file
-				id, err = dockerClient.cidPathGlobToID(dockerTempDir + "/docker*")
-				So(id, ShouldBeEmpty)
-				So(err, ShouldNotBeNil)
-			})
-
-			Convey("Given a file path/glab file path and return a valid container id", func() {
-				// Correct path
-				id, err := dockerClient.GetDockerContainerIDByPath("Container.txt", dockerTempDir)
-				So(id, ShouldEqual, "container_id2")
-				So(err, ShouldBeNil)
-
-				// Correct glob path
-				id, err = dockerClient.GetDockerContainerIDByPath(dockerTempDir+"/*", "")
-				So(id, ShouldEqual, "container_id2")
-				So(err, ShouldBeNil)
-			})
-
-			Convey("Given a container id, kill this container", func() {
-				So(dockerClient, ShouldNotBeNil)
-				clist, err := dockerClient.GetCurrentContainers()
-				So(len(clist), ShouldEqual, 4)
-				So(err, ShouldBeNil)
-
-				err = dockerClient.KillContainer("container_id1")
-				So(err, ShouldBeNil)
-
-				clist, err = dockerClient.GetCurrentContainers()
-				So(len(clist), ShouldEqual, 3)
-				So(err, ShouldBeNil)
-
-				err = dockerClient.KillContainer("container_id5")
-				So(err, ShouldNotBeNil)
-
-				clist, err = dockerClient.GetCurrentContainers()
-				So(len(clist), ShouldEqual, 3)
-				So(err, ShouldBeNil)
-			})
-
-			Convey("Given a readercloser stat, decode and return the mem and cpu stats", func() {
+		Convey("Given a readercloser stat, decode and return the mem and cpu stats", func() {
+			Convey("For empty readcloser stats", func() {
 				emptyRC := ioutil.NopCloser(bytes.NewReader([]byte("")))
 				emptyReaderCloserStats := types.ContainerStats{Body: emptyRC, OSType: "linux"}
 
@@ -447,32 +459,55 @@ func TestDockerFuncs(t *testing.T) {
 				So(mem, ShouldEqual, 0)
 				So(cpu, ShouldEqual, 0)
 				So(err, ShouldNotBeNil)
+			})
 
+			Convey("For a non-empty readcloser stats", func() {
 				nonEmptyRC := ioutil.NopCloser(bytes.NewReader([]byte(readerCloserStats)))
 				nonEmptyReaderCloserStats := types.ContainerStats{Body: nonEmptyRC, OSType: "linux"}
 
-				mem, cpu, err = decodeContainerStats(nonEmptyReaderCloserStats)
+				mem, cpu, err := decodeContainerStats(nonEmptyReaderCloserStats)
 				So(mem, ShouldEqual, 1)
 				So(cpu, ShouldEqual, 1244)
 				So(err, ShouldBeNil)
 			})
+		})
 
-			Convey("Given a container id, get its stats", func() {
-				So(dockerClient, ShouldNotBeNil)
-				clist, err := dockerClient.GetCurrentContainers()
-				So(len(clist), ShouldEqual, 4)
-				So(err, ShouldBeNil)
-
-				// Non existing container
-				mem, cpu, err := dockerClient.ContainerStats("container_id5")
+		Convey("Given a container id, get its stats", func() {
+			Convey("For a non-existing container", func() {
+				mem, cpu, err := dockerClient.ContainerStats(ctx, "container_id5")
 				So(mem, ShouldEqual, 0)
 				So(cpu, ShouldEqual, 0)
 				So(err, ShouldNotBeNil)
+			})
 
-				// Existing container
-				mem, cpu, err = dockerClient.ContainerStats("container_id2")
+			Convey("For an existing container", func() {
+				mem, cpu, err := dockerClient.ContainerStats(ctx, "container_id2")
 				So(mem, ShouldEqual, 1)
 				So(cpu, ShouldEqual, 1244)
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("Given a container id, kill this container", func() {
+			clist, err := dockerClient.GetCurrentContainers(ctx)
+			So(len(clist), ShouldEqual, 3)
+			So(err, ShouldBeNil)
+
+			Convey("For an existing container", func() {
+				err = dockerClient.KillContainer(ctx, "container_id1")
+				So(err, ShouldBeNil)
+
+				clist, err = dockerClient.GetCurrentContainers(ctx)
+				So(len(clist), ShouldEqual, 2)
+				So(err, ShouldBeNil)
+			})
+
+			Convey("For a non-existing container", func() {
+				err = dockerClient.KillContainer(ctx, "container_id5")
+				So(err, ShouldNotBeNil)
+
+				clist, err = dockerClient.GetCurrentContainers(ctx)
+				So(len(clist), ShouldEqual, 3)
 				So(err, ShouldBeNil)
 			})
 		})
