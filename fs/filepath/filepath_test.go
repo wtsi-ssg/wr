@@ -23,36 +23,20 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   ******************************************************************************/
 
-package internal
+package filepath
 
 import (
-	"path/filepath"
-	"strings"
+	"testing"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
 
-// this file has general utility functions
-
-// nanosecondsToSec converts nanoseconds to sec for cpu stats.
-func nanosecondsToSec(tm uint64) int {
-	var divisor uint64 = 1000000000
-
-	return int(tm / divisor)
-}
-
-// bytesToMB converts bytes to MB for memory stats.
-func bytesToMB(bt uint64) int {
-	var divisor uint64 = 1024
-
-	return int(bt / divisor / divisor)
-}
-
-// relativeToAbsolutePath returns the absolute path of a file given it's relative path
-// and its directory name.
-func relativeToAbsolutePath(path string, dir string) string {
-	absPath := path
-	if !strings.HasPrefix(absPath, "/") {
-		absPath = filepath.Join(dir, absPath)
-	}
-
-	return absPath
+func TestPath(t *testing.T) {
+	Convey("Get the absolute path of a file given its relative path and directory name", t, func() {
+		So(RelativeToAbsolutePath("testing1.txt", "/home_directory"), ShouldEqual, "/home_directory/testing1.txt")
+		So(RelativeToAbsolutePath("/testing1.txt", "/home_directory"), ShouldEqual, "/testing1.txt")
+		So(RelativeToAbsolutePath("testing1.txt", "/"), ShouldEqual, "/testing1.txt")
+		So(RelativeToAbsolutePath("testing1.txt", "."), ShouldEqual, "testing1.txt")
+		So(RelativeToAbsolutePath("testing1.txt", ""), ShouldEqual, "testing1.txt")
+	})
 }
