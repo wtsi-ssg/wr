@@ -366,7 +366,6 @@ func TestContainerFuncs(t *testing.T) {
 					So(id, ShouldBeEmpty)
 					So(err, ShouldBeNil)
 				})
-
 			})
 
 			Convey("Given a file path/glob file path and return a valid container id", func() {
