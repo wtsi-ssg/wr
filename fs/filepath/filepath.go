@@ -29,9 +29,9 @@ import (
 	"path/filepath"
 )
 
-// relativeToAbsolutePath returns the absolute path of a file given it's relative path
+// RelToAbsPath returns the absolute path of a file given it's relative path
 // and its directory name.
-func RelativeToAbsolutePath(path string, dir string) string {
+func RelToAbsPath(path string, dir string) string {
 	absPath := path
 	if !filepath.IsAbs(absPath) {
 		absPath = filepath.Join(dir, absPath)

@@ -21,33 +21,21 @@
  * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  ******************************************************************************/
+ ******************************************************************************/
 
-package math
+package conversion
 
-import (
-	"testing"
-
-	. "github.com/smartystreets/goconvey/convey"
+const (
+	nanoDivisor     uint64 = 1000000000
+	megabyteDivisor uint64 = 1024
 )
 
-func TestMathFuncs(t *testing.T) {
-	Convey("Test to check toFixed to round down to 3 places", t, func() {
-		So(toFixed(123.123456), ShouldEqual, 123.123)
-		So(toFixed(234.144444), ShouldEqual, 234.144)
-	})
+// NanosecondsToSec converts nanoseconds to secs.
+func NanosecondsToSec(tm uint64) int {
+	return int(tm / nanoDivisor)
+}
 
-	Convey("Test to check FloatLessThan", t, func() {
-		So(FloatLessThan(123.123456, 123.1245678), ShouldEqual, true)
-		So(FloatLessThan(234.144444, 123.123456), ShouldEqual, false)
-	})
-
-	Convey("Test to check FloatSubtract", t, func() {
-		So(FloatSubtract(234.144444, 123.123456), ShouldEqual, 111.021)
-		So(FloatSubtract(123.123456, 234.144444), ShouldEqual, -111.021)
-	})
-
-	Convey("Test to check FloatAdd", t, func() {
-		So(FloatAdd(234.144444, 123.123456), ShouldEqual, 357.267)
-	})
+// BytesToMB converts bytes to MB.
+func BytesToMB(bt uint64) int {
+	return int(bt / megabyteDivisor / megabyteDivisor)
 }

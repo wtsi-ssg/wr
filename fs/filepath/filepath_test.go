@@ -33,10 +33,10 @@ import (
 
 func TestPath(t *testing.T) {
 	Convey("Get the absolute path of a file given its relative path and directory name", t, func() {
-		So(RelativeToAbsolutePath("testing1.txt", "/home_directory"), ShouldEqual, "/home_directory/testing1.txt")
-		So(RelativeToAbsolutePath("/testing1.txt", "/home_directory"), ShouldEqual, "/testing1.txt")
-		So(RelativeToAbsolutePath("testing1.txt", "/"), ShouldEqual, "/testing1.txt")
-		So(RelativeToAbsolutePath("testing1.txt", "."), ShouldEqual, "testing1.txt")
-		So(RelativeToAbsolutePath("testing1.txt", ""), ShouldEqual, "testing1.txt")
+		So(RelToAbsPath("testing1.txt", "/home_directory"), ShouldEqual, "/home_directory/testing1.txt")
+		So(RelToAbsPath("/testing1.txt", "/home_directory"), ShouldEqual, "/testing1.txt")
+		So(RelToAbsPath("testing1.txt", "/"), ShouldEqual, "/testing1.txt")
+		So(RelToAbsPath("testing1.txt", "."), ShouldEqual, "testing1.txt")
+		So(RelToAbsPath("testing1.txt", ""), ShouldEqual, "testing1.txt")
 	})
 }

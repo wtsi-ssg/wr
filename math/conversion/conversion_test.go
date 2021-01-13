@@ -23,7 +23,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   ******************************************************************************/
 
-package math
+package conversion
 
 import (
 	"testing"
@@ -31,23 +31,17 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestMathFuncs(t *testing.T) {
-	Convey("Test to check toFixed to round down to 3 places", t, func() {
-		So(toFixed(123.123456), ShouldEqual, 123.123)
-		So(toFixed(234.144444), ShouldEqual, 234.144)
+func TestMathConvertFuncs(t *testing.T) {
+	Convey("nanoseconds to seconds conversion", t, func() {
+		So(NanosecondsToSec(634736438394834), ShouldEqual, 634736)
+		So(NanosecondsToSec(634736), ShouldEqual, 0)
+		So(NanosecondsToSec(0), ShouldEqual, 0)
+		So(NanosecondsToSec(1000000000), ShouldEqual, 1)
 	})
 
-	Convey("Test to check FloatLessThan", t, func() {
-		So(FloatLessThan(123.123456, 123.1245678), ShouldEqual, true)
-		So(FloatLessThan(234.144444, 123.123456), ShouldEqual, false)
-	})
-
-	Convey("Test to check FloatSubtract", t, func() {
-		So(FloatSubtract(234.144444, 123.123456), ShouldEqual, 111.021)
-		So(FloatSubtract(123.123456, 234.144444), ShouldEqual, -111.021)
-	})
-
-	Convey("Test to check FloatAdd", t, func() {
-		So(FloatAdd(234.144444, 123.123456), ShouldEqual, 357.267)
+	Convey("bytes to MB conversion", t, func() {
+		So(BytesToMB(634736438), ShouldEqual, 605)
+		So(BytesToMB(1048576), ShouldEqual, 1)
+		So(BytesToMB(0), ShouldEqual, 0)
 	})
 }

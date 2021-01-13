@@ -29,31 +29,30 @@ package container
 
 import (
 	"context"
-	"encoding/json"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/docker/docker/api/types"
 	fs "github.com/wtsi-ssg/wr/fs/filepath"
-	"github.com/wtsi-ssg/wr/math"
 )
+
+type TypeOfError string
 
 const (
-	ErrContainerNotFound   = "Container not found"
-	ErrContainerList       = "Could not list the containers"
-	ErrNoNewContainerFound = "No new container found"
+	ErrContainerList  TypeOfError = "Could not list the containers"
+	ErrContainerStats TypeOfError = "Could not get the container stats"
+	ErrContainerKill  TypeOfError = "Container could not be killed"
+	ErrContainerID    TypeOfError = "Container ID could not be found"
 )
 
-// ErrorType records a container-related error.
-type ErrorType struct {
-	Type string // ErrContainerNotFound or ErrContainerList or ErrNoNewContainerFound
+type TypeErr struct {
+	Type TypeOfError // one of our TypeOfError constants
 	Err  error
 }
 
-func (et ErrorType) Error() string {
-	msg := et.Type
+func (et TypeErr) Error() string {
+	msg := string(et.Type)
 	if et.Err != nil {
 		msg += " [" + et.Err.Error() + "]"
 	}
@@ -61,155 +60,155 @@ func (et ErrorType) Error() string {
 	return msg
 }
 
+type Container struct {
+	ID    string
+	Names []string
+}
+
+type Stats struct {
+	MemoryMB int
+	CPUSec   int
+}
+
 type Interactor interface {
-	ContainerList(ctx context.Context, options types.ContainerListOptions) ([]types.Container, error)
-	ContainerKill(ctx context.Context, containerID, signal string) error
-	ContainerStats(ctx context.Context, containerID string, stream bool) (types.ContainerStats, error)
+	ContainerList(ctx context.Context) ([]*Container, error)
+	ContainerStats(ctx context.Context, containerID string) (*Stats, error)
+	ContainerKill(ctx context.Context, containerID string) error
 }
 
 // Operator offers some methods for querying a container. You must use the
-// NewContainerOperator() method to make one, or the methods won't work.
+// NewOperator() method to make one, or the methods won't work.
 type Operator struct {
 	client             Interactor
 	existingContainers map[string]bool
 }
 
-// NewContainerOperator creates a new Operator, connecting to a container using
-// the standard environment variables to define options.
-// For docker refer: https://github.com/moby/moby/blob/1.13.x/client/client.go
-// eg of creating a operator for docker container in production code...
+// NewOperator creates a new Operator, working on containers using the supplied Interactor.
+// eg. to create an operator that can work with Docker containers:
 /*
 	import	"github.com/docker/docker/client"
 	....
-{
-	cli, err := client.NewEnvClient()
-	if err != nil {
-		panic(err)
-	}
+	{
+		cli, err := client.NewEnvClient()
 
-	dockerOperator := &Operator{
-		client:             cli,
-		existingContainers: make(map[string]bool),
-	}
+		dockerOperator := &Operator{
+			client:             cli,
+			existingContainers: make(map[string]bool),
+		}
 
-	cntrList, err := dockerOperator.GetCurrentContainers(ctx)
-	if err != nil {
-		panic(err)
+		cntrList, err := dockerOperator.GetCurrentContainers(ctx)
 	}
-	fmt.Println(cntrList)
-}.
+	...
 */
-func NewContainerOperator(cntrInteractor Interactor) *Operator {
+func NewOperator(cntrInteractor Interactor) *Operator {
 	return &Operator{
 		client:             cntrInteractor,
 		existingContainers: make(map[string]bool),
 	}
 }
 
-// GetCurrentContainers returns current docker containers.
-func (o *Operator) GetCurrentDockerContainers(ctx context.Context) ([]types.Container, error) {
-	return o.client.ContainerList(ctx, types.ContainerListOptions{})
+// GetCurrentContainers returns current containers.
+func (o *Operator) GetCurrentContainers(ctx context.Context) ([]*Container, error) {
+	return o.client.ContainerList(ctx)
 }
 
-// RememberCurrentDockerContainerIDs calls GetCurrentDockerContainerIDs() and stores the
-// results, for the benefit of a future GetNewDockerContainerID() call.
-func (o *Operator) RememberCurrentDockerContainerIDs(ctx context.Context) error {
-	containers, err := o.GetCurrentDockerContainers(ctx)
+// RememberCurrentContainerIDs calls GetCurrentContainers() and stores the
+// results, for the benefit of a future GetNewContainerIDs() call.
+func (o *Operator) RememberCurrentContainerIDs(ctx context.Context) error {
+	curContainers, err := o.GetCurrentContainers(ctx)
 	if err != nil {
-		return &ErrorType{Type: ErrContainerList, Err: err}
+		return &TypeErr{Type: ErrContainerList, Err: err}
 	}
 
-	for _, container := range containers {
+	for _, container := range curContainers {
 		o.existingContainers[container.ID] = true
 	}
 
 	return nil
 }
 
-// GetNewDockerContainers returns the list of all the new docker containers that now exists
-// and weren't previously remembered by a RememberCurrentDockerContainerIDs() call.
-func (o *Operator) GetNewDockerContainers(ctx context.Context) ([]types.Container, error) {
-	containers, err := o.GetCurrentDockerContainers(ctx)
+// GetNewContainers returns the list of all the new containers that now exists
+// and weren't previously remembered by a RememberCurrentContainerIDs() call.
+func (o *Operator) GetNewContainers(ctx context.Context) ([]*Container, error) {
+	curContainers, err := o.GetCurrentContainers(ctx)
 	if err != nil {
-		return []types.Container{}, &ErrorType{Type: ErrContainerList, Err: err}
+		return nil, &TypeErr{Type: ErrContainerList, Err: err}
 	}
 
-	var newContainers []types.Container
+	var newContainers []*Container
 
-	for _, container := range containers {
+	for _, container := range curContainers {
 		if !o.existingContainers[container.ID] {
 			newContainers = append(newContainers, container)
 		}
 	}
 
-	if newContainers == nil {
-		return newContainers, &ErrorType{Type: ErrNoNewContainerFound}
-	}
-
 	return newContainers, nil
 }
 
-// GetNewDockerContainerIDs returns the ids of all the docker containers that now exist
-// and weren't previously remembered by a RememberCurrentDockerContainerIDs() call.
-func (o *Operator) GetNewDockerContainerIDs(ctx context.Context) ([]string, error) {
-	newContainers, err := o.GetNewDockerContainers(ctx)
+// GetNewContainerIDs returns the ids of all the containers that now exist
+// and weren't previously remembered by a RememberCurrentContainerIDs() call.
+func (o *Operator) GetNewContainerIDs(ctx context.Context) ([]string, error) {
+	newContainers, err := o.GetNewContainers(ctx)
 	if err != nil {
-		return []string{}, &ErrorType{Type: ErrContainerList, Err: err}
+		return []string{}, err
 	}
 
-	var newCntrsIDs = []string{}
+	newContainersIDs := make([]string, len(newContainers))
 
-	for _, container := range newContainers {
-		newCntrsIDs = append(newCntrsIDs, container.ID)
+	for idx, container := range newContainers {
+		newContainersIDs[idx] = container.ID
 	}
 
-	return newCntrsIDs, nil
+	return newContainersIDs, nil
 }
 
-// GetNewDockerContainerIDByName returns the id of the docker container with given name.
-// Only new containers (those not remembered by the last RememberCurrentDockerContainerIDs() call)
+// GetNewContainerIDByName returns the id of the container with given name.
+// Only new containers (those not remembered by the last RememberCurrentContainerIDs() call)
 // are considered when searching for a container with that name.
-func (o *Operator) GetNewDockerContainerIDByName(ctx context.Context, name string) (string, error) {
-	newContainers, err := o.GetNewDockerContainers(ctx)
+func (o *Operator) GetNewContainerIDByName(ctx context.Context, name string) (string, error) {
+	newContainers, err := o.GetNewContainers(ctx)
 	if err != nil {
-		return "", &ErrorType{Type: ErrNoNewContainerFound, Err: err}
+		return "", err
 	}
 
 	for _, cid := range newContainers {
-		id, err := getIDByName(name, cid)
+		id := getIDByName(name, cid)
 		if id != "" {
-			return id, err
+			return id, nil
 		}
 	}
 
-	return "", &ErrorType{Type: ErrNoNewContainerFound}
+	return "", nil
 }
 
-// getIDByName returns the id of a Docker container with a given name,
+// getIDByName returns the id of a container with a given name,
 // from list of names for a container.
-func getIDByName(name string, container types.Container) (string, error) {
+func getIDByName(name string, container *Container) string {
 	for _, cname := range container.Names {
 		cname = strings.TrimPrefix(cname, "/")
 		if cname == name {
-			return container.ID, nil
+			return container.ID
 		}
 	}
 
-	return "", &ErrorType{Type: ErrContainerNotFound}
+	return ""
 }
 
-// GetDockerContainerIDByPath returns the ID of the docker container from a file path
-// you gave to --cidfile argument of your docker command. Docker writes the
-// container ID out to this file. If you have some other process that generates a --cidfile
-// name for you, your file path name can contain ? (any non-separator character)
-// and * (any number of non-separator characters) wildcards.
-// The first file to match the glob that also contains a valid id is the one used.
+//	GetContainerIDFromPath checks the file at the given path, and if the first line
+// contains the ID of a container, that ID is returned.
 //
-// In case the name is a relative file path, the second argument is the
-// absolute path to the working directory where your container was created.
-func (o *Operator) GetDockerContainerIDByPath(ctx context.Context, path string, dir string) (string, error) {
+// The path can contain globs: `?` to match any non-separator character and `*` to match
+// any number of them. The first file to match the glob and also contain a valid is is the one used.
+//
+// In case the name is a relative file path, the second argument is the absolute path to the working
+// directory where your container was created.
+//
+// This method is useful if container IDs are written to file, as they are eg. in the case of docker
+// when using the --cidfile argument.
+func (o *Operator) GetContainerIDByPath(ctx context.Context, path string, dir string) (string, error) {
 	// if name is a relative file path, then create the absolute path with dir
-	cidPath := fs.RelativeToAbsolutePath(path, dir)
+	cidPath := fs.RelToAbsPath(path, dir)
 
 	_, err := os.Stat(cidPath)
 	if err == nil {
@@ -221,7 +220,7 @@ func (o *Operator) GetDockerContainerIDByPath(ctx context.Context, path string, 
 }
 
 // cidPathToID takes the absolute path to a file that exists, reads the first
-// line, and checks that it is the ID of a current docker container. If so, returns
+// line, and checks that it is the ID of a current container. If so, returns
 // that ID.
 func (o *Operator) cidPathToID(ctx context.Context, cidPath string) (string, error) {
 	b, err := ioutil.ReadFile(cidPath)
@@ -239,20 +238,20 @@ func (o *Operator) cidPathToID(ctx context.Context, cidPath string) (string, err
 	return "", err
 }
 
-// verifyID checks if the given id is the ID of a current docker container.
+// verifyID checks if the given id is the ID of a current container.
 func (o *Operator) verifyID(ctx context.Context, id string) (bool, error) {
-	containers, err := o.GetCurrentDockerContainers(ctx)
+	curContainers, err := o.GetCurrentContainers(ctx)
 	if err != nil {
-		return false, &ErrorType{Type: ErrContainerList, Err: err}
+		return false, &TypeErr{Type: ErrContainerList, Err: err}
 	}
 
-	for _, container := range containers {
+	for _, container := range curContainers {
 		if container.ID == id {
 			return true, nil
 		}
 	}
 
-	return false, &ErrorType{Type: ErrContainerNotFound}
+	return false, nil
 }
 
 // cidPathGlobToID is like cidPathToID, but cidPath (which should not be
@@ -278,38 +277,18 @@ func (o *Operator) cidPathGlobToID(ctx context.Context, cidGlobPath string) (str
 	return "", nil
 }
 
-// ContainerStats asks the docker container for the current memory usage (RSS) and total CPU
-// usage of the container with the given id.
-// This memory usages is returned in MB and cpu usages is returned in seconds.
-func (o *Operator) ContainerStats(ctx context.Context,
-	containerID string) (memMB int, cpuSec int, err error) {
-	stats, err := o.client.ContainerStats(ctx, containerID, false)
+// ContainerStats asks the container for the current memory usage (RSS, in MB)
+// and total CPU (in seconds) usage of the container with the given id.
+func (o *Operator) ContainerStats(ctx context.Context, containerID string) (*Stats, error) {
+	stats, err := o.client.ContainerStats(ctx, containerID)
 	if err != nil {
-		return 0, 0, err
+		return nil, err
 	}
 
-	return decodeDockerContainerStats(stats)
+	return stats, nil
 }
 
-// decodeDockerContainerStats takes type.ContainerStats and return memory and cpu stats.
-// The memory stat is returned in MB and the cpu stat is returned in seconds.
-func decodeDockerContainerStats(cntrStats types.ContainerStats) (int, int, error) {
-	var ds *types.Stats
-
-	err := json.NewDecoder(cntrStats.Body).Decode(&ds)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	memMB := math.BytesToMB(ds.MemoryStats.Stats["rss"])             // bytes to MB
-	cpuSec := math.NanosecondsToSec(ds.CPUStats.CPUUsage.TotalUsage) // nanoseconds to seconds
-
-	err = cntrStats.Body.Close()
-
-	return memMB, cpuSec, err
-}
-
-// KillContainer kills the Docker container with the given ID.
-func (o *Operator) KillDockerContainer(ctx context.Context, containerID string) error {
-	return o.client.ContainerKill(ctx, containerID, "SIGKILL")
+// KillContainer kills the container with the given ID.
+func (o *Operator) KillContainer(ctx context.Context, containerID string) error {
+	return o.client.ContainerKill(ctx, containerID)
 }

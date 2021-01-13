@@ -1,7 +1,7 @@
 /*******************************************************************************
  * Copyright (c) 2020 Genome Research Ltd.
  *
- * Author: Sendu Bala <sb10@sanger.ac.uk>
+ * Author: Sendu Bala <sb10@sanger.ac.uk>, Ashwini Chhipa <ac55@sanger.ac.uk>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -25,25 +25,9 @@
 
 package math
 
-// this file has general utility functions
-
 import "math"
 
-const (
-	floatFixedPrecision int    = 3
-	nanoDivisor         uint64 = 1000000000
-	megabyteDivisor     uint64 = 1024
-)
-
-// nanosecondsToSec converts nanoseconds to sec for cpu stats.
-func NanosecondsToSec(tm uint64) int {
-	return int(tm / nanoDivisor)
-}
-
-// bytesToMB converts bytes to MB for memory stats.
-func BytesToMB(bt uint64) int {
-	return int(bt / megabyteDivisor / megabyteDivisor)
-}
+const floatFixedPrecision int = 3
 
 // FloatLessThan tells you if a < b, treating both float64s rounded to 3 decimal
 // places of precision.
