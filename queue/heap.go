@@ -29,7 +29,8 @@ import (
 	"container/heap"
 	"context"
 	"fmt"
-	"sync"
+
+	sync "github.com/sasha-s/go-deadlock"
 
 	"github.com/wtsi-ssg/wr/clog"
 )
@@ -176,19 +177,16 @@ func (hq *heapQueue) readFromPushChannelIfSentOn(id string, pushCh chan *Item) *
 
 // remove removes a given item from the queue.
 func (hq *heapQueue) remove(item *Item) {
-	fmt.Printf("will get hq lock\n")
+	fmt.Printf("hq.remove called\n")
 	hq.mutex.Lock()
 	defer hq.mutex.Unlock()
-	fmt.Printf("got hq lock\n")
+	fmt.Printf("hq.remove got lock\n")
 
 	if item.removed() || !item.belongsTo(hq) {
-		fmt.Printf("removed or doesn't belong\n")
 		return
 	}
 
-	fmt.Printf("will call heap.Remove\n")
 	heap.Remove(hq.heapImplementation, item.index())
-	fmt.Printf("heap.Remove()d\n")
 }
 
 // update changes the item's position in the queue if its order properties have
@@ -230,7 +228,12 @@ func heapSwap(items []*Item, i, j int) {
 // heapPush can be used to implement heap.Interface.Push.
 func heapPush(items []*Item, x interface{}) []*Item {
 	n := len(items)
-	item := x.(*Item)
+	item, ok := x.(*Item)
+
+	if !ok {
+		panic("heapPush got an item that wasn't an Item")
+	}
+
 	item.setIndex(n)
 
 	return append(items, item)
@@ -256,4 +259,36 @@ func heapNext(items []*Item) interface{} {
 	}
 
 	return items[0]
+}
+
+// basicHeapWithNext implements most of the methods of heapWithNext interface.
+// Just embed and add a Less method to complete.
+type basicHeapWithNext struct {
+	items []*Item
+}
+
+// Len is to implement heap.Interface.
+func (h *basicHeapWithNext) Len() int { return len(h.items) }
+
+// Swap is to implement heap.Interface.
+func (h *basicHeapWithNext) Swap(i, j int) {
+	heapSwap(h.items, i, j)
+}
+
+// Push is to implement heap.Interface.
+func (h *basicHeapWithNext) Push(x interface{}) {
+	h.items = heapPush(h.items, x)
+}
+
+// Pop is to implement heap.Interface.
+func (h *basicHeapWithNext) Pop() interface{} {
+	var item interface{}
+	h.items, item = heapPop(h.items)
+
+	return item
+}
+
+// Next is to implement heapWithNext.
+func (h *basicHeapWithNext) Next() interface{} {
+	return heapNext(h.items)
 }

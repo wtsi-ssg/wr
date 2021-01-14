@@ -60,7 +60,9 @@ package queue
 
 import (
 	"context"
-	"sync"
+	"fmt"
+
+	sync "github.com/sasha-s/go-deadlock"
 
 	"github.com/wtsi-ssg/wr/clog"
 )
@@ -226,7 +228,9 @@ func (q *Queue) ChangeReserveGroup(key string, newGroup string) {
 
 // ttrHandler gets called with items that were in the run SubQueue but expired.
 func (q *Queue) ttrHandler(item *Item) {
-	q.runQueue.remove(item)
+	fmt.Printf("ttrHandler called\n")
+	// q.runQueue.remove(item)
+	// fmt.Printf("item removed from runQueue\n")
 
 	if err := item.SwitchState(ItemStateDelay); err != nil {
 		clog.Error(context.Background(), "queue failure", "err", err)
@@ -235,4 +239,5 @@ func (q *Queue) ttrHandler(item *Item) {
 	}
 
 	q.delayQueue.push(item)
+	fmt.Printf("item pushed to delayQueue\n")
 }

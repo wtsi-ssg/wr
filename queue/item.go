@@ -27,8 +27,9 @@ package queue
 
 import (
 	"fmt"
-	"sync"
 	"time"
+
+	sync "github.com/sasha-s/go-deadlock"
 )
 
 // DefaultTTR is the time to release used for items that were specified with a
@@ -264,31 +265,34 @@ func (item *Item) setAndUpdateTime(d, defaultD time.Duration, property *time.Tim
 // ReleaseAt returns the time that this item's TTR will run out. It will be a
 // year from now if this item has not yet been Touch()ed or this is a nil item.
 func (item *Item) ReleaseAt() time.Time {
-	if item == nil {
-		return time.Now().Add(unsetItemExpiry)
-	}
+	releaseAt, _ := item.timesAt()
 
-	item.mutex.RLock()
-	defer item.mutex.RUnlock()
-
-	if item.releaseAt.IsZero() {
-		return time.Now().Add(unsetItemExpiry)
-	}
-
-	return item.releaseAt
+	return releaseAt
 }
 
-// Releasable tells you if the TTR on this item has run out. Returns false if
-// ReleaseAt() is the zero time. *** not needed any more
-func (item *Item) Releasable() bool {
+func (item *Item) timesAt() (releaseAt, readyAt time.Time) {
+	unset := time.Now().Add(unsetItemExpiry)
+
+	if item == nil {
+		return unset, unset
+	}
+
 	item.mutex.RLock()
 	defer item.mutex.RUnlock()
 
 	if item.releaseAt.IsZero() {
-		return false
+		releaseAt = unset
+	} else {
+		releaseAt = item.releaseAt
 	}
 
-	return item.releaseAt.Before(time.Now())
+	if item.readyAt.IsZero() {
+		readyAt = unset
+	} else {
+		readyAt = item.readyAt
+	}
+
+	return releaseAt, readyAt
 }
 
 // restart updates the readyAt for the item to now+delay, and updates the
@@ -301,18 +305,9 @@ func (item *Item) restart() {
 // be a year from now if this item has not yet been reset() or this is a nil
 // item.
 func (item *Item) ReadyAt() time.Time {
-	if item == nil {
-		return time.Now().Add(unsetItemExpiry)
-	}
+	_, readyAt := item.timesAt()
 
-	item.mutex.RLock()
-	defer item.mutex.RUnlock()
-
-	if item.readyAt.IsZero() {
-		return time.Now().Add(unsetItemExpiry)
-	}
-
-	return item.readyAt
+	return readyAt
 }
 
 // setSubqueue sets a new SubQueue for the item.

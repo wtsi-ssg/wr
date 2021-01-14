@@ -27,22 +27,19 @@ package queue
 
 import (
 	"context"
-	"sync"
+
+	sync "github.com/sasha-s/go-deadlock"
 )
 
 // prioritySizeAgeOrder implements heap.Interface, keeping items in
 // priority||size||age order.
 type prioritySizeAgeOrder struct {
-	items []*Item
+	*basicHeapWithNext
 }
 
-// newReadySubQueue creates a SubQueue that is ordered by priority||size||age.
-func newReadySubQueue() SubQueue {
-	return newHeapQueue(&prioritySizeAgeOrder{})
+func newPSAOrder() *prioritySizeAgeOrder {
+	return &prioritySizeAgeOrder{basicHeapWithNext: &basicHeapWithNext{}}
 }
-
-// Len is to implement heap.Interface.
-func (po *prioritySizeAgeOrder) Len() int { return len(po.items) }
 
 // Less is to implement heap.Interface.
 func (po *prioritySizeAgeOrder) Less(i, j int) bool {
@@ -63,27 +60,9 @@ func (po *prioritySizeAgeOrder) Less(i, j int) bool {
 	return ip > jp
 }
 
-// Swap is to implement heap.Interface.
-func (po *prioritySizeAgeOrder) Swap(i, j int) {
-	heapSwap(po.items, i, j)
-}
-
-// Push is to implement heap.Interface.
-func (po *prioritySizeAgeOrder) Push(x interface{}) {
-	po.items = heapPush(po.items, x)
-}
-
-// Pop is to implement heap.Interface.
-func (po *prioritySizeAgeOrder) Pop() interface{} {
-	var item interface{}
-	po.items, item = heapPop(po.items)
-
-	return item
-}
-
-// Next is to implement heapWithNext.
-func (po *prioritySizeAgeOrder) Next() interface{} {
-	return heapNext(po.items)
+// newReadySubQueue creates a SubQueue that is ordered by priority||size||age.
+func newReadySubQueue() SubQueue {
+	return newHeapQueue(newPSAOrder())
 }
 
 // readyQueues is a slice of ready SubQueue that will newly create or reuse a

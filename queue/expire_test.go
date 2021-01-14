@@ -26,7 +26,7 @@
 package queue
 
 import (
-	"fmt"
+	"context"
 	"sync"
 	"testing"
 	"time"
@@ -37,12 +37,12 @@ import (
 func TestQueueExpire(t *testing.T) {
 	num := 6
 	ips := newSetOfItemParameters(num)
-	delay := 5 * time.Millisecond
+	delay := 20 * time.Millisecond
+	ctx := context.Background()
 
 	for i := 0; i < num; i++ {
 		ips[i].Delay = delay + time.Duration(i)*time.Nanosecond
 	}
-	// ctx := context.Background()
 
 	Convey("Given a ready-based expire SubQueue with some items push()ed to it", t, func() {
 		items := make([]*Item, num*2)
@@ -51,22 +51,28 @@ func TestQueueExpire(t *testing.T) {
 		itemCh := make(chan *Item, num*2)
 		ecb := func(item *Item) bool {
 			eiMutex.Lock()
-			fmt.Printf("ecb locked\n")
 			expiredItems++
 			eiMutex.Unlock()
 			itemCh <- item
-			fmt.Printf("item [%s] sent to test itemCh\n", item.Key())
 
 			return true
 		}
 
-		sq := newExpireSubQueue(ecb, getItemReady, &readyOrder{})
+		numExpired := func() int {
+			eiMutex.RLock()
+			ei := expiredItems
+			eiMutex.RUnlock()
+
+			return ei
+		}
+
+		sq := newExpireSubQueue(ecb, getItemReady, newReadyOrder())
 		pushItemsToSubQueue(sq, ips, func(item *Item, i int) {
 			item.restart()
 			items[i] = item
 		})
 		So(sq.len(), ShouldEqual, num)
-		So(expiredItems, ShouldEqual, 0)
+		So(numExpired(), ShouldEqual, 0)
 
 		firstExpire := items[0].ReadyAt()
 		beforeFirstExpire := firstExpire.Add(-1 * time.Millisecond)
@@ -74,23 +80,17 @@ func TestQueueExpire(t *testing.T) {
 
 		Convey("After delay, the items get sent to our callback", func() {
 			<-time.After(time.Until(beforeFirstExpire))
-			eiMutex.RLock()
-			So(expiredItems, ShouldEqual, 0)
-			eiMutex.RUnlock()
-			fmt.Printf("\ntested before first expire at %s\n", time.Now())
+			So(numExpired(), ShouldEqual, 0)
 
 			<-time.After(time.Until(afterFirstExpire))
-			fmt.Printf("\ntesting after first expire at %s\n", time.Now())
-			eiMutex.RLock()
-			So(expiredItems, ShouldBeBetweenOrEqual, 1, num)
-			eiMutex.RUnlock()
+			So(numExpired(), ShouldBeBetweenOrEqual, 1, num)
 
 			for i := 0; i < num; i++ {
 				item := <-itemCh
 				So(item.Key(), ShouldEqual, items[i].Key())
 			}
 
-			So(expiredItems, ShouldEqual, num)
+			So(numExpired(), ShouldEqual, num)
 		})
 
 		Convey("You can push new items while others expire", func() {
@@ -105,7 +105,6 @@ func TestQueueExpire(t *testing.T) {
 			if item == nil {
 				So(false, ShouldBeTrue)
 			}
-			fmt.Printf("\n\ngot item %s\n", item.Key())
 
 			pushItemsToSubQueue(sq, ipsNew, func(item *Item, i int) {
 				item.restart()
@@ -118,7 +117,30 @@ func TestQueueExpire(t *testing.T) {
 				So(item.Key(), ShouldEqual, items[i+1].Key())
 			}
 
-			So(expiredItems, ShouldEqual, num*2)
+			So(numExpired(), ShouldEqual, num*2)
+		})
+
+		Convey("You can pop items while others expire", func() {
+			item := <-itemCh
+			if item == nil {
+				So(false, ShouldBeTrue)
+			}
+
+			popped := 0
+			for i := 0; i < num; i++ {
+				item := sq.pop(ctx)
+				if item == nil {
+					break
+				}
+				popped++
+			}
+
+			for i := 0; i < num-popped-1; i++ {
+				<-itemCh
+			}
+
+			So(popped, ShouldBeBetweenOrEqual, 0, num)
+			So(numExpired(), ShouldEqual, num-popped)
 		})
 	})
 }

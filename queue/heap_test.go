@@ -101,25 +101,11 @@ func TestQueueHeapPushPop(t *testing.T) {
 
 			var wg sync.WaitGroup
 			wg.Add(2)
-			allOK := true
-			pushHalf := func(first int) {
-				defer wg.Done()
-
-				for _, ip := range ips[first : first+half] {
-					item := ip.toItem()
-					sq.push(item)
-					if sq.len() <= 0 {
-						allOK = false
-					}
-				}
-			}
-
-			go pushHalf(0)
-			go pushHalf(half)
+			go pushRangeOfItemParametersToSubQueue(ips, sq, 0, half, &wg)
+			go pushRangeOfItemParametersToSubQueue(ips, sq, half, num, &wg)
 			wg.Wait()
 
 			So(sq.len(), ShouldEqual, num)
-			So(allOK, ShouldBeTrue)
 
 			Convey("And then 2 threads can pop() at once", func() {
 				var wg sync.WaitGroup
@@ -137,6 +123,19 @@ func TestQueueHeapPushPop(t *testing.T) {
 			})
 		})
 	})
+}
+
+func pushRangeOfItemParametersToSubQueue(ips []*ItemParameters, sq SubQueue, first, last int, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	for _, ip := range ips[first:last] {
+		item := ip.toItem()
+		sq.push(item)
+
+		if sq.len() <= 0 {
+			panic("pushRangeOfItemParametersToSubQueue sq.len() <= 0")
+		}
+	}
 }
 
 func testPopsInInsertionOrder(ctx context.Context, sq SubQueue, num int, ips []*ItemParameters) {

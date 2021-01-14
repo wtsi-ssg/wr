@@ -28,8 +28,9 @@ package queue
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
+
+	sync "github.com/sasha-s/go-deadlock"
 )
 
 // expirationCB is something that will be called when an item expires. It should
@@ -63,8 +64,7 @@ func newExpireSubQueue(expireCB expirationCB, timeCB itemTimeCB, heapImplementat
 		closeCh:                make(chan struct{}),
 	}
 
-	hq := newHeapQueue(heapImplementation)
-	esq.heapQueue = hq
+	esq.heapQueue = newHeapQueue(heapImplementation)
 
 	go esq.processExpiringItems()
 
@@ -75,10 +75,6 @@ func newExpireSubQueue(expireCB expirationCB, timeCB itemTimeCB, heapImplementat
 func (esq *expireSubQueue) push(item *Item) {
 	esq.expireMutex.Lock()
 	esq.heapQueue.push(item)
-	fmt.Printf("consider next due to push\n")
-	// if many pushes during the time period we are removing an expired item,
-	// we will end up sending the expired item to be processed after we removed
-	// it
 	esq.considerNextExpiringItem()
 }
 
@@ -87,19 +83,22 @@ func (esq *expireSubQueue) push(item *Item) {
 func (esq *expireSubQueue) considerNextExpiringItem() {
 	item := esq.heapQueue.nextItem()
 	beingConsidered := esq.nextExpiringItem
-	esq.expireMutex.Unlock()
 
 	if item == nil {
+		esq.expireMutex.Unlock()
+
 		return
 	}
 
 	if beingConsidered != nil {
 		if item.Key() == beingConsidered.Key() {
+			esq.expireMutex.Unlock()
+
 			return
 		}
 	}
+	esq.expireMutex.Unlock()
 
-	fmt.Printf("sending item %s with index %d down channel\n", item.key, item.subQueueIndex)
 	esq.updateNextItemToExpire <- item
 }
 
@@ -107,7 +106,6 @@ func (esq *expireSubQueue) considerNextExpiringItem() {
 func (esq *expireSubQueue) pop(ctx context.Context) *Item {
 	esq.expireMutex.Lock()
 	item := esq.heapQueue.pop(ctx)
-	fmt.Printf("consider next due to pop\n")
 	esq.considerNextExpiringItem()
 
 	return item
@@ -115,9 +113,10 @@ func (esq *expireSubQueue) pop(ctx context.Context) *Item {
 
 // remove removes a given item from the queue.
 func (esq *expireSubQueue) remove(item *Item) {
+	fmt.Printf("esq.remove called\n")
 	esq.expireMutex.Lock()
+	fmt.Printf("esq.remove got lock, will call hq.remove\n")
 	esq.heapQueue.remove(item)
-	fmt.Printf("consider next due to remove\n")
 	esq.considerNextExpiringItem()
 }
 
@@ -126,15 +125,12 @@ func (esq *expireSubQueue) remove(item *Item) {
 func (esq *expireSubQueue) update(item *Item) {
 	esq.expireMutex.Lock()
 	esq.heapQueue.update(item)
-	fmt.Printf("consider next due to update\n")
 	esq.considerNextExpiringItem()
 }
 
 // processExpiringItems starts waiting for items to expire and calls our
 // expireCB when they are.
 func (esq *expireSubQueue) processExpiringItems() {
-	fmt.Printf("processing\n")
-
 	item := <-esq.updateNextItemToExpire
 
 	for {
@@ -142,20 +138,10 @@ func (esq *expireSubQueue) processExpiringItems() {
 
 		select {
 		case <-itemExpires.C:
-			if item != nil {
-				fmt.Printf("item %s just expired\n", item.key)
-			} else {
-				fmt.Printf("item nil just expired\n")
-			}
-
 			itemExpires.Stop()
+
 			item = esq.sendItemToExpireCB(item)
 		case item = <-esq.updateNextItemToExpire:
-			ik := "nil"
-			if item != nil {
-				ik = item.Key()
-			}
-			fmt.Printf("item %s was sent down updateNextItemToExpire ch\n", ik)
 			itemExpires.Stop()
 		case <-esq.closeCh:
 			itemExpires.Stop()
@@ -174,32 +160,34 @@ func (esq *expireSubQueue) itemExpires(item *Item) *time.Timer {
 	esq.expireTime = esq.timeCB(item)
 	esq.nextExpiringItem = item
 
-	if item != nil {
-		fmt.Printf("expireTime set based on %s\n", item.key)
-	}
-
 	return time.NewTimer(time.Until(esq.expireTime))
 }
 
 // sendItemToExpireCB sends non-nil items to our expireCB and returns the next
 // item to expire.
 func (esq *expireSubQueue) sendItemToExpireCB(item *Item) *Item {
-	if item != nil {
-		fmt.Printf("sending item to expireCB\n")
-		if remove := esq.expireCB(item); remove {
-			fmt.Printf("item should be removed since expired\n")
-			esq.expireMutex.Lock()
-			esq.heapQueue.remove(item)
-			next := esq.heapQueue.nextItem()
-			esq.expireMutex.Unlock()
-			nk := "nil"
-			if next != nil {
-				nk = next.Key()
-			}
-			fmt.Printf("item %s removed since expired, next to expire is %s\n", item.Key(), nk)
-			return next
-		}
+	if item == nil {
+		return nil
 	}
+
+	esq.expireMutex.Lock()
+	if item.removed() {
+		esq.expireMutex.Unlock()
+
+		return nil
+	}
+
+	fmt.Printf("esq.expireCB will be called\n")
+	if remove := esq.expireCB(item); remove {
+		esq.heapQueue.remove(item)
+		fmt.Printf("esq.expireCB removed item\n\n")
+		next := esq.heapQueue.nextItem()
+		esq.expireMutex.Unlock()
+
+		return next
+	}
+
+	esq.expireMutex.Unlock()
 
 	return nil
 }

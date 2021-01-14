@@ -25,50 +25,34 @@
 
 package queue
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
-// releaseOrder implements heap.Interface, keeping items in releaseAt order.
+// releaseOrder implements heapWithNext, keeping items in releaseAt order.
 type releaseOrder struct {
-	items []*Item
+	*basicHeapWithNext
 }
 
-// Len is to implement heap.Interface.
-func (ro *releaseOrder) Len() int { return len(ro.items) }
+func newReleaseOrder() *releaseOrder {
+	return &releaseOrder{basicHeapWithNext: &basicHeapWithNext{}}
+}
 
 // Less is to implement heap.Interface.
 func (ro *releaseOrder) Less(i, j int) bool {
 	return ro.items[i].ReleaseAt().Before(ro.items[j].ReleaseAt())
 }
 
-// Swap is to implement heap.Interface.
-func (ro *releaseOrder) Swap(i, j int) {
-	heapSwap(ro.items, i, j)
-}
-
-// Push is to implement heap.Interface.
-func (ro *releaseOrder) Push(x interface{}) {
-	ro.items = heapPush(ro.items, x)
-}
-
-// Pop is to implement heap.Interface.
-func (ro *releaseOrder) Pop() interface{} {
-	var item interface{}
-	ro.items, item = heapPop(ro.items)
-
-	return item
-}
-
-// Next is to implement heapWithNext.
-func (ro *releaseOrder) Next() interface{} {
-	return heapNext(ro.items)
-}
-
 // newRunSubQueue creates a SubQueue that is ordered by releaseAt and passes
 // expired releaseAt items to the given callback.
 func newRunSubQueue(cb func(*Item)) SubQueue {
-	return newExpireSubQueue(func(*Item) bool {
+	return newExpireSubQueue(func(item *Item) bool {
+		fmt.Printf("newRunSubQueue cb will be called\n")
+		cb(item)
+
 		return true
-	}, getItemRelease, &releaseOrder{})
+	}, getItemRelease, newReleaseOrder())
 }
 
 // getItemRelease is run SubQueue's itemTimeCB.
