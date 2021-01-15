@@ -39,7 +39,9 @@ func TestQueueRunPushPop(t *testing.T) {
 	ctx := context.Background()
 
 	Convey("Given a run SubQueue", t, func() {
-		sq := newRunSubQueue(func(*Item) {})
+		sq := newRunSubQueue(func(*Item) (bool, chan struct{}) {
+			return true, make(chan struct{})
+		})
 
 		Convey("You can push() increasing releaseAt items in to it", func() {
 			pushItemsToSubQueue(sq, ips, func(item *Item, i int) {
@@ -52,8 +54,9 @@ func TestQueueRunPushPop(t *testing.T) {
 		})
 
 		Convey("You can push() reversed releaseAt items in to it", func() {
+			t := time.Now().Add(1 * time.Hour)
 			pushItemsToSubQueue(sq, ips, func(item *Item, i int) {
-				item.releaseAt = time.Now().Add(time.Duration(num-i) * time.Millisecond)
+				item.releaseAt = t.Add(time.Duration(num-i) * time.Millisecond)
 			})
 
 			Convey("And then pop() them out in releaseAt order", func() {
@@ -71,7 +74,9 @@ func TestQueueRunUpdate(t *testing.T) {
 	ctx := context.Background()
 
 	Convey("Given a run SubQueue with some items push()ed to it", t, func() {
-		sq := newRunSubQueue(func(*Item) {})
+		sq := newRunSubQueue(func(*Item) (bool, chan struct{}) {
+			return true, make(chan struct{})
+		})
 		items := make([]*Item, num)
 		pushItemsToSubQueue(sq, ips, func(item *Item, i int) {
 			item.Touch()

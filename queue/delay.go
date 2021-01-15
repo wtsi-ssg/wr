@@ -45,12 +45,8 @@ func (ro *readyOrder) Less(i, j int) bool {
 
 // newDelaySubQueue creates a SubQueue that is ordered by readyAt and passes
 // expired readyAt items to the given callback.
-func newDelaySubQueue(cb func(*Item)) SubQueue {
-	return newExpireSubQueue(func(item *Item) bool {
-		cb(item)
-
-		return true
-	}, getItemReady, newReadyOrder())
+func newDelaySubQueue(cb expirationCB) SubQueue {
+	return newExpireSubQueue(cb, getItemReady, newReadyOrder())
 }
 
 // getItemReady is run SubQueue's itemTimeCB.

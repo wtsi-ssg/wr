@@ -27,7 +27,6 @@ package queue
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	sync "github.com/sasha-s/go-deadlock"
@@ -35,8 +34,10 @@ import (
 
 // expirationCB is something that will be called when an item expires. It should
 // return true if the item should be removed from the expire SubQueue, and false
-// if it should instead have its expiry effectively ignored.
-type expirationCB func(*Item) bool
+// if it should instead have its expiry reset and kept in the this SubQueue.
+// In both cases, once the desired action has been carried out, the returned
+// channel will be closed so you know when to proceed.
+type expirationCB func(*Item) (bool, chan struct{})
 
 // itemTimeCB is something that will be called to find out if an item has
 // expired.
@@ -113,9 +114,7 @@ func (esq *expireSubQueue) pop(ctx context.Context) *Item {
 
 // remove removes a given item from the queue.
 func (esq *expireSubQueue) remove(item *Item) {
-	fmt.Printf("esq.remove called\n")
 	esq.expireMutex.Lock()
-	fmt.Printf("esq.remove got lock, will call hq.remove\n")
 	esq.heapQueue.remove(item)
 	esq.considerNextExpiringItem()
 }
@@ -177,13 +176,11 @@ func (esq *expireSubQueue) sendItemToExpireCB(item *Item) *Item {
 		return nil
 	}
 
-	fmt.Printf("esq.expireCB will be called\n")
-	if remove := esq.expireCB(item); remove {
+	if remove, ch := esq.expireCB(item); remove {
 		esq.heapQueue.remove(item)
-		fmt.Printf("esq.expireCB removed item\n\n")
 		next := esq.heapQueue.nextItem()
 		esq.expireMutex.Unlock()
-
+		close(ch)
 		return next
 	}
 

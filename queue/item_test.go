@@ -325,7 +325,14 @@ func TestQueueItemTransitions(t *testing.T) {
 			})
 
 			So(item.State(), ShouldEqual, ItemStateRun)
-			So(<-errCh, ShouldBeNil)
+			errors := 0
+			for i := 0; i < 10; i++ {
+				err := <-errCh
+				if err != nil {
+					errors++
+				}
+			}
+			So(errors, ShouldEqual, 9)
 		})
 	})
 }

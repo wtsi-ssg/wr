@@ -26,7 +26,6 @@
 package queue
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -46,13 +45,8 @@ func (ro *releaseOrder) Less(i, j int) bool {
 
 // newRunSubQueue creates a SubQueue that is ordered by releaseAt and passes
 // expired releaseAt items to the given callback.
-func newRunSubQueue(cb func(*Item)) SubQueue {
-	return newExpireSubQueue(func(item *Item) bool {
-		fmt.Printf("newRunSubQueue cb will be called\n")
-		cb(item)
-
-		return true
-	}, getItemRelease, newReleaseOrder())
+func newRunSubQueue(cb expirationCB) SubQueue {
+	return newExpireSubQueue(cb, getItemRelease, newReleaseOrder())
 }
 
 // getItemRelease is run SubQueue's itemTimeCB.

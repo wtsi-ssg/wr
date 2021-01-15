@@ -60,7 +60,6 @@ package queue
 
 import (
 	"context"
-	"fmt"
 
 	sync "github.com/sasha-s/go-deadlock"
 
@@ -95,6 +94,8 @@ type Queue struct {
 	readyQueues *readyQueues
 	runQueue    SubQueue
 	delayQueue  SubQueue
+	ttrCB       TTRCallback
+	ttrMutex    sync.RWMutex
 }
 
 // New returns a new *Queue.
@@ -102,10 +103,13 @@ func New() *Queue {
 	q := &Queue{
 		items:       make(map[string]*Item),
 		readyQueues: newReadyQueues(),
+		ttrCB:       defaultTTRCallback,
 	}
 
 	q.runQueue = newRunSubQueue(q.ttrHandler)
-	q.delayQueue = newDelaySubQueue(func(*Item) {})
+	q.delayQueue = newDelaySubQueue(func(*Item) (bool, chan struct{}) {
+		return true, make(chan struct{})
+	})
 
 	return q
 }
@@ -176,10 +180,11 @@ func (q *Queue) Get(key string) *Item {
 //
 // You need to Remove() the item when you're done with it. If you're still doing
 // something and ttr is approaching, Touch() it, otherwise it will be assumed
-// you died and the item will be released to the delay sub-queue automatically,
-// to be handled by someone else that gets it from a Reserve() call. If you know
-// you can't handle it right now, but someone else might be able to later, you
-// can manually call Release(), which moves it to the delay sub-queue.
+// you died and the item will be released to the delay sub-queue automatically
+// (unless you ask to keep it in the run sub-queue with your TTRCallback), to be
+// handled by someone else that gets it from a Reserve() call. If you know you
+// can't handle it right now, but someone else might be able to later, you can
+// manually call Release(), which moves it to the delay sub-queue.
 func (q *Queue) Reserve(ctx context.Context, reserveGroup string) *Item {
 	item := q.readyQueues.pop(ctx, reserveGroup)
 	q.pushToRunQueue(ctx, item)
@@ -226,18 +231,53 @@ func (q *Queue) ChangeReserveGroup(key string, newGroup string) {
 	})
 }
 
+// TTRCallback is used as a callback to decide what happens when a an item in
+// the run sub-queue hits its TTR, based on that item's data. If you return
+// true (the default behaviour if you don't set this callback), the item will
+// be moved to the delay sub-queue. If you return false, the item will remain in
+// the run sub-queue, and have its TTR reset.
+type TTRCallback func(data interface{}) bool
+
+// defaultTTRCallback is used if the user never calls SetTTRCallback() and
+// always moves the item to the delay sub-queue.
+var defaultTTRCallback = func(interface{}) bool {
+	return true
+}
+
+// SetTTRCallback sets a callback that will be called when an item in the run
+// sub-queue hits its TTR. The callback receives an item's data and should
+// return false to reset the TTR and keep the item in the run sub-queue. If you
+// return true, or don't set this, the item will be moved to the delay
+// sub-queue.
+func (q *Queue) SetTTRCallback(callback TTRCallback) {
+	q.ttrMutex.Lock()
+	defer q.ttrMutex.Unlock()
+	q.ttrCB = callback
+}
+
 // ttrHandler gets called with items that were in the run SubQueue but expired.
-func (q *Queue) ttrHandler(item *Item) {
-	fmt.Printf("ttrHandler called\n")
-	// q.runQueue.remove(item)
-	// fmt.Printf("item removed from runQueue\n")
+func (q *Queue) ttrHandler(item *Item) (bool, chan struct{}) {
+	q.ttrMutex.RLock()
+	ttrCB := q.ttrCB
+	q.ttrMutex.RUnlock()
 
-	if err := item.SwitchState(ItemStateDelay); err != nil {
-		clog.Error(context.Background(), "queue failure", "err", err)
+	handled := make(chan struct{})
 
-		return
+	if switchToDelay := ttrCB(item.Data()); switchToDelay {
+		go func() {
+			<-handled
+
+			if err := item.SwitchState(ItemStateDelay); err != nil {
+				clog.Error(context.Background(), "queue failure", "err", err)
+
+				return
+			}
+
+			q.delayQueue.push(item)
+		}()
+
+		return true, handled
 	}
 
-	q.delayQueue.push(item)
-	fmt.Printf("item pushed to delayQueue\n")
+	return false, handled
 }

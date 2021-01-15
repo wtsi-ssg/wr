@@ -49,13 +49,13 @@ func TestQueueExpire(t *testing.T) {
 		expiredItems := 0
 		var eiMutex sync.RWMutex
 		itemCh := make(chan *Item, num*2)
-		ecb := func(item *Item) bool {
+		ecb := func(item *Item) (bool, chan struct{}) {
 			eiMutex.Lock()
 			expiredItems++
 			eiMutex.Unlock()
 			itemCh <- item
 
-			return true
+			return true, make(chan struct{})
 		}
 
 		numExpired := func() int {

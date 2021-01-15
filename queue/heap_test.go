@@ -36,48 +36,17 @@ import (
 
 // mockOrder implements heap.Interface, keeping items in creation order.
 type mockOrder struct {
-	items []*Item
+	*basicHeapWithNext
 }
 
 // newMockSubQueue creates a SubQueue that is ordered by creation.
 func newMockSubQueue() SubQueue {
-	return newHeapQueue(&mockOrder{})
+	return newHeapQueue(&mockOrder{basicHeapWithNext: &basicHeapWithNext{}})
 }
-
-// Len is to implement heap.Interface.
-func (mo *mockOrder) Len() int { return len(mo.items) }
 
 // Less is to implement heap.Interface.
 func (mo *mockOrder) Less(i, j int) bool {
-	mo.items[i].mutex.RLock()
-	defer mo.items[i].mutex.RUnlock()
-	mo.items[j].mutex.RLock()
-	defer mo.items[j].mutex.RUnlock()
-
 	return mo.items[i].created.Before(mo.items[j].created)
-}
-
-// Swap is to implement heap.Interface.
-func (mo *mockOrder) Swap(i, j int) {
-	heapSwap(mo.items, i, j)
-}
-
-// Push is to implement heap.Interface.
-func (mo *mockOrder) Push(x interface{}) {
-	mo.items = heapPush(mo.items, x)
-}
-
-// Pop is to implement heap.Interface.
-func (mo *mockOrder) Pop() interface{} {
-	var item interface{}
-	mo.items, item = heapPop(mo.items)
-
-	return item
-}
-
-// Next is to implement heapWithNext.
-func (mo *mockOrder) Next() interface{} {
-	return mo.items[0]
 }
 
 func TestQueueHeapPushPop(t *testing.T) {

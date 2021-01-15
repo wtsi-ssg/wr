@@ -28,7 +28,6 @@ package queue
 import (
 	"container/heap"
 	"context"
-	"fmt"
 
 	sync "github.com/sasha-s/go-deadlock"
 
@@ -177,10 +176,8 @@ func (hq *heapQueue) readFromPushChannelIfSentOn(id string, pushCh chan *Item) *
 
 // remove removes a given item from the queue.
 func (hq *heapQueue) remove(item *Item) {
-	fmt.Printf("hq.remove called\n")
 	hq.mutex.Lock()
 	defer hq.mutex.Unlock()
-	fmt.Printf("hq.remove got lock\n")
 
 	if item.removed() || !item.belongsTo(hq) {
 		return
@@ -218,49 +215,6 @@ func (hq *heapQueue) nextItem() *Item {
 	return next.(*Item)
 }
 
-// heapSwap can be used to implement heap.Interface.Swap.
-func heapSwap(items []*Item, i, j int) {
-	items[i], items[j] = items[j], items[i]
-	items[i].setIndex(i)
-	items[j].setIndex(j)
-}
-
-// heapPush can be used to implement heap.Interface.Push.
-func heapPush(items []*Item, x interface{}) []*Item {
-	n := len(items)
-	item, ok := x.(*Item)
-
-	if !ok {
-		panic("heapPush got an item that wasn't an Item")
-	}
-
-	item.setIndex(n)
-
-	return append(items, item)
-}
-
-// heapPop can be used to implement heap.Interface.Pop.
-func heapPop(items []*Item) ([]*Item, interface{}) {
-	n := len(items)
-
-	item := items[n-1]
-	items[n-1] = nil
-	new := items[0 : n-1]
-
-	item.remove()
-
-	return new, item
-}
-
-// heapNext can be used to implement heapWithNext.Next.
-func heapNext(items []*Item) interface{} {
-	if len(items) == 0 {
-		return nil
-	}
-
-	return items[0]
-}
-
 // basicHeapWithNext implements most of the methods of heapWithNext interface.
 // Just embed and add a Less method to complete.
 type basicHeapWithNext struct {
@@ -272,23 +226,43 @@ func (h *basicHeapWithNext) Len() int { return len(h.items) }
 
 // Swap is to implement heap.Interface.
 func (h *basicHeapWithNext) Swap(i, j int) {
-	heapSwap(h.items, i, j)
+	h.items[i], h.items[j] = h.items[j], h.items[i]
+	h.items[i].setIndex(i)
+	h.items[j].setIndex(j)
 }
 
 // Push is to implement heap.Interface.
 func (h *basicHeapWithNext) Push(x interface{}) {
-	h.items = heapPush(h.items, x)
+	n := len(h.items)
+	item, ok := x.(*Item)
+
+	if !ok {
+		panic("basicHeapWithNext.Push got an item that wasn't an Item")
+	}
+
+	item.setIndex(n)
+
+	h.items = append(h.items, item)
 }
 
 // Pop is to implement heap.Interface.
 func (h *basicHeapWithNext) Pop() interface{} {
-	var item interface{}
-	h.items, item = heapPop(h.items)
+	n := len(h.items)
+
+	item := h.items[n-1]
+	h.items[n-1] = nil
+	h.items = h.items[0 : n-1]
+
+	item.remove()
 
 	return item
 }
 
 // Next is to implement heapWithNext.
 func (h *basicHeapWithNext) Next() interface{} {
-	return heapNext(h.items)
+	if len(h.items) == 0 {
+		return nil
+	}
+
+	return h.items[0]
 }

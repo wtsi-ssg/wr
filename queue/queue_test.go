@@ -446,7 +446,7 @@ func TestQueueReserveGroups(t *testing.T) {
 }
 
 func TestQueueRun(t *testing.T) {
-	dsync.Opts.DeadlockTimeout = 6 * time.Millisecond
+	dsync.Opts.DeadlockTimeout = 60 * time.Millisecond
 	num := 2
 	ips := newSetOfItemParameters(num)
 	backgroundCtx := context.Background()
