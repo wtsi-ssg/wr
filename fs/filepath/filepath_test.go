@@ -26,10 +26,17 @@
 package filepath
 
 import (
+	"io/ioutil"
+	"log"
+	"os"
+	"path/filepath"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
+
+// fileMode is the mode of the temp file created for testing.
+const fileMode os.FileMode = 0600
 
 func TestPath(t *testing.T) {
 	Convey("Get the absolute path of a file given its relative path and directory name", t, func() {
@@ -38,5 +45,29 @@ func TestPath(t *testing.T) {
 		So(RelToAbsPath("testing1.txt", "/"), ShouldEqual, "/testing1.txt")
 		So(RelToAbsPath("testing1.txt", "."), ShouldEqual, "testing1.txt")
 		So(RelToAbsPath("testing1.txt", ""), ShouldEqual, "testing1.txt")
+	})
+
+	Convey("Read the contents of a file", t, func() {
+		tempDir, err := ioutil.TempDir("", "temp_filepath")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		Convey("when the file exists", func() {
+			tempFile := filepath.Join(tempDir, "tempFile.txt")
+			err = ioutil.WriteFile(tempFile, []byte("test"), fileMode)
+			So(err, ShouldBeNil)
+
+			content, err := ReadFile(tempFile)
+			So(err, ShouldBeNil)
+			So(content, ShouldNotBeNil)
+		})
+
+		Convey("when the file doesn't exist", func() {
+			tempNonExistingFile := filepath.Join(tempDir, "tempNonExisting.txt")
+			noContent, err := ReadFile(tempNonExistingFile)
+			So(err, ShouldNotBeNil)
+			So(noContent, ShouldBeNil)
+		})
 	})
 }

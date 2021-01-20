@@ -31,23 +31,23 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestMathFuncs(t *testing.T) {
-	Convey("Test to check toFixed to round down to 3 places", t, func() {
+func TestMath(t *testing.T) {
+	Convey("Round down a floating point number to 3 decimal places", t, func() {
 		So(toFixed(123.123456), ShouldEqual, 123.123)
 		So(toFixed(234.144444), ShouldEqual, 234.144)
 	})
 
-	Convey("Test to check FloatLessThan", t, func() {
+	Convey("Check if a floating point number is smaller than the other", t, func() {
 		So(FloatLessThan(123.123456, 123.1245678), ShouldEqual, true)
 		So(FloatLessThan(234.144444, 123.123456), ShouldEqual, false)
 	})
 
-	Convey("Test to check FloatSubtract", t, func() {
+	Convey("Subtract a floating point number from the other", t, func() {
 		So(FloatSubtract(234.144444, 123.123456), ShouldEqual, 111.021)
 		So(FloatSubtract(123.123456, 234.144444), ShouldEqual, -111.021)
 	})
 
-	Convey("Test to check FloatAdd", t, func() {
+	Convey("Add a floating point number to other", t, func() {
 		So(FloatAdd(234.144444, 123.123456), ShouldEqual, 357.267)
 	})
 }

@@ -40,8 +40,9 @@ import (
 	"github.com/wtsi-ssg/wr/container"
 )
 
-const (
-	testReaderCloserStats = `{
+// testReaderCloserStats is the dummy ReaderCloserStats data used for
+// ContainerStats testing.
+const testReaderCloserStats = `{
 		"read":"2021-01-05T11:42:54.959351591Z",
 		"preread":"2021-01-05T11:42:53.949728039Z",
 		"pids_stats":{"current":4},
@@ -102,7 +103,6 @@ const (
 			"id":"container_id2",
 			"networks":{}
 		}`
-)
 
 // createContainers creates and starts the test containers, given a list of container names.
 func createContainers(ctx context.Context, cli *client.Client, containerNames []string) error {
@@ -136,30 +136,29 @@ func removeContainers(ctx context.Context, cli *client.Client, containerList []*
 	return nil
 }
 
-func TestDockerFuncs(t *testing.T) {
+func TestDocker(t *testing.T) {
 	ctx := context.Background()
 
+	// Create a new docker client
 	cli, err := client.NewEnvClient()
 	if err != nil {
+		fmt.Printf("Failed to create a new docker client.\n Skipping tests with error: %s\n", err)
 		t.Skip("skipping test; new docker client cannot be created.")
 	}
 
+	// Test if server is running, if not then skip the tests.
 	_, err = cli.Ping(ctx)
 	if err != nil {
+		fmt.Printf("Ping to server failed.\n Skipping tests with error: %s\n", err)
 		t.Skip("skipping test; docker deamon is not running")
 	}
-
-	// with a nonempty client
-	dockerOperator := NewInteractor(cli)
-
-	// with an empty client
-	dockerEmptyOperator := NewInteractor(&client.Client{})
 
 	// create and start the test containers
 	var cntrNames = []string{"container_1", "container_2"}
 
 	err = createContainers(ctx, cli, cntrNames)
 	if err != nil {
+		fmt.Printf("Failed to create the docker containers.\n Skipping tests with error: %s\n", err)
 		t.Skip("skipping tests; containers could not be created.")
 	}
 
@@ -188,6 +187,12 @@ func TestDockerFuncs(t *testing.T) {
 	})
 
 	Convey("Given a Docker Operator", t, func() {
+		// with a nonempty client
+		dockerOperator := NewInteractor(cli)
+
+		// with an empty client
+		dockerEmptyOperator := NewInteractor(&client.Client{})
+
 		Convey("it can list the current containers", func() {
 			Convey("when the docker client is nonempty", func() {
 				cntList, err := dockerOperator.ContainerList(ctx)

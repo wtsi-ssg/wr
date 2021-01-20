@@ -23,7 +23,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   ******************************************************************************/
 
-package conversion
+package convert
 
 import (
 	"testing"
@@ -31,7 +31,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestMathConvertFuncs(t *testing.T) {
+func TestConvert(t *testing.T) {
 	Convey("nanoseconds to seconds conversion", t, func() {
 		So(NanosecondsToSec(634736438394834), ShouldEqual, 634736)
 		So(NanosecondsToSec(634736), ShouldEqual, 0)

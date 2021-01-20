@@ -35,10 +35,10 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-const (
-	fileMode os.FileMode = 0600
-)
+// fileMode is the mode of the temp file created for testing.
+const fileMode os.FileMode = 0600
 
+// mockInteractor represents a mock implementation of container.Interactor.
 type mockInteractor struct {
 	ContainerListFn       func() ([]*Container, error)
 	ContainerListInvoked  int
@@ -86,7 +86,7 @@ func RemoveContainer(containerList []*Container, containerID string) []*Containe
 	return remainingContainers
 }
 
-func TestContainerFuncs(t *testing.T) {
+func TestContainer(t *testing.T) {
 	ctx := context.Background()
 
 	Convey("Given a NewOperator", t, func() {
@@ -112,7 +112,7 @@ func TestContainerFuncs(t *testing.T) {
 			ContainerKillFn: func(containerID string) error {
 				remainContainers := RemoveContainer(cntrList, containerID)
 				if len(cntrList) == len(remainContainers) {
-					return &TypeErr{Type: ErrContainerKill}
+					return &OperatorErr{Type: ErrContainerKill}
 				}
 
 				// Copy the remaining containers to cntrList
@@ -126,11 +126,11 @@ func TestContainerFuncs(t *testing.T) {
 		// Create a client with no containers
 		empNewOperator := NewOperator(&mockInteractor{
 			ContainerListFn: func() ([]*Container, error) {
-				return nil, &TypeErr{Type: ErrContainerList}
+				return nil, &OperatorErr{Type: ErrContainerList}
 			},
 
 			ContainerStatsFn: func(containerID string) (*Stats, error) {
-				return nil, &TypeErr{Type: ErrContainerStats}
+				return nil, &OperatorErr{Type: ErrContainerStats}
 			},
 		},
 		)
@@ -219,20 +219,18 @@ func TestContainerFuncs(t *testing.T) {
 			})
 		})
 
-		Convey("it can get a container's id given a name from its list of names", func() {
+		Convey("it can check for a valid container name", func() {
 			clist, err := newOperator.GetCurrentContainers(ctx)
 			So(err, ShouldBeNil)
 			So(len(clist), ShouldEqual, 3)
 
 			container1 := clist[0]
 			Convey("for a correct name of the container", func() {
-				name := getIDByName("test_container1_2", container1)
-				So(name, ShouldEqual, "container_id1")
+				So(newOperator.HasName("test_container1_2", container1), ShouldBeTrue)
 			})
 
 			Convey("but not for a wrong name of the container", func() {
-				name := getIDByName("wrong_name", container1)
-				So(name, ShouldBeEmpty)
+				So(newOperator.HasName("wrong_name", container1), ShouldBeFalse)
 			})
 		})
 

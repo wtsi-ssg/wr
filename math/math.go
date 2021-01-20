@@ -27,6 +27,7 @@ package math
 
 import "math"
 
+// floatFixedPrecision is the fixed precision used in math operations.
 const floatFixedPrecision int = 3
 
 // FloatLessThan tells you if a < b, treating both float64s rounded to 3 decimal

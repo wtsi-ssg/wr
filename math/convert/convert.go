@@ -23,10 +23,13 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-package conversion
+package convert
 
 const (
-	nanoDivisor     uint64 = 1000000000
+	// nanoDivisor is to convert nanoseconds to secs.
+	nanoDivisor uint64 = 1000000000
+
+	// megabyteDivisor is to convert bytes to MB.
 	megabyteDivisor uint64 = 1024
 )
 

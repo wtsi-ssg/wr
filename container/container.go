@@ -29,7 +29,6 @@ package container
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,21 +36,24 @@ import (
 	fs "github.com/wtsi-ssg/wr/fs/filepath"
 )
 
-type TypeOfError string
+// OperationErr is supplied to Error to define the reasons for the failed operations.
+type OperationErr string
 
+// ErrContainer* are the reasons for the failed operations.
 const (
-	ErrContainerList  TypeOfError = "Could not list the containers"
-	ErrContainerStats TypeOfError = "Could not get the container stats"
-	ErrContainerKill  TypeOfError = "Container could not be killed"
-	ErrContainerID    TypeOfError = "Container ID could not be found"
+	ErrContainerList  OperationErr = "Could not list the containers"
+	ErrContainerStats OperationErr = "Could not get the container stats"
+	ErrContainerKill  OperationErr = "Container could not be killed"
 )
 
-type TypeErr struct {
-	Type TypeOfError // one of our TypeOfError constants
+// OperatorErr records an error and a reason that caused it.
+type OperatorErr struct {
+	Type OperationErr // one of our OperationErr constants
 	Err  error
 }
 
-func (et TypeErr) Error() string {
+// Error returns an error with the reason for a failed operation.
+func (et OperatorErr) Error() string {
 	msg := string(et.Type)
 	if et.Err != nil {
 		msg += " [" + et.Err.Error() + "]"
@@ -60,16 +62,19 @@ func (et TypeErr) Error() string {
 	return msg
 }
 
+// Container struct represents a container type with id and name properties.
 type Container struct {
 	ID    string
 	Names []string
 }
 
+// Stats struct represents a container stats type with memory and cpu properties.
 type Stats struct {
 	MemoryMB int
 	CPUSec   int
 }
 
+// Interactor defines some methods to query containers.
 type Interactor interface {
 	ContainerList(ctx context.Context) ([]*Container, error)
 	ContainerStats(ctx context.Context, containerID string) (*Stats, error)
@@ -86,15 +91,17 @@ type Operator struct {
 // NewOperator creates a new Operator, working on containers using the supplied Interactor.
 // eg. to create an operator that can work with Docker containers:
 /*
-	import	"github.com/docker/docker/client"
+	import	(
+		"github.com/docker/docker/client"
+		"github.com/wtsi-wr/container/docker"
+	)
 	....
 	{
 		cli, err := client.NewEnvClient()
 
-		dockerOperator := &Operator{
-			client:             cli,
-			existingContainers: make(map[string]bool),
-		}
+		dockerInterator := docker.NewInteractor(cli)
+
+		dockerOperator := NewOperator(dockerInterator)
 
 		cntrList, err := dockerOperator.GetCurrentContainers(ctx)
 	}
@@ -109,7 +116,12 @@ func NewOperator(cntrInteractor Interactor) *Operator {
 
 // GetCurrentContainers returns current containers.
 func (o *Operator) GetCurrentContainers(ctx context.Context) ([]*Container, error) {
-	return o.client.ContainerList(ctx)
+	contnrList, err := o.client.ContainerList(ctx)
+	if err != nil {
+		return nil, &OperatorErr{Type: ErrContainerList, Err: err}
+	}
+
+	return contnrList, nil
 }
 
 // RememberCurrentContainerIDs calls GetCurrentContainers() and stores the
@@ -117,7 +129,7 @@ func (o *Operator) GetCurrentContainers(ctx context.Context) ([]*Container, erro
 func (o *Operator) RememberCurrentContainerIDs(ctx context.Context) error {
 	curContainers, err := o.GetCurrentContainers(ctx)
 	if err != nil {
-		return &TypeErr{Type: ErrContainerList, Err: err}
+		return err
 	}
 
 	for _, container := range curContainers {
@@ -132,7 +144,7 @@ func (o *Operator) RememberCurrentContainerIDs(ctx context.Context) error {
 func (o *Operator) GetNewContainers(ctx context.Context) ([]*Container, error) {
 	curContainers, err := o.GetCurrentContainers(ctx)
 	if err != nil {
-		return nil, &TypeErr{Type: ErrContainerList, Err: err}
+		return nil, err
 	}
 
 	var newContainers []*Container
@@ -172,34 +184,32 @@ func (o *Operator) GetNewContainerIDByName(ctx context.Context, name string) (st
 		return "", err
 	}
 
-	for _, cid := range newContainers {
-		id := getIDByName(name, cid)
-		if id != "" {
-			return id, nil
+	for _, cntr := range newContainers {
+		if o.HasName(name, cntr) {
+			return cntr.ID, nil
 		}
 	}
 
 	return "", nil
 }
 
-// getIDByName returns the id of a container with a given name,
-// from list of names for a container.
-func getIDByName(name string, container *Container) string {
+// HasName checks if a given name is a valid container name.
+func (o *Operator) HasName(name string, container *Container) bool {
 	for _, cname := range container.Names {
 		cname = strings.TrimPrefix(cname, "/")
 		if cname == name {
-			return container.ID
+			return true
 		}
 	}
 
-	return ""
+	return false
 }
 
-//	GetContainerIDFromPath checks the file at the given path, and if the first line
+// GetContainerIDByPath checks the file at the given path, and if the first line
 // contains the ID of a container, that ID is returned.
 //
 // The path can contain globs: `?` to match any non-separator character and `*` to match
-// any number of them. The first file to match the glob and also contain a valid is is the one used.
+// any number of them. The first file to match the glob and also contain a valid id is the one used.
 //
 // In case the name is a relative file path, the second argument is the absolute path to the working
 // directory where your container was created.
@@ -223,12 +233,12 @@ func (o *Operator) GetContainerIDByPath(ctx context.Context, path string, dir st
 // line, and checks that it is the ID of a current container. If so, returns
 // that ID.
 func (o *Operator) cidPathToID(ctx context.Context, cidPath string) (string, error) {
-	b, err := ioutil.ReadFile(cidPath)
+	fileContent, err := fs.ReadFile(cidPath)
 	if err != nil {
 		return "", err
 	}
 
-	id := strings.TrimSuffix(string(b), "\n")
+	id := strings.TrimSuffix(string(fileContent), "\n")
 
 	ok, err := o.verifyID(ctx, id)
 	if ok {
@@ -242,7 +252,7 @@ func (o *Operator) cidPathToID(ctx context.Context, cidPath string) (string, err
 func (o *Operator) verifyID(ctx context.Context, id string) (bool, error) {
 	curContainers, err := o.GetCurrentContainers(ctx)
 	if err != nil {
-		return false, &TypeErr{Type: ErrContainerList, Err: err}
+		return false, err
 	}
 
 	for _, container := range curContainers {

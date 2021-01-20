@@ -26,11 +26,12 @@
 package filepath
 
 import (
+	"io/ioutil"
 	"path/filepath"
 )
 
-// RelToAbsPath returns the absolute path of a file given it's relative path
-// and its directory name.
+// RelToAbsPath returns the absolute path of a file given its relative path
+// and the directory name.
 func RelToAbsPath(path string, dir string) string {
 	absPath := path
 	if !filepath.IsAbs(absPath) {
@@ -38,4 +39,14 @@ func RelToAbsPath(path string, dir string) string {
 	}
 
 	return absPath
+}
+
+// ReadFile returns the content of a file given its absolute path.
+func ReadFile(filename string) ([]byte, error) {
+	b, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
 }
