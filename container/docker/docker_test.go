@@ -1,27 +1,26 @@
 /*******************************************************************************
  * Copyright (c) 2020 Genome Research Ltd.
  *
- * Authors: Ashwini Chhipa <ac55@sanger.ac.uk>
+ * Author: Ashwini Chhipa <ac55@sanger.ac.uk>
  *
- * Permission is hereby granted, free of charge, to any person obtaining
- * a copy of this software and associated documentation files (the
- * "Software"), to deal in the Software without restriction, including
- * without limitation the rights to use, copy, modify, merge, publish,
- * distribute, sublicense, and/or sell copies of the Software, and to
- * permit persons to whom the Software is furnished to do so, subject to
- * the following conditions:
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
  *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
- * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
- * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
- * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
- * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  ******************************************************************************/
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ ******************************************************************************/
 
 package docker
 
@@ -104,30 +103,36 @@ const testReaderCloserStats = `{
 			"networks":{}
 		}`
 
-// createContainers creates and starts the test containers, given a list of container names.
-func createContainers(ctx context.Context, cli *client.Client, containerNames []string) error {
-	for _, cname := range containerNames {
+// createContainers creates and starts the test containers, given a list of
+// container names.
+func createContainers(ctx context.Context, cli *client.Client, containerNames []string) ([]string, error) {
+	cntrIDs := make([]string, len(containerNames))
+
+	for idx, cname := range containerNames {
 		// create the docker container
 		cbody, err := cli.ContainerCreate(ctx, &cn.Config{Image: "ubuntu", Tty: true}, &cn.HostConfig{},
 			&nw.NetworkingConfig{}, cname)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		// start the docker container
 		err = cli.ContainerStart(ctx, cbody.ID, types.ContainerStartOptions{})
 		if err != nil {
-			return err
+			return nil, err
 		}
+
+		cntrIDs[idx] = cbody.ID
 	}
 
-	return nil
+	return cntrIDs, nil
 }
 
-// removeContainers removes all the containers given a list of containers as a part of clean up step.
-func removeContainers(ctx context.Context, cli *client.Client, containerList []*container.Container) error {
-	for _, cntr := range containerList {
-		err := cli.ContainerRemove(ctx, cntr.ID, types.ContainerRemoveOptions{Force: true})
+// removeContainers removes all the containers given a list of containers as a
+// part of clean up step.
+func removeContainers(ctx context.Context, cli *client.Client, containerIDs []string) error {
+	for _, cid := range containerIDs {
+		err := cli.ContainerRemove(ctx, cid, types.ContainerRemoveOptions{Force: true})
 		if err != nil {
 			return err
 		}
@@ -156,7 +161,7 @@ func TestDocker(t *testing.T) {
 	// create and start the test containers
 	var cntrNames = []string{"container_1", "container_2"}
 
-	err = createContainers(ctx, cli, cntrNames)
+	cntrIDs, err := createContainers(ctx, cli, cntrNames)
 	if err != nil {
 		fmt.Printf("Failed to create the docker containers.\n Skipping tests with error: %s\n", err)
 		t.Skip("skipping tests; containers could not be created.")
@@ -187,45 +192,63 @@ func TestDocker(t *testing.T) {
 	})
 
 	Convey("Given a Docker Operator", t, func() {
+		dockerInterator := NewInteractor(cli)
+		dockerOperator := container.NewOperator(dockerInterator)
+
+		Convey("it can get the list of containers", func() {
+			cntrList, err := dockerOperator.GetCurrentContainers(ctx)
+			So(len(cntrList), ShouldBeGreaterThanOrEqualTo, len(cntrIDs))
+			So(err, ShouldBeNil)
+
+			Convey("it can get the stats of a container", func() {
+				cntrID := cntrIDs[0]
+				stats, err := dockerInterator.ContainerStats(ctx, cntrID)
+				So(err, ShouldBeNil)
+				So(stats, ShouldNotBeNil)
+			})
+		})
+	})
+
+	Convey("Given a Docker Interator", t, func() {
 		// with a nonempty client
-		dockerOperator := NewInteractor(cli)
+		dockerInterator := NewInteractor(cli)
 
 		// with an empty client
-		dockerEmptyOperator := NewInteractor(&client.Client{})
+		dockerEmptyInterator := NewInteractor(&client.Client{})
 
 		Convey("it can list the current containers", func() {
 			Convey("when the docker client is nonempty", func() {
-				cntList, err := dockerOperator.ContainerList(ctx)
+				cntList, err := dockerInterator.ContainerList(ctx)
 				So(err, ShouldBeNil)
-				So(len(cntList), ShouldEqual, 2)
+				So(len(cntList), ShouldBeGreaterThanOrEqualTo, len(cntrIDs))
 
 				Convey("it can get the stats of a container", func() {
 					Convey("for a correct container ID", func() {
-						cntrID := cntList[0].ID
-						stats, errs := dockerOperator.ContainerStats(ctx, cntrID)
-						So(errs, ShouldBeNil)
+						cntrID := cntrIDs[0]
+						stats, err1 := dockerInterator.ContainerStats(ctx, cntrID)
+						So(err1, ShouldBeNil)
 						So(stats, ShouldNotBeNil)
 					})
 
 					Convey("not for a wrong container ID ", func() {
 						cntrID := "wrongID"
-						stats, errs := dockerOperator.ContainerStats(ctx, cntrID)
-						So(errs, ShouldNotBeNil)
+						stats, err1 := dockerInterator.ContainerStats(ctx, cntrID)
+						So(err1, ShouldNotBeNil)
 						So(stats, ShouldBeNil)
 					})
 				})
 
 				Convey("it can kill a container", func() {
-					cntrID := cntList[0].ID
-					errk := dockerOperator.ContainerKill(ctx, cntrID)
-					So(errk, ShouldBeNil)
-
-					remainList, err := dockerOperator.ContainerList(ctx)
+					cntrID := cntrIDs[0]
+					err = dockerInterator.ContainerKill(ctx, cntrID)
 					So(err, ShouldBeNil)
-					So(len(remainList), ShouldEqual, 1)
 
-					// Cleanup: Remove all the container
-					err = removeContainers(ctx, cli, cntList)
+					remainList, err := dockerInterator.ContainerList(ctx)
+					So(err, ShouldBeNil)
+					So(remainList, ShouldNotBeNil)
+
+					// Cleanup: Remove all the dummy container
+					err = removeContainers(ctx, cli, cntrIDs)
 					if err != nil {
 						fmt.Printf("Containers could not be removed")
 					}
@@ -233,9 +256,9 @@ func TestDocker(t *testing.T) {
 			})
 
 			Convey("not when the docker client is empty", func() {
-				cntList, err := dockerEmptyOperator.ContainerList(ctx)
+				cntList, err := dockerEmptyInterator.ContainerList(ctx)
 				So(err, ShouldNotBeNil)
-				So(cntList, ShouldBeNil)
+				So(cntList, ShouldBeEmpty)
 			})
 		})
 	})

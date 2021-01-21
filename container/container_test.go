@@ -3,25 +3,25 @@
  *
  * Author: Ashwini Chhipa <ac55@sanger.ac.uk>
  *
- * Permission is hereby granted, free of charge, to any person obtaining
- * a copy of this software and associated documentation files (the
- * "Software"), to deal in the Software without restriction, including
- * without limitation the rights to use, copy, modify, merge, publish,
- * distribute, sublicense, and/or sell copies of the Software, and to
- * permit persons to whom the Software is furnished to do so, subject to
- * the following conditions:
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
  *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
- * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
- * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
- * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
- * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
  ******************************************************************************/
+
 package container
 
 import (
@@ -55,8 +55,8 @@ func (m *mockInteractor) ContainerList(ctx context.Context) ([]*Container, error
 	return m.ContainerListFn()
 }
 
-// ContainerStats is a mock function which returns the mem and cpu stats of a container
-// given its ID.
+// ContainerStats is a mock function which returns the mem and cpu stats of a
+// container given its ID.
 func (m *mockInteractor) ContainerStats(ctx context.Context,
 	containerID string) (*Stats, error) {
 	m.ContainerStatsInvoked++
@@ -64,16 +64,16 @@ func (m *mockInteractor) ContainerStats(ctx context.Context,
 	return m.ContainerStatsFn(containerID)
 }
 
-// ContainerKill is a mock function which kills (removes the entry of) a container
-// given its ID.
+// ContainerKill is a mock function which kills (removes the entry of) a
+// container given its ID.
 func (m *mockInteractor) ContainerKill(ctx context.Context, containerID string) error {
 	m.ContainerKillInvoked++
 
 	return m.ContainerKillFn(containerID)
 }
 
-// RemoveContainer removes the container from container list if found
-// and returns the remaining containers.
+// RemoveContainer removes the container from container list if found and
+// returns the remaining containers.
 func RemoveContainer(containerList []*Container, containerID string) []*Container {
 	var remainingContainers []*Container
 
@@ -135,6 +135,13 @@ func TestContainer(t *testing.T) {
 		},
 		)
 
+		Convey("it can add the clients to the containers for stats", func() {
+			So(cntrList[0].client, ShouldBeNil)
+			newOperator.addClientToContainers(cntrList)
+
+			So(cntrList[0].client, ShouldNotBeNil)
+		})
+
 		Convey("it can get the list of containers if exists", func() {
 			clist, err := newOperator.GetCurrentContainers(ctx)
 			So(err, ShouldBeNil)
@@ -145,12 +152,13 @@ func TestContainer(t *testing.T) {
 			So(len(emplist), ShouldEqual, 0)
 		})
 
-		// Mark container_id3 as true in exisiting container, making it an "old" container
+		// Mark container_id3 to true in exisiting container, making it an "old"
+		// container
 		newOperator.existingContainers["container_id3"] = true
 
 		Convey("it can remember the current container IDs", func() {
 			Convey("when the list of containers is non-empty", func() {
-				err := newOperator.RememberCurrentContainerIDs(ctx)
+				err := newOperator.RememberCurrentContainers(ctx)
 				So(err, ShouldBeNil)
 				So(newOperator.existingContainers["container_id1"], ShouldBeTrue)
 				So(newOperator.existingContainers["container_id2"], ShouldBeTrue)
@@ -172,14 +180,14 @@ func TestContainer(t *testing.T) {
 
 					So(newOperator.existingContainers["container_id4"], ShouldBeFalse)
 
-					err = newOperator.RememberCurrentContainerIDs(ctx)
+					err = newOperator.RememberCurrentContainers(ctx)
 					So(err, ShouldBeNil)
 					So(newOperator.existingContainers["container_id4"], ShouldBeTrue)
 				})
 			})
 
 			Convey("not when the list of containers is empty", func() {
-				err := empNewOperator.RememberCurrentContainerIDs(ctx)
+				err := empNewOperator.RememberCurrentContainers(ctx)
 				So(err, ShouldNotBeNil)
 			})
 		})
@@ -190,7 +198,7 @@ func TestContainer(t *testing.T) {
 				So(err, ShouldBeNil)
 				So(len(cntList), ShouldEqual, 2)
 
-				err = newOperator.RememberCurrentContainerIDs(ctx)
+				err = newOperator.RememberCurrentContainers(ctx)
 				So(err, ShouldBeNil)
 
 				cntList, err = newOperator.GetNewContainers(ctx)
@@ -205,81 +213,67 @@ func TestContainer(t *testing.T) {
 			})
 		})
 
-		Convey("it can get the container ids of the new containers", func() {
-			Convey("when the list of containers is non-empty", func() {
-				idList, err := newOperator.GetNewContainerIDs(ctx)
-				So(err, ShouldBeNil)
-				So(len(idList), ShouldEqual, 2)
-			})
-
-			Convey("not when the list of containers is empty", func() {
-				idList, errc := empNewOperator.GetNewContainerIDs(ctx)
-				So(errc, ShouldNotBeNil)
-				So(len(idList), ShouldEqual, 0)
-			})
-		})
-
-		Convey("it can check for a valid container name", func() {
+		Convey("it can check if the container name is valid", func() {
 			clist, err := newOperator.GetCurrentContainers(ctx)
 			So(err, ShouldBeNil)
 			So(len(clist), ShouldEqual, 3)
 
 			container1 := clist[0]
 			Convey("for a correct name of the container", func() {
-				So(newOperator.HasName("test_container1_2", container1), ShouldBeTrue)
+				So(container1.HasName("test_container1_2"), ShouldBeTrue)
 			})
 
 			Convey("but not for a wrong name of the container", func() {
-				So(newOperator.HasName("wrong_name", container1), ShouldBeFalse)
+				So(container1.HasName("wrong_name"), ShouldBeFalse)
 			})
 		})
 
-		Convey("it can get a new container's id given a name", func() {
+		Convey("it can get the new container given a name", func() {
 			Convey("when the list of containers is non-empty", func() {
-				Convey("and a new container name is given", func() {
-					name, err := newOperator.GetNewContainerIDByName(ctx, "test_container2")
-					So(name, ShouldEqual, "container_id2")
+				Convey("and the new container name is given", func() {
+					cntr, err := newOperator.GetNewContainerByName(ctx, "test_container2")
+					So(cntr, ShouldNotBeNil)
 					So(err, ShouldBeNil)
 				})
 
 				Convey("but not when an old container name is given", func() {
-					name, err := newOperator.GetNewContainerIDByName(ctx, "test_container3")
-					So(name, ShouldBeEmpty)
+					cntr, err := newOperator.GetNewContainerByName(ctx, "test_container3")
+					So(cntr, ShouldBeNil)
 					So(err, ShouldBeNil)
 				})
 
 				Convey("but not when an non-existing container name is given", func() {
-					name, err := newOperator.GetNewContainerIDByName(ctx, "wrong_name")
-					So(name, ShouldBeEmpty)
+					cntr, err := newOperator.GetNewContainerByName(ctx, "wrong_name")
+					So(cntr, ShouldBeNil)
 					So(err, ShouldBeNil)
 				})
 			})
 
 			Convey("not when the list of containers is empty", func() {
-				name, err := empNewOperator.GetNewContainerIDByName(ctx, "wrong_name")
-				So(name, ShouldBeEmpty)
+				cntr, err := empNewOperator.GetNewContainerByName(ctx, "wrong_name")
+				So(cntr, ShouldBeNil)
 				So(err, ShouldNotBeNil)
 			})
 		})
 
-		Convey("it can verify a container id", func() {
+		Convey("it can get a container given the id", func() {
 			Convey("for a client with a non-empty list of containers", func() {
 				Convey("when the container id is correct", func() {
-					boolOut, err := newOperator.verifyID(ctx, "container_id1")
-					So(boolOut, ShouldBeTrue)
+					cntr, err := newOperator.GetContainerByID(ctx, "container_id1")
+					So(cntr, ShouldNotBeNil)
 					So(err, ShouldBeNil)
 				})
 
 				Convey("when the container id is wrong", func() {
-					boolOut, err := newOperator.verifyID(ctx, "wrong_id")
-					So(boolOut, ShouldBeFalse)
+					cntr, err := newOperator.GetContainerByID(ctx, "wrong_id")
+					So(cntr, ShouldBeNil)
 					So(err, ShouldBeNil)
 				})
 			})
 
 			Convey("but not for a client with an empty list of containers", func() {
-				boolOut, err := empNewOperator.verifyID(ctx, "wrong_id")
-				So(boolOut, ShouldBeFalse)
+				cntr, err := empNewOperator.GetContainerByID(ctx, "wrong_id")
+				So(cntr, ShouldBeNil)
 				So(err, ShouldNotBeNil)
 			})
 		})
@@ -310,87 +304,91 @@ func TestContainer(t *testing.T) {
 			Convey("When the file path", func() {
 				Convey("doesn't exist", func() {
 					containerNonExistingFile := filepath.Join(containerTempDir, "containerNonExisting.txt")
-					id, err := newOperator.cidPathToID(ctx, containerNonExistingFile)
-					So(id, ShouldBeEmpty)
+					cntr, err := newOperator.cidPathToContainer(ctx, containerNonExistingFile)
+					So(cntr, ShouldBeNil)
 					So(err, ShouldNotBeNil)
 				})
 
 				Convey("has an empty file", func() {
-					id, err := newOperator.cidPathToID(ctx, containerEmptyFile)
-					So(id, ShouldBeEmpty)
+					cntr, err := newOperator.cidPathToContainer(ctx, containerEmptyFile)
+					So(cntr, ShouldBeNil)
 					So(err, ShouldBeNil)
 				})
 
 				Convey("contains a file with correct container id", func() {
-					id, err := newOperator.cidPathToID(ctx, containerFile)
-					So(id, ShouldEqual, "container_id2")
+					cntr, err := newOperator.cidPathToContainer(ctx, containerFile)
+					So(cntr, ShouldNotBeNil)
 					So(err, ShouldBeNil)
 				})
 
 				Convey("contains a file with wrong container id", func() {
-					id, err := newOperator.cidPathToID(ctx, wrongContainerFile)
-					So(id, ShouldBeEmpty)
+					cntr, err := newOperator.cidPathToContainer(ctx, wrongContainerFile)
+					So(cntr, ShouldBeNil)
 					So(err, ShouldBeNil)
 				})
 			})
 
 			Convey("When the file path is a glob and", func() {
 				Convey("the path pattern is correct", func() {
-					id, err := newOperator.cidPathGlobToID(ctx, containerTempDir+"/*")
-					So(id, ShouldEqual, "container_id2")
+					cntr, err := newOperator.cidPathGlobToContainer(ctx, containerTempDir+"/*")
+					So(cntr, ShouldNotBeNil)
 					So(err, ShouldBeNil)
 				})
 
 				Convey("the path doesn't exist", func() {
-					id, err := newOperator.cidPathGlobToID(ctx, "/randomContainerPath/*")
-					So(id, ShouldBeEmpty)
+					cntr, err := newOperator.cidPathGlobToContainer(ctx, "/randomContainerPath/*")
+					So(cntr, ShouldBeNil)
 					So(err, ShouldBeNil)
 				})
 
 				Convey("path pattern is wrong", func() {
-					id, err := newOperator.cidPathGlobToID(ctx, "[")
-					So(id, ShouldBeEmpty)
+					cntr, err := newOperator.cidPathGlobToContainer(ctx, "[")
+					So(cntr, ShouldBeNil)
 					So(err, ShouldNotBeNil)
 				})
 
 				Convey("there is no file containing the container id in the path", func() {
-					id, err := newOperator.cidPathGlobToID(ctx, containerTempDir+"/container*")
-					So(id, ShouldBeEmpty)
+					cntr, err := newOperator.cidPathGlobToContainer(ctx, containerTempDir+"/container*")
+					So(cntr, ShouldBeNil)
 					So(err, ShouldBeNil)
 				})
 
 				Convey("not for a client with a empty list of containers", func() {
-					id, err := empNewOperator.cidPathGlobToID(ctx, containerTempDir+"/*")
-					So(id, ShouldBeEmpty)
+					cntr, err := empNewOperator.cidPathGlobToContainer(ctx, containerTempDir+"/*")
+					So(cntr, ShouldBeNil)
 					So(err, ShouldBeNil)
 				})
 			})
 
 			Convey("Given a file path/glob file path and return a valid container id", func() {
 				Convey("For a correct file path", func() {
-					id, err := newOperator.GetContainerIDByPath(ctx, "Container.txt", containerTempDir)
-					So(id, ShouldEqual, "container_id2")
+					cntr, err := newOperator.GetContainerByPath(ctx, "Container.txt", containerTempDir)
+					So(cntr, ShouldNotBeNil)
 					So(err, ShouldBeNil)
 				})
 
 				Convey("For a correct glob path", func() {
-					id, err := newOperator.GetContainerIDByPath(ctx, containerTempDir+"/*", "")
-					So(id, ShouldEqual, "container_id2")
+					cntr, err := newOperator.GetContainerByPath(ctx, containerTempDir+"/*", "")
+					So(cntr, ShouldNotBeNil)
 					So(err, ShouldBeNil)
 				})
 			})
 		})
 
-		Convey("and a container id, it can get its stats", func() {
+		Convey("and a container, it can get its stats", func() {
 			Convey("for a client with a non-empty list of containers", func() {
-				stats, err := newOperator.ContainerStats(ctx, "container_id2")
+				clist, err := newOperator.GetCurrentContainers(ctx)
+				So(err, ShouldBeNil)
+				stats, err := clist[1].Stats(ctx)
 				So(stats.MemoryMB, ShouldBeZeroValue)
 				So(stats.CPUSec, ShouldBeZeroValue)
 				So(err, ShouldBeNil)
 			})
 
 			Convey("for a client with a empty list of containers", func() {
-				stats, err := empNewOperator.ContainerStats(ctx, "container_id2")
+				empNewOperator.addClientToContainers(cntrList)
+
+				stats, err := cntrList[1].Stats(ctx)
 				So(stats, ShouldBeNil)
 				So(err, ShouldNotBeNil)
 			})
