@@ -32,12 +32,8 @@ import (
 	sync "github.com/sasha-s/go-deadlock"
 )
 
-// expirationCB is something that will be called when an item expires. It should
-// return true if the item should be removed from the expire SubQueue, and false
-// if it should instead have its expiry reset and kept in the this SubQueue.
-// In both cases, once the desired action has been carried out, the returned
-// channel will be closed so you know when to proceed.
-type expirationCB func(*Item) (bool, chan struct{})
+// itemExpirationCB is like ExpirationCB, but takes an item.
+type itemExpirationCB func(*Item) (bool, chan struct{})
 
 // itemTimeCB is something that will be called to find out if an item has
 // expired.
@@ -47,22 +43,20 @@ type itemTimeCB func(*Item) time.Time
 // one of their time.Time properties by passing them to a callback.
 type expireSubQueue struct {
 	*heapQueue
-	expireCB               expirationCB
+	expireCB               itemExpirationCB
 	timeCB                 itemTimeCB
 	expireTime             time.Time
 	expireMutex            sync.RWMutex
 	updateNextItemToExpire chan *Item
 	nextExpiringItem       *Item
-	closeCh                chan struct{}
 }
 
-func newExpireSubQueue(expireCB expirationCB, timeCB itemTimeCB, heapImplementation heapWithNext) SubQueue {
+func newExpireSubQueue(expireCB itemExpirationCB, timeCB itemTimeCB, heapImplementation heapWithNext) SubQueue {
 	esq := &expireSubQueue{
 		expireCB:               expireCB,
 		timeCB:                 timeCB,
 		expireTime:             time.Now().Add(unsetItemExpiry),
 		updateNextItemToExpire: make(chan *Item),
-		closeCh:                make(chan struct{}),
 	}
 
 	esq.heapQueue = newHeapQueue(heapImplementation)
@@ -142,10 +136,6 @@ func (esq *expireSubQueue) processExpiringItems() {
 			item = esq.sendItemToExpireCB(item)
 		case item = <-esq.updateNextItemToExpire:
 			itemExpires.Stop()
-		case <-esq.closeCh:
-			itemExpires.Stop()
-
-			return
 		}
 	}
 }
@@ -176,13 +166,18 @@ func (esq *expireSubQueue) sendItemToExpireCB(item *Item) *Item {
 		return nil
 	}
 
-	if remove, ch := esq.expireCB(item); remove {
+	remove, ch := esq.expireCB(item)
+
+	if remove {
 		esq.heapQueue.remove(item)
 		next := esq.heapQueue.nextItem()
 		esq.expireMutex.Unlock()
 		close(ch)
 		return next
 	}
+
+	// *** else reset expiration
+	close(ch)
 
 	esq.expireMutex.Unlock()
 

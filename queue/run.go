@@ -45,7 +45,7 @@ func (ro *releaseOrder) Less(i, j int) bool {
 
 // newRunSubQueue creates a SubQueue that is ordered by releaseAt and passes
 // expired releaseAt items to the given callback.
-func newRunSubQueue(cb expirationCB) SubQueue {
+func newRunSubQueue(cb itemExpirationCB) SubQueue {
 	return newExpireSubQueue(cb, getItemRelease, newReleaseOrder())
 }
 

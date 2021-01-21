@@ -445,15 +445,17 @@ func TestQueueReserveGroups(t *testing.T) {
 	})
 }
 
-func TestQueueRun(t *testing.T) {
+func TestQueueRunDelay(t *testing.T) {
 	dsync.Opts.DeadlockTimeout = 60 * time.Millisecond
 	num := 2
 	ips := newSetOfItemParameters(num)
 	backgroundCtx := context.Background()
-	ttr := 5 * time.Millisecond
+	ttr := 25 * time.Millisecond
+	delay := ttr
 
 	for _, ip := range ips {
 		ip.TTR = ttr
+		ip.Delay = delay
 	}
 
 	Convey("Given a queue with items added", t, func() {
@@ -480,17 +482,48 @@ func TestQueueRun(t *testing.T) {
 			})
 
 			Convey("After TTR, the item is automatically switched to the delay SubQueue", func() {
+				called := make(chan struct{})
+				q.SetTTRCallback(func(interface{}) (bool, chan struct{}) {
+					return true, called
+				})
+
 				So(item.State(), ShouldEqual, ItemStateRun)
 				So(q.delayQueue.len(), ShouldEqual, 0)
-				<-time.After(ttr)
-				<-time.After(ttr)
+				<-called
 				So(item.State(), ShouldEqual, ItemStateDelay)
-				// *** this sometimes fails, and we don't have 100% code
-				// coverage, and we need lots more tests to see if this
-				// implementation really works, eg. with multiple items with
-				// identical releaseAt time, or sequential times.
+				// *** we need lots more tests to see if this implementation
+				// really works, eg. with multiple items with identical
+				// releaseAt time, or sequential times.
 				So(q.delayQueue.len(), ShouldEqual, 1)
 				So(q.runQueue.len(), ShouldEqual, 0)
+
+				Convey("After delay, the item is automatically switched to the ready SubQueue", func() {
+					called = make(chan struct{})
+					q.setDelayCallback(func(interface{}) (bool, chan struct{}) {
+						return true, called
+					})
+
+					So(q.readyQueues.numItems(), ShouldEqual, 1)
+					<-called
+					So(item.State(), ShouldEqual, ItemStateReady)
+					So(q.delayQueue.len(), ShouldEqual, 0)
+					So(q.runQueue.len(), ShouldEqual, 0)
+					So(q.readyQueues.numItems(), ShouldEqual, 2)
+				})
+			})
+
+			Convey("If TTRCallback returns false, nothing happens", func() {
+				q.SetTTRCallback(func(interface{}) (bool, chan struct{}) {
+					return false, make(chan struct{})
+				})
+				<-time.After(ttr)
+				So(item.State(), ShouldEqual, ItemStateRun)
+				So(q.delayQueue.len(), ShouldEqual, 0)
+				So(q.readyQueues.numItems(), ShouldEqual, 1)
+				So(q.runQueue.len(), ShouldEqual, 1)
+
+				// *** we want the item to have an increased or at least reset
+				// TTR, which currently isn't implemented or tested
 			})
 		})
 	})

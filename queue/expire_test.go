@@ -46,25 +46,7 @@ func TestQueueExpire(t *testing.T) {
 
 	Convey("Given a ready-based expire SubQueue with some items push()ed to it", t, func() {
 		items := make([]*Item, num*2)
-		expiredItems := 0
-		var eiMutex sync.RWMutex
-		itemCh := make(chan *Item, num*2)
-		ecb := func(item *Item) (bool, chan struct{}) {
-			eiMutex.Lock()
-			expiredItems++
-			eiMutex.Unlock()
-			itemCh <- item
-
-			return true, make(chan struct{})
-		}
-
-		numExpired := func() int {
-			eiMutex.RLock()
-			ei := expiredItems
-			eiMutex.RUnlock()
-
-			return ei
-		}
+		itemCh, ecb, numExpired := newECB(num * 2)
 
 		sq := newExpireSubQueue(ecb, getItemReady, newReadyOrder())
 		pushItemsToSubQueue(sq, ips, func(item *Item, i int) {
@@ -93,54 +75,158 @@ func TestQueueExpire(t *testing.T) {
 			So(numExpired(), ShouldEqual, num)
 		})
 
-		Convey("You can push new items while others expire", func() {
-			ipsNew := newSetOfItemParameters(num)
-
-			for i := 0; i < num; i++ {
-				ipsNew[i].Key = ips[i].Key + ".new"
-				ipsNew[i].Delay = delay
-			}
-
+		Convey("While items expire", func() {
 			item := <-itemCh
 			if item == nil {
 				So(false, ShouldBeTrue)
 			}
 
-			pushItemsToSubQueue(sq, ipsNew, func(item *Item, i int) {
-				item.restart()
-				items[i+num] = item
+			Convey("You can push new items", func() {
+				ipsNew := newSetOfItemParameters(num)
+
+				for i := 0; i < num; i++ {
+					ipsNew[i].Key = ips[i].Key + ".new"
+					ipsNew[i].Delay = delay
+				}
+
+				pushItemsToSubQueue(sq, ipsNew, func(item *Item, i int) {
+					item.restart()
+					items[i+num] = item
+				})
+				So(sq.len(), ShouldBeLessThanOrEqualTo, num*2)
+
+				for i := 0; i < num*2-1; i++ {
+					item := <-itemCh
+					So(item.Key(), ShouldEqual, items[i+1].Key())
+				}
+
+				So(numExpired(), ShouldEqual, num*2)
 			})
-			So(sq.len(), ShouldBeLessThanOrEqualTo, num*2)
 
-			for i := 0; i < num*2-1; i++ {
-				item := <-itemCh
-				So(item.Key(), ShouldEqual, items[i+1].Key())
-			}
+			Convey("You can pop items", func() {
+				popped := 0
+				for i := 0; i < num; i++ {
+					item := sq.pop(ctx)
+					if item == nil {
+						break
+					}
+					popped++
+				}
 
-			So(numExpired(), ShouldEqual, num*2)
+				for i := 0; i < num-popped-1; i++ {
+					<-itemCh
+				}
+
+				So(popped, ShouldBeBetweenOrEqual, 0, num)
+				So(numExpired(), ShouldEqual, num-popped)
+			})
+
+			Convey("You can remove or update items", func() {
+				for i := 0; i < num; i++ {
+					if i%2 == 0 {
+						sq.remove(ips[i].toItem())
+					} else {
+						sq.update(ips[i].toItem())
+					}
+				}
+
+				expired := numExpired()
+				for i := 0; i < expired-1; i++ {
+					<-itemCh
+				}
+
+				So(expired, ShouldBeBetweenOrEqual, 0, num)
+			})
 		})
 
-		Convey("You can pop items while others expire", func() {
-			item := <-itemCh
-			if item == nil {
-				So(false, ShouldBeTrue)
-			}
+		Convey("Nil and removed items are not sent to expireCB", func() {
+			_, ecb, numExpired := newECB(2)
+			sq := newExpireSubQueue(ecb, getItemReady, newReadyOrder())
+			esq, ok := sq.(*expireSubQueue)
+			So(ok, ShouldBeTrue)
 
-			popped := 0
-			for i := 0; i < num; i++ {
-				item := sq.pop(ctx)
-				if item == nil {
-					break
-				}
-				popped++
-			}
+			esq.sendItemToExpireCB(nil)
+			<-time.After(delay)
+			So(numExpired(), ShouldEqual, 0)
 
-			for i := 0; i < num-popped-1; i++ {
-				<-itemCh
-			}
+			pushItemsToSubQueue(sq, ips[0:1], func(item *Item, i int) {
+				item.restart()
+				items[i] = item
+			})
+			So(sq.len(), ShouldEqual, 1)
 
-			So(popped, ShouldBeBetweenOrEqual, 0, num)
-			So(numExpired(), ShouldEqual, num-popped)
+			sq.remove(items[0])
+			esq.sendItemToExpireCB(items[0])
+			<-time.After(delay)
+			So(numExpired(), ShouldEqual, 0)
+		})
+
+		Convey("An expireCB that returns false results in", func() {
+			_, ecb, numExpired := newECB(2)
+			sq := newExpireSubQueue(ecb, getItemReady, newReadyOrder())
+			esq, ok := sq.(*expireSubQueue)
+			So(ok, ShouldBeTrue)
+
+			esq.sendItemToExpireCB(nil)
+			<-time.After(delay)
+			So(numExpired(), ShouldEqual, 0)
+
+			pushItemsToSubQueue(sq, ips[0:1], func(item *Item, i int) {
+				item.restart()
+				items[i] = item
+			})
+			So(sq.len(), ShouldEqual, 1)
+
+			sq.remove(items[0])
+			esq.sendItemToExpireCB(items[0])
+			<-time.After(delay)
+			So(numExpired(), ShouldEqual, 0)
 		})
 	})
+
+	Convey("A SubQueue with an expireCB that returns false results in nothing getting removed", t, func() {
+		items := make([]*Item, 1)
+		ecb := func(item *Item) (bool, chan struct{}) {
+			return false, make(chan struct{})
+		}
+
+		sq := newExpireSubQueue(ecb, getItemReady, newReadyOrder())
+		pushItemsToSubQueue(sq, ips[0:1], func(item *Item, i int) {
+			item.restart()
+			items[i] = item
+		})
+		So(sq.len(), ShouldEqual, 1)
+
+		afterFirstExpire := items[0].ReadyAt().Add(50 * time.Millisecond)
+		<-time.After(time.Until(afterFirstExpire))
+		So(sq.len(), ShouldEqual, 1)
+	})
+}
+
+// newECB creates and returns a channel (with buffer size bufferSize) that will
+// receive items sent to the the returned expirationCB, along with a function
+// that tells you how many items expired.
+func newECB(bufferSize int) (chan *Item, func(*Item) (bool, chan struct{}), func() int) {
+	expiredItems := 0
+	var eiMutex sync.RWMutex
+	itemCh := make(chan *Item, bufferSize)
+
+	ecb := func(item *Item) (bool, chan struct{}) {
+		eiMutex.Lock()
+		expiredItems++
+		eiMutex.Unlock()
+		itemCh <- item
+
+		return true, make(chan struct{})
+	}
+
+	numExpired := func() int {
+		eiMutex.RLock()
+		ei := expiredItems
+		eiMutex.RUnlock()
+
+		return ei
+	}
+
+	return itemCh, ecb, numExpired
 }

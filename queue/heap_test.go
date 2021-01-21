@@ -92,6 +92,14 @@ func TestQueueHeapPushPop(t *testing.T) {
 			})
 		})
 	})
+
+	Convey("basicHeapWithNext only handles Items pushed to it", t, func() {
+		bhwn := &basicHeapWithNext{}
+		item := &Item{}
+		bhwn.Push(item)
+		So(len(bhwn.items), ShouldEqual, 1)
+		So(func() { bhwn.Push("foo") }, ShouldPanic)
+	})
 }
 
 func pushRangeOfItemParametersToSubQueue(ips []*ItemParameters, sq SubQueue, first, last int, wg *sync.WaitGroup) {

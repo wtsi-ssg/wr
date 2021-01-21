@@ -88,13 +88,18 @@ type SubQueue interface {
 
 // Queue is an in-memory poll-free queue with various heap-based ordered
 // SubQueues for managing item progress.
+//
+// (Note that it is expected that you create and use a Queue and its SubQueues
+//  for the full duration of your app, so there is no "close" type method that
+//  frees up resources; do not create many of these for temporary use.)
 type Queue struct {
 	items       map[string]*Item
 	itemsMutex  sync.RWMutex
 	readyQueues *readyQueues
 	runQueue    SubQueue
 	delayQueue  SubQueue
-	ttrCB       TTRCallback
+	ttrCB       ExpirationCB
+	delayCB     ExpirationCB
 	ttrMutex    sync.RWMutex
 }
 
@@ -103,13 +108,12 @@ func New() *Queue {
 	q := &Queue{
 		items:       make(map[string]*Item),
 		readyQueues: newReadyQueues(),
-		ttrCB:       defaultTTRCallback,
+		ttrCB:       defaultExpirationCallback,
+		delayCB:     defaultExpirationCallback,
 	}
 
 	q.runQueue = newRunSubQueue(q.ttrHandler)
-	q.delayQueue = newDelaySubQueue(func(*Item) (bool, chan struct{}) {
-		return true, make(chan struct{})
-	})
+	q.delayQueue = newDelaySubQueue(q.delayHandler)
 
 	return q
 }
@@ -231,17 +235,22 @@ func (q *Queue) ChangeReserveGroup(key string, newGroup string) {
 	})
 }
 
-// TTRCallback is used as a callback to decide what happens when a an item in
-// the run sub-queue hits its TTR, based on that item's data. If you return
-// true (the default behaviour if you don't set this callback), the item will
-// be moved to the delay sub-queue. If you return false, the item will remain in
-// the run sub-queue, and have its TTR reset.
-type TTRCallback func(data interface{}) bool
+// ExpirationCB is used as a callback to decide what happens when an item in a
+// sub-queue expires, based on that item's data. An example of expiring is an
+// item in the run sub-queue hitting its TTR.
+//
+// It should return true if the item should be removed from its SubQueue, and
+// false if it should instead have its expiry reset and kept in the this
+// SubQueue.
+//
+// In both cases, once the desired action has been carried out, the returned
+// channel will be closed so you know when to proceed.
+type ExpirationCB func(data interface{}) (bool, chan struct{})
 
-// defaultTTRCallback is used if the user never calls SetTTRCallback() and
-// always moves the item to the delay sub-queue.
-var defaultTTRCallback = func(interface{}) bool {
-	return true
+// defaultExpirationCallback is used if the user never calls SetTTRCallback() or
+// SetDelayCallback() and always returns true.
+var defaultExpirationCallback = func(interface{}) (bool, chan struct{}) {
+	return true, make(chan struct{})
 }
 
 // SetTTRCallback sets a callback that will be called when an item in the run
@@ -249,7 +258,7 @@ var defaultTTRCallback = func(interface{}) bool {
 // return false to reset the TTR and keep the item in the run sub-queue. If you
 // return true, or don't set this, the item will be moved to the delay
 // sub-queue.
-func (q *Queue) SetTTRCallback(callback TTRCallback) {
+func (q *Queue) SetTTRCallback(callback ExpirationCB) {
 	q.ttrMutex.Lock()
 	defer q.ttrMutex.Unlock()
 	q.ttrCB = callback
@@ -261,23 +270,61 @@ func (q *Queue) ttrHandler(item *Item) (bool, chan struct{}) {
 	ttrCB := q.ttrCB
 	q.ttrMutex.RUnlock()
 
+	return q.expireHandler(ttrCB, item, func() {
+		if err := item.SwitchState(ItemStateDelay); err != nil {
+			clog.Error(context.Background(), "queue failure", "err", err)
+
+			return
+		}
+
+		q.delayQueue.push(item)
+	})
+}
+
+// expireHandler calls the given ExpirationCB and runs removeFunc if it returns
+// true.
+func (q *Queue) expireHandler(cb ExpirationCB, item *Item, removeFunc func()) (bool, chan struct{}) {
 	handled := make(chan struct{})
+	remove, doneCh := cb(item.Data())
 
-	if switchToDelay := ttrCB(item.Data()); switchToDelay {
-		go func() {
-			<-handled
+	go func() {
+		<-handled
+		if remove {
+			removeFunc()
+		}
+		close(doneCh)
+	}()
 
-			if err := item.SwitchState(ItemStateDelay); err != nil {
-				clog.Error(context.Background(), "queue failure", "err", err)
+	return remove, handled
+}
 
-				return
-			}
+// setDelayCallback sets a callback that will be called when an item in the
+// delay sub-queue wants to become ready. The callback receives an item's data
+// and should return false to reset the delay and keep the item in the delay
+// sub-queue. If you return true, or don't set this, the item will be moved to
+// the ready sub-queue.
+//
+// This is private since it is intended for testing purposes only.
+func (q *Queue) setDelayCallback(callback ExpirationCB) {
+	q.ttrMutex.Lock()
+	defer q.ttrMutex.Unlock()
+	q.delayCB = callback
+}
 
-			q.delayQueue.push(item)
-		}()
+// delayHandler gets called with items that were in the delay SubQueue and then
+// expired.
+func (q *Queue) delayHandler(item *Item) (bool, chan struct{}) {
+	q.ttrMutex.RLock()
+	delayCB := q.delayCB
+	q.ttrMutex.RUnlock()
 
-		return true, handled
-	}
+	return q.expireHandler(delayCB, item, func() {
+		if err := item.SwitchState(ItemStateReady); err != nil {
+			clog.Error(context.Background(), "queue failure", "err", err)
 
-	return false, handled
+			return
+		}
+
+		q.readyQueues.push(item)
+	})
 }
