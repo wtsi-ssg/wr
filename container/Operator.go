@@ -59,6 +59,7 @@ func (et *OperatorErr) Error() string {
 	return msg
 }
 
+// Unwrap method returns contained error of OperatorErr.
 func (et *OperatorErr) Unwrap() error {
 	return et.Err
 }
