@@ -389,7 +389,7 @@ func TestOperator(t *testing.T) {
 	Convey("Unwrap the error", t, func() {
 		// Create a client with no containers and make it return an error on
 		// container listing
-		empNewOperator := NewOperator(&MockInteractor{
+		empOperator := NewOperator(&MockInteractor{
 			ContainerListFn: func() ([]*Container, error) {
 				_, err := ioutil.ReadFile("nonExistingFile.txt")
 
@@ -399,13 +399,12 @@ func TestOperator(t *testing.T) {
 		)
 
 		Convey("when the list of containers doesn't exist", func() {
-			emplist, err := empNewOperator.GetCurrentContainers(ctx)
+			emplist, err := empOperator.GetCurrentContainers(ctx)
 			So(len(emplist), ShouldEqual, 0)
 
 			var e *OperatorErr
-			if errors.As(err, &e) {
-				So(e.Unwrap(), ShouldNotBeNil)
-			}
+			So(errors.As(err, &e), ShouldBeTrue)
+			So(e.Unwrap(), ShouldNotBeNil)
 		})
 	})
 }
