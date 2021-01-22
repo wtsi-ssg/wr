@@ -392,6 +392,7 @@ func TestOperator(t *testing.T) {
 		empNewOperator := NewOperator(&MockInteractor{
 			ContainerListFn: func() ([]*Container, error) {
 				_, err := ioutil.ReadFile("nonExistingFile.txt")
+
 				return nil, err
 			},
 		},
