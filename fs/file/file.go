@@ -30,7 +30,7 @@ import (
 )
 
 // GetFirstLine reads the content of a file given its absolute path and returns
-// the first line after trailing newline.
+// the first line excluding trailing newline.
 func GetFirstLine(filename string) (string, error) {
 	content, err := ioutil.ReadFile(filename)
 	if err != nil {
