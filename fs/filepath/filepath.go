@@ -27,6 +27,7 @@ package filepath
 import (
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 )
 
 // RelToAbsPath returns the absolute path of a file given its relative path and
@@ -40,12 +41,15 @@ func RelToAbsPath(path string, dir string) string {
 	return absPath
 }
 
-// ReadFile returns the content of a file given its absolute path.
-func ReadFile(filename string) ([]byte, error) {
-	b, err := ioutil.ReadFile(filename)
+// GetFirstLine reads the content of a file given its absolute path and returns
+// the first line.
+func GetFirstLine(filename string) (string, error) {
+	content, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return b, nil
+	firstLine := strings.TrimSuffix(string(content), "\n")
+
+	return firstLine, nil
 }

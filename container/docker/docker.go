@@ -34,7 +34,7 @@ import (
 	"github.com/wtsi-ssg/wr/math/convert"
 )
 
-// Interator represents a docker client.
+// Interator implements the container/Interactor interface for docker.
 type Interactor struct {
 	dockerClient *client.Client
 }
@@ -58,7 +58,9 @@ func (i *Interactor) ContainerList(ctx context.Context) ([]*container.Container,
 	customCntrList := make([]*container.Container, len(containerList))
 
 	for idx, cntr := range containerList {
-		customCntrList[idx] = &container.Container{ID: cntr.ID, Names: cntr.Names}
+		newCntr := &container.Container{ID: cntr.ID, Names: cntr.Names}
+		newCntr.TrimPrefixName()
+		customCntrList[idx] = newCntr
 	}
 
 	return customCntrList, nil
@@ -87,8 +89,8 @@ func decodeDockerContainerStats(containerStats types.ContainerStats) (*container
 	}
 
 	currentCustomStats := &container.Stats{}
-	currentCustomStats.MemoryMB = convert.BytesToMB(ds.MemoryStats.Stats["rss"])          // bytes to MB
-	currentCustomStats.CPUSec = convert.NanosecondsToSec(ds.CPUStats.CPUUsage.TotalUsage) // nanoseconds to seconds
+	currentCustomStats.MemoryMB = convert.BytesToMB(ds.MemoryStats.Stats["rss"])
+	currentCustomStats.CPUSec = convert.NanosecondsToSec(ds.CPUStats.CPUUsage.TotalUsage)
 
 	err = containerStats.Body.Close()
 

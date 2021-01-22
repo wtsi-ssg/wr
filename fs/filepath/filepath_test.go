@@ -46,27 +46,29 @@ func TestPath(t *testing.T) {
 		So(RelToAbsPath("testing1.txt", ""), ShouldEqual, "testing1.txt")
 	})
 
-	Convey("Read the contents of a file", t, func() {
+	Convey("Get the first line of a file", t, func() {
 		tempDir, err := ioutil.TempDir("", "temp_filepath")
 		if err != nil {
 			log.Fatal(err)
 		}
 
+		defer os.RemoveAll(tempDir)
+
 		Convey("when the file exists", func() {
 			tempFile := filepath.Join(tempDir, "tempFile.txt")
-			err = ioutil.WriteFile(tempFile, []byte("test"), fileMode)
+			err = ioutil.WriteFile(tempFile, []byte("id1"), fileMode)
 			So(err, ShouldBeNil)
 
-			content, err := ReadFile(tempFile)
+			id, err := GetFirstLine(tempFile)
 			So(err, ShouldBeNil)
-			So(content, ShouldNotBeNil)
+			So(id, ShouldEqual, "id1")
 		})
 
 		Convey("when the file doesn't exist", func() {
 			tempNonExistingFile := filepath.Join(tempDir, "tempNonExisting.txt")
-			noContent, err := ReadFile(tempNonExistingFile)
+			noID, err := GetFirstLine(tempNonExistingFile)
 			So(err, ShouldNotBeNil)
-			So(noContent, ShouldBeNil)
+			So(noID, ShouldBeEmpty)
 		})
 	})
 }
