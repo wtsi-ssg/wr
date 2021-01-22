@@ -24,7 +24,7 @@
 
 package container
 
-// this file has functions for dealing with containers
+// this file has functions for dealing with containers.
 
 import (
 	"context"
@@ -38,6 +38,13 @@ type Container struct {
 	client Interactor
 }
 
+// Stats struct represents a container stats type with memory and cpu
+// properties.
+type Stats struct {
+	MemoryMB int
+	CPUSec   int
+}
+
 // Stats returns the current memory usage (RSS, in MB) and total CPU usage (in
 // seconds) of this container.
 func (c *Container) Stats(ctx context.Context) (*Stats, error) {
@@ -49,8 +56,9 @@ func (c *Container) Stats(ctx context.Context) (*Stats, error) {
 	return stats, nil
 }
 
-// TrimPrefixName trims the '/' from this container's names.
-func (c *Container) TrimPrefixName() {
+// TrimNamePrefixes trims the '/' from this container's names. You must call
+// this after adding names that might contain the prefix.
+func (c *Container) TrimNamePrefixes() {
 	cnames := make([]string, len(c.Names))
 
 	for idx, name := range c.Names {
@@ -62,7 +70,7 @@ func (c *Container) TrimPrefixName() {
 }
 
 // HasName checks if a given name is one of this container's names. Make sure to
-// call the TrimPrefixName on the container before calling this function.
+// call the TrimNamePrefixes on the container before calling this function.
 func (c *Container) HasName(name string) bool {
 	for _, cname := range c.Names {
 		if cname == name {

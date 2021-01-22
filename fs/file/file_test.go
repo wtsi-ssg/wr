@@ -22,20 +22,54 @@
  * IN THE SOFTWARE.
  ******************************************************************************/
 
-package filepath
+package file
 
 import (
+	"io/ioutil"
+	"log"
+	"os"
+	"path/filepath"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestPath(t *testing.T) {
-	Convey("Get the absolute path of a file given its relative path and directory name", t, func() {
-		So(RelToAbsPath("testing1.txt", "/home_directory"), ShouldEqual, "/home_directory/testing1.txt")
-		So(RelToAbsPath("/testing1.txt", "/home_directory"), ShouldEqual, "/testing1.txt")
-		So(RelToAbsPath("testing1.txt", "/"), ShouldEqual, "/testing1.txt")
-		So(RelToAbsPath("testing1.txt", "."), ShouldEqual, "testing1.txt")
-		So(RelToAbsPath("testing1.txt", ""), ShouldEqual, "testing1.txt")
+// fileMode is the mode of the temp file created for testing.
+const fileMode os.FileMode = 0600
+
+func TestFile(t *testing.T) {
+	Convey("Get the first line of a file", t, func() {
+		tempDir, err := ioutil.TempDir("", "temp_filepath")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		defer os.RemoveAll(tempDir)
+
+		Convey("when the file exists", func() {
+			tempFile := filepath.Join(tempDir, "tempFile.txt")
+			err = ioutil.WriteFile(tempFile, []byte("id1"), fileMode)
+			So(err, ShouldBeNil)
+
+			id, err := GetFirstLine(tempFile)
+			So(err, ShouldBeNil)
+			So(id, ShouldEqual, "id1")
+
+			tempFile1 := filepath.Join(tempDir, "tempFile1.txt")
+			err = ioutil.WriteFile(tempFile1, []byte("id1\n"), fileMode)
+			So(err, ShouldBeNil)
+
+			id, err = GetFirstLine(tempFile1)
+			So(err, ShouldBeNil)
+			So(id, ShouldNotEqual, "id1\n")
+			So(id, ShouldEqual, "id1")
+		})
+
+		Convey("when the file doesn't exist", func() {
+			tempNonExistingFile := filepath.Join(tempDir, "tempNonExisting.txt")
+			noID, err := GetFirstLine(tempNonExistingFile)
+			So(err, ShouldNotBeNil)
+			So(noID, ShouldBeEmpty)
+		})
 	})
 }

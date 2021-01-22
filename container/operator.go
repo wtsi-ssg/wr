@@ -29,7 +29,8 @@ import (
 	"os"
 	"path/filepath"
 
-	fs "github.com/wtsi-ssg/wr/fs/filepath"
+	"github.com/wtsi-ssg/wr/fs/file"
+	fp "github.com/wtsi-ssg/wr/fs/filepath"
 )
 
 // OperationErr is supplied to OperatorErr to define the reasons for the failed
@@ -62,13 +63,6 @@ func (et *OperatorErr) Error() string {
 // Unwrap method returns contained error of OperatorErr.
 func (et *OperatorErr) Unwrap() error {
 	return et.Err
-}
-
-// Stats struct represents a container stats type with memory and cpu
-// properties.
-type Stats struct {
-	MemoryMB int
-	CPUSec   int
 }
 
 // Interactor defines some methods to query containers.
@@ -193,7 +187,7 @@ func (o *Operator) GetNewContainerByName(ctx context.Context, name string) (*Con
 // in the case of docker when using the --cidfile argument.
 func (o *Operator) GetContainerByPath(ctx context.Context, path string, dir string) (*Container, error) {
 	// if name is a relative file path, then create the absolute path with dir
-	cidPath := fs.RelToAbsPath(path, dir)
+	cidPath := fp.RelToAbsPath(path, dir)
 
 	_, err := os.Stat(cidPath)
 	if err == nil {
@@ -208,7 +202,7 @@ func (o *Operator) GetContainerByPath(ctx context.Context, path string, dir stri
 // first line, and checks that it is the ID of a current container. If so,
 // returns that container.
 func (o *Operator) cidPathToContainer(ctx context.Context, cidPath string) (*Container, error) {
-	id, err := fs.GetFirstLine(cidPath)
+	id, err := file.GetFirstLine(cidPath)
 	if err != nil {
 		return nil, err
 	}

@@ -39,8 +39,8 @@ import (
 // fileMode is the mode of the temp file created for testing.
 const fileMode os.FileMode = 0600
 
-// mockInteractor represents a mock implementation of container.Interactor.
-type mockInteractor struct {
+// MockInteractor represents a mock implementation of container.Interactor.
+type MockInteractor struct {
 	ContainerListFn       func() ([]*Container, error)
 	ContainerListInvoked  int
 	ContainerStatsFn      func(string) (*Stats, error)
@@ -50,7 +50,7 @@ type mockInteractor struct {
 }
 
 // ContainerList is a mock function which returns the list of containers.
-func (m *mockInteractor) ContainerList(ctx context.Context) ([]*Container, error) {
+func (m *MockInteractor) ContainerList(ctx context.Context) ([]*Container, error) {
 	m.ContainerListInvoked++
 
 	return m.ContainerListFn()
@@ -58,7 +58,7 @@ func (m *mockInteractor) ContainerList(ctx context.Context) ([]*Container, error
 
 // ContainerStats is a mock function which returns the mem and cpu stats of a
 // container given its ID.
-func (m *mockInteractor) ContainerStats(ctx context.Context,
+func (m *MockInteractor) ContainerStats(ctx context.Context,
 	containerID string) (*Stats, error) {
 	m.ContainerStatsInvoked++
 
@@ -67,15 +67,15 @@ func (m *mockInteractor) ContainerStats(ctx context.Context,
 
 // ContainerKill is a mock function which kills (removes the entry of) a
 // container given its ID.
-func (m *mockInteractor) ContainerKill(ctx context.Context, containerID string) error {
+func (m *MockInteractor) ContainerKill(ctx context.Context, containerID string) error {
 	m.ContainerKillInvoked++
 
 	return m.ContainerKillFn(containerID)
 }
 
-// RemoveContainer removes the container from container list if found and
+// removeContainerEntry removes the container from mock container list if found and
 // returns the remaining containers.
-func RemoveContainer(containerList []*Container, containerID string) []*Container {
+func removeContainerEntry(containerList []*Container, containerID string) []*Container {
 	var remainingContainers []*Container
 
 	for _, container := range containerList {
@@ -87,10 +87,10 @@ func RemoveContainer(containerList []*Container, containerID string) []*Containe
 	return remainingContainers
 }
 
-// trimPrefixNames trims the '/' character from the names of each container.
-func trimPrefixNames(cntrList []*Container) []*Container {
+// trimNamePrefixContainers trims the '/' character from the names of each container.
+func trimNamePrefixContainers(cntrList []*Container) []*Container {
 	for _, cntr := range cntrList {
-		cntr.TrimPrefixName()
+		cntr.TrimNamePrefixes()
 	}
 
 	return cntrList
@@ -110,13 +110,13 @@ func TestOperator(t *testing.T) {
 		}}
 
 		// Create a client with list of dummy containers
-		newOperator := NewOperator(&mockInteractor{
+		newOperator := NewOperator(&MockInteractor{
 			ContainerListFn: func() ([]*Container, error) {
-				return trimPrefixNames(cntrList), nil
+				return trimNamePrefixContainers(cntrList), nil
 			},
 
 			ContainerKillFn: func(containerID string) error {
-				remainContainers := RemoveContainer(cntrList, containerID)
+				remainContainers := removeContainerEntry(cntrList, containerID)
 				if len(cntrList) == len(remainContainers) {
 					return &OperatorErr{Type: ErrContainerKill}
 				}
@@ -130,7 +130,7 @@ func TestOperator(t *testing.T) {
 		)
 
 		// Create a client with no containers
-		empNewOperator := NewOperator(&mockInteractor{
+		empNewOperator := NewOperator(&MockInteractor{
 			ContainerListFn: func() ([]*Container, error) {
 				return nil, &OperatorErr{Type: ErrContainerList}
 			},
@@ -152,10 +152,6 @@ func TestOperator(t *testing.T) {
 			emplist, err := empNewOperator.GetCurrentContainers(ctx)
 			So(err, ShouldNotBeNil)
 			So(len(emplist), ShouldEqual, 0)
-
-			// Upwrap the error
-			var opError *OperatorErr
-			So(errors.Is(err, opError), ShouldBeFalse)
 		})
 
 		// Mark container_id3 to true in exisiting container, making it an "old"
@@ -178,7 +174,7 @@ func TestOperator(t *testing.T) {
 					newCntr := &Container{
 						ID: "container_id4", Names: []string{"/test_container4", "/test_container4_new"},
 					}
-					newCntr.TrimPrefixName()
+					newCntr.TrimNamePrefixes()
 					cntrList = append(cntrList, newCntr)
 
 					clist, err := newOperator.GetCurrentContainers(ctx)
@@ -387,6 +383,28 @@ func TestOperator(t *testing.T) {
 				So(len(clist), ShouldEqual, 3)
 				So(err, ShouldBeNil)
 			})
+		})
+	})
+
+	Convey("Unwrap the error", t, func() {
+		// Create a client with no containers and make it return an error on
+		// container listing
+		empNewOperator := NewOperator(&MockInteractor{
+			ContainerListFn: func() ([]*Container, error) {
+				_, err := ioutil.ReadFile("nonExistingFile.txt")
+				return nil, err
+			},
+		},
+		)
+
+		Convey("when the list of containers doesn't exist", func() {
+			emplist, err := empNewOperator.GetCurrentContainers(ctx)
+			So(len(emplist), ShouldEqual, 0)
+
+			var e *OperatorErr
+			if errors.As(err, &e) {
+				So(e.Unwrap(), ShouldNotBeNil)
+			}
 		})
 	})
 }

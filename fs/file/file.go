@@ -22,20 +22,22 @@
  * IN THE SOFTWARE.
  ******************************************************************************/
 
-package filepath
+package file
 
 import (
-	"testing"
-
-	. "github.com/smartystreets/goconvey/convey"
+	"io/ioutil"
+	"strings"
 )
 
-func TestPath(t *testing.T) {
-	Convey("Get the absolute path of a file given its relative path and directory name", t, func() {
-		So(RelToAbsPath("testing1.txt", "/home_directory"), ShouldEqual, "/home_directory/testing1.txt")
-		So(RelToAbsPath("/testing1.txt", "/home_directory"), ShouldEqual, "/testing1.txt")
-		So(RelToAbsPath("testing1.txt", "/"), ShouldEqual, "/testing1.txt")
-		So(RelToAbsPath("testing1.txt", "."), ShouldEqual, "testing1.txt")
-		So(RelToAbsPath("testing1.txt", ""), ShouldEqual, "testing1.txt")
-	})
+// GetFirstLine reads the content of a file given its absolute path and returns
+// the first line after trailing newline.
+func GetFirstLine(filename string) (string, error) {
+	content, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return "", err
+	}
+
+	firstLine := strings.TrimSuffix(string(content), "\n")
+
+	return firstLine, nil
 }

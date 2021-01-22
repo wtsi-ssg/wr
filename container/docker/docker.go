@@ -59,7 +59,7 @@ func (i *Interactor) ContainerList(ctx context.Context) ([]*container.Container,
 
 	for idx, cntr := range containerList {
 		newCntr := &container.Container{ID: cntr.ID, Names: cntr.Names}
-		newCntr.TrimPrefixName()
+		newCntr.TrimNamePrefixes()
 		customCntrList[idx] = newCntr
 	}
 

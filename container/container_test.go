@@ -41,7 +41,7 @@ func TestContainer(t *testing.T) {
 		}}
 
 		// Create a client with list of dummy containers
-		newCntrOperator := NewOperator(&mockInteractor{
+		newCntrOperator := NewOperator(&MockInteractor{
 			ContainerStatsFn: func(containerID string) (*Stats, error) {
 				return &Stats{}, nil
 			},
@@ -52,7 +52,7 @@ func TestContainer(t *testing.T) {
 		newCntrOperator.addClientToContainers(cntrList)
 
 		// Create a client with no containers
-		empNewCntrOperator := NewOperator(&mockInteractor{
+		empNewCntrOperator := NewOperator(&MockInteractor{
 			ContainerStatsFn: func(containerID string) (*Stats, error) {
 				return nil, &OperatorErr{Type: ErrContainerStats}
 			},
@@ -68,6 +68,7 @@ func TestContainer(t *testing.T) {
 			})
 
 			Convey("not for a client with an empty list of containers", func() {
+				// add client to the container
 				empNewCntrOperator.addClientToContainers(cntrList)
 
 				stats, err := cntrList[0].Stats(ctx)
@@ -83,14 +84,14 @@ func TestContainer(t *testing.T) {
 		}
 
 		Convey("it can trim the / from its names", func() {
-			newContainer.TrimPrefixName()
+			newContainer.TrimNamePrefixes()
 			So(newContainer.Names[0], ShouldEqual, "test_container1")
 			So(newContainer.Names[1], ShouldEqual, "test_container1_new")
 		})
 
-		Convey("it can check if the container name is valid", func() {
-			// call TrimPrefixName on the container
-			newContainer.TrimPrefixName()
+		Convey("it can check if a given name is its valid name", func() {
+			// call TrimNamePrefixes on the container
+			newContainer.TrimNamePrefixes()
 
 			Convey("for a correct name of the container", func() {
 				So(newContainer.HasName("test_container1_new"), ShouldBeTrue)

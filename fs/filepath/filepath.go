@@ -24,11 +24,9 @@
 
 package filepath
 
-import (
-	"io/ioutil"
-	"path/filepath"
-	"strings"
-)
+// this file implements utility routines for manipulating filename paths.
+
+import "path/filepath"
 
 // RelToAbsPath returns the absolute path of a file given its relative path and
 // the directory name.
@@ -39,17 +37,4 @@ func RelToAbsPath(path string, dir string) string {
 	}
 
 	return absPath
-}
-
-// GetFirstLine reads the content of a file given its absolute path and returns
-// the first line.
-func GetFirstLine(filename string) (string, error) {
-	content, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return "", err
-	}
-
-	firstLine := strings.TrimSuffix(string(content), "\n")
-
-	return firstLine, nil
 }
