@@ -59,6 +59,10 @@ func (et *OperatorErr) Error() string {
 	return msg
 }
 
+func (et *OperatorErr) Unwrap() error {
+	return et.Err
+}
+
 // Stats struct represents a container stats type with memory and cpu
 // properties.
 type Stats struct {

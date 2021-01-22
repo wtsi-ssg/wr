@@ -26,6 +26,7 @@ package container
 
 import (
 	"context"
+	"errors"
 	"io/ioutil"
 	"log"
 	"os"
@@ -114,10 +115,6 @@ func TestOperator(t *testing.T) {
 				return trimPrefixNames(cntrList), nil
 			},
 
-			ContainerStatsFn: func(containerID string) (*Stats, error) {
-				return &Stats{}, nil
-			},
-
 			ContainerKillFn: func(containerID string) error {
 				remainContainers := RemoveContainer(cntrList, containerID)
 				if len(cntrList) == len(remainContainers) {
@@ -137,10 +134,6 @@ func TestOperator(t *testing.T) {
 			ContainerListFn: func() ([]*Container, error) {
 				return nil, &OperatorErr{Type: ErrContainerList}
 			},
-
-			ContainerStatsFn: func(containerID string) (*Stats, error) {
-				return nil, &OperatorErr{Type: ErrContainerStats}
-			},
 		},
 		)
 
@@ -159,6 +152,10 @@ func TestOperator(t *testing.T) {
 			emplist, err := empNewOperator.GetCurrentContainers(ctx)
 			So(err, ShouldNotBeNil)
 			So(len(emplist), ShouldEqual, 0)
+
+			// Upwrap the error
+			var opError *OperatorErr
+			So(errors.Is(err, opError), ShouldBeFalse)
 		})
 
 		// Mark container_id3 to true in exisiting container, making it an "old"
