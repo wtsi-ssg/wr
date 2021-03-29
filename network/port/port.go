@@ -38,26 +38,22 @@ func NewChecker(host string) (*Checker, error) {
 // on all the returned ports as soon as possible after calling this.
 func (c *Checker) AvailableRange(size int) (int, int, error) {
 	var err error
+
 	defer func() {
-		errr := c.release()
-		if errr != nil {
-			if err == nil {
-				err = errr
-			} else {
-				err = fmt.Errorf("%w; %s", err, errr.Error())
-			}
-		}
+		err = c.release(err)
 	}()
 
 	for i := 0; i < maxTries; i++ {
 		port, erra := c.availablePort()
 		if erra != nil {
 			err = fmt.Errorf("%w; %s", err, erra.Error())
+
 			continue
 		}
 
 		if set, has := c.checkRange(port, size); has {
 			min, max := firstAndLast(set)
+
 			return min, max, err
 		}
 	}
@@ -70,6 +66,7 @@ func (c *Checker) availablePort() (int, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	c.listeners = append(c.listeners, l)
 	port := l.Addr().(*net.TCPAddr).Port
 	c.ports[port] = true
@@ -94,6 +91,7 @@ func (c *Checker) checkRange(start, size int) ([]int, bool) {
 
 	if len(before)+len(after)+1 >= size {
 		combined := append(before, append([]int{start}, after...)...)
+
 		return combined[0:size], true
 	}
 
@@ -102,6 +100,7 @@ func (c *Checker) checkRange(start, size int) ([]int, bool) {
 
 func (c *Checker) portsAfter(start int) []int {
 	var ports []int
+
 	for i := start + 1; i <= maxPort; i++ {
 		if c.ports[i] {
 			ports = append(ports, i)
@@ -109,11 +108,13 @@ func (c *Checker) portsAfter(start int) []int {
 			return ports
 		}
 	}
+
 	return ports
 }
 
 func (c *Checker) portsBefore(start int) []int {
 	var ports []int
+
 	for i := start - 1; i >= 1; i-- {
 		if c.ports[i] {
 			ports = append([]int{i}, ports...)
@@ -121,12 +122,11 @@ func (c *Checker) portsBefore(start int) []int {
 			return ports
 		}
 	}
+
 	return ports
 }
 
-func (c *Checker) release() error {
-	var err error
-
+func (c *Checker) release(err error) error {
 	for _, l := range c.listeners {
 		errl := l.Close()
 		if errl != nil {

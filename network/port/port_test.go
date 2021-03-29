@@ -19,7 +19,7 @@ func TestPort(t *testing.T) {
 			So(len(checker.ports), ShouldEqual, 1)
 			So(checker.ports[port], ShouldBeTrue)
 
-			err = checker.release()
+			err = checker.release(err)
 			So(err, ShouldBeNil)
 		})
 
