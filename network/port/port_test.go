@@ -24,39 +24,15 @@ func TestPort(t *testing.T) {
 		})
 
 		Convey("portsAfter works", func() {
-			after := checker.portsAfter(10)
-			So(len(after), ShouldEqual, 0)
-
-			checker.ports[9] = true
-			checker.ports[12] = true
-			checker.ports[13] = true
-			checker.ports[15] = true
-
-			after = checker.portsAfter(10)
-			So(len(after), ShouldEqual, 0)
-
-			checker.ports[11] = true
-			after = checker.portsAfter(10)
-			So(len(after), ShouldEqual, 3)
-			So(after, ShouldResemble, []int{11, 12, 13})
+			portsBeforeAfterTest(checker,
+				func() []int { return checker.portsAfter(10) },
+				[]int{9, 12, 13, 15}, 11, []int{11, 12, 13})
 		})
 
 		Convey("portsBefore works", func() {
-			after := checker.portsBefore(10)
-			So(len(after), ShouldEqual, 0)
-
-			checker.ports[11] = true
-			checker.ports[8] = true
-			checker.ports[7] = true
-			checker.ports[5] = true
-
-			after = checker.portsBefore(10)
-			So(len(after), ShouldEqual, 0)
-
-			checker.ports[9] = true
-			after = checker.portsBefore(10)
-			So(len(after), ShouldEqual, 3)
-			So(after, ShouldResemble, []int{7, 8, 9})
+			portsBeforeAfterTest(checker,
+				func() []int { return checker.portsBefore(10) },
+				[]int{11, 8, 7, 5}, 9, []int{7, 8, 9})
 		})
 
 		Convey("checkRange returns nothing with no available ports", func() {
@@ -65,48 +41,19 @@ func TestPort(t *testing.T) {
 			So(len(set), ShouldEqual, 0)
 
 			Convey("but returns ports above starting point", func() {
-				checker.ports[9] = true
-				checker.ports[11] = true
-				checker.ports[12] = true
-				checker.ports[13] = true
-				checker.ports[14] = true
-
-				set, has := checker.checkRange(10, 4)
-				So(has, ShouldBeTrue)
-				So(len(set), ShouldEqual, 4)
-				So(set, ShouldResemble, []int{10, 11, 12, 13})
+				rangeTest(checker, []int{9, 11, 12, 13, 14}, []int{10, 11, 12, 13})
 			})
 
 			Convey("but returns ports below starting point", func() {
-				checker.ports[11] = true
-				checker.ports[9] = true
-				checker.ports[8] = true
-				checker.ports[7] = true
-				checker.ports[6] = true
-
-				set, has := checker.checkRange(10, 4)
-				So(has, ShouldBeTrue)
-				So(len(set), ShouldEqual, 4)
-				So(set, ShouldResemble, []int{7, 8, 9, 10})
+				rangeTest(checker, []int{11, 9, 8, 7, 6}, []int{7, 8, 9, 10})
 			})
 
 			Convey("but returns ports below and above starting point", func() {
-				checker.ports[8] = true
-				checker.ports[9] = true
-				checker.ports[11] = true
-				checker.ports[12] = true
-
-				set, has := checker.checkRange(10, 4)
-				So(has, ShouldBeTrue)
-				So(len(set), ShouldEqual, 4)
-				So(set, ShouldResemble, []int{8, 9, 10, 11})
+				rangeTest(checker, []int{8, 9, 11, 12}, []int{8, 9, 10, 11})
 			})
 
 			Convey("and returns nothing with non-contiguous available ports", func() {
-				checker.ports[7] = true
-				checker.ports[8] = true
-				checker.ports[12] = true
-				checker.ports[13] = true
+				setPortsTrue(checker, 7, 8, 12, 13)
 
 				set, has := checker.checkRange(10, 4)
 				So(has, ShouldBeFalse)
@@ -131,4 +78,34 @@ func TestPort(t *testing.T) {
 			So(max, ShouldEqual, min+66)
 		})
 	})
+}
+
+func setPortsTrue(checker *Checker, ports ...int) {
+	for _, port := range ports {
+		checker.ports[port] = true
+	}
+}
+
+func portsBeforeAfterTest(checker *Checker, cb func() []int, truePorts []int, changePort int, expected []int) {
+	result := cb()
+	So(len(result), ShouldEqual, 0)
+
+	setPortsTrue(checker, truePorts...)
+
+	result = cb()
+	So(len(result), ShouldEqual, 0)
+
+	setPortsTrue(checker, changePort)
+
+	result = cb()
+	So(len(result), ShouldEqual, 3)
+	So(result, ShouldResemble, expected)
+}
+
+func rangeTest(checker *Checker, truePorts []int, expected []int) {
+	setPortsTrue(checker, truePorts...)
+	set, has := checker.checkRange(10, 4)
+	So(has, ShouldBeTrue)
+	So(len(set), ShouldEqual, 4)
+	So(set, ShouldResemble, expected)
 }
