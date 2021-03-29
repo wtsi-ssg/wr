@@ -1,10 +1,20 @@
 package port
 
 import (
+	"net"
+	"syscall"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
+
+type mockListener struct {
+	*net.TCPListener
+}
+
+func (m *mockListener) Close() error {
+	return syscall.EINVAL
+}
 
 func TestPort(t *testing.T) {
 	Convey("Given a Checker", t, func() {
@@ -19,8 +29,16 @@ func TestPort(t *testing.T) {
 			So(len(checker.ports), ShouldEqual, 1)
 			So(checker.ports[port], ShouldBeTrue)
 
-			err = checker.release(err)
-			So(err, ShouldBeNil)
+			Convey("afterwards, release works, and failures are handled", func() {
+				err = checker.release(err)
+				So(err, ShouldBeNil)
+
+				_, err = checker.availablePort()
+				So(err, ShouldBeNil)
+				checker.listeners[0] = &mockListener{checker.listeners[0].(*net.TCPListener)}
+				err = checker.release(err)
+				So(err, ShouldNotBeNil)
+			})
 		})
 
 		Convey("portsAfter works", func() {
@@ -77,6 +95,20 @@ func TestPort(t *testing.T) {
 			So(min, ShouldBeBetweenOrEqual, 1, maxPort)
 			So(max, ShouldEqual, min+66)
 		})
+
+		Convey("AvailableRange fails when tcp listening fails", func() {
+			addr, err := net.ResolveTCPAddr("tcp", "localhost:1")
+			So(err, ShouldBeNil)
+			checker.addr = addr
+			_, _, err = checker.AvailableRange(2)
+			So(err, ShouldNotBeNil)
+		})
+	})
+
+	Convey("You can't make a Checker with a bad host name", t, func() {
+		checker, err := NewChecker("wr_port_test_foo")
+		So(err, ShouldNotBeNil)
+		So(checker, ShouldBeNil)
 	})
 }
 

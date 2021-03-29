@@ -8,10 +8,17 @@ import (
 const maxPort = 65535
 const maxTries = maxPort - 10000
 
+// listener interface is used instead of *net.TCPListener directly, so that we
+// can test with a mock version.
+type listener interface {
+	Addr() net.Addr
+	Close() error
+}
+
 // Checker is used to check for available ports on a host.
 type Checker struct {
 	addr      *net.TCPAddr
-	listeners []*net.TCPListener
+	listeners []listener
 	ports     map[int]bool
 }
 
@@ -43,22 +50,24 @@ func (c *Checker) AvailableRange(size int) (int, int, error) {
 		err = c.release(err)
 	}()
 
-	for i := 0; i < maxTries; i++ {
-		port, erra := c.availablePort()
-		if erra != nil {
-			err = fmt.Errorf("%w; %s", err, erra.Error())
+	var min, max int
 
-			continue
+	for i := 0; i < maxTries; i++ {
+		var port int
+
+		port, err = c.availablePort()
+		if err != nil {
+			break
 		}
 
 		if set, has := c.checkRange(port, size); has {
-			min, max := firstAndLast(set)
+			min, max = firstAndLast(set)
 
-			return min, max, err
+			break
 		}
 	}
 
-	return 0, 0, err
+	return min, max, err
 }
 
 func (c *Checker) availablePort() (int, error) {
@@ -105,7 +114,7 @@ func (c *Checker) portsAfter(start int) []int {
 		if c.ports[i] {
 			ports = append(ports, i)
 		} else {
-			return ports
+			break
 		}
 	}
 
@@ -119,7 +128,7 @@ func (c *Checker) portsBefore(start int) []int {
 		if c.ports[i] {
 			ports = append([]int{i}, ports...)
 		} else {
-			return ports
+			break
 		}
 	}
 
