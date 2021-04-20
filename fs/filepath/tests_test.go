@@ -23,7 +23,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-package internal
+package filepath
 
 import (
 	"fmt"
@@ -40,7 +40,7 @@ func TestTestFuncs(t *testing.T) {
 		basename := "foo"
 		path := FilePathInTempDir(t, basename)
 		fmt.Printf("got path %s\n", path)
-		So(path, ShouldStartWith, "/tmp")
+		So(path, ShouldStartWith, os.TempDir())
 		So(path, ShouldEndWith, basename)
 		_, err := os.Open(filepath.Dir(path))
 		So(err, ShouldBeNil)

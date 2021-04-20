@@ -26,7 +26,9 @@ package filepath
 
 // this file implements utility routines for manipulating filename paths.
 
-import "path/filepath"
+import (
+	"path/filepath"
+)
 
 // RelToAbsPath returns the absolute path of a file given its relative path and
 // the directory name.
