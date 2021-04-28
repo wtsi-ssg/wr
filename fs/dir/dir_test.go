@@ -22,56 +22,56 @@
  * IN THE SOFTWARE.
  ******************************************************************************/
 
-package file
-
-// this file implements utility routines related to files.
+package dir
 
 import (
-	"fmt"
-	"io/ioutil"
+	"context"
+	"os"
 	"strings"
+	"testing"
 
-	fp "github.com/wtsi-ssg/wr/fs/filepath"
+	. "github.com/smartystreets/goconvey/convey"
+	"github.com/wtsi-ssg/wr/clog"
 )
 
-// PathReadError records an path read error.
-type PathReadError struct {
-	path string
-	Err  error
-}
+func TestDir(t *testing.T) {
+	Convey("We can get the present working directory", t, func() {
+		ctx := context.Background()
+		pWD := GetPWD(ctx)
+		So(pWD, ShouldNotBeEmpty)
 
-// Error returns an error related to path could not be read.
-func (p *PathReadError) Error() string {
-	return fmt.Sprintf("path [%s] could not be read: %s", p.path, p.Err)
-}
+		tempDir := os.TempDir()
+		err := os.Chdir(tempDir)
+		So(err, ShouldBeNil)
 
-// GetFirstLine reads the content of a file given its absolute or tilda path and
-// returns the first line excluding trailing newline.
-func GetFirstLine(filename string) (string, error) {
-	content, err := ToString(filename)
-	if err != nil {
-		return "", err
-	}
+		pWD = GetPWD(ctx)
+		So(strings.TrimSuffix(pWD, "/"), ShouldEndWith, strings.TrimSuffix(tempDir, "/"))
+	})
 
-	firstLine := strings.TrimSuffix(content, "\n")
+	Convey("We can get the home directory", t, func() {
+		ctx := context.Background()
 
-	return firstLine, nil
-}
+		origHome := os.Getenv("HOME")
+		home := GetHome(ctx)
+		So(home, ShouldEqual, origHome)
 
-// ToString takes the path to a file and returns its contents as a string. If
-// path begins with a tilda, TildaToHome() is used to first convert the path to
-// an absolute path, in order to find the file.
-func ToString(path string) (string, error) {
-	if path == "" {
-		return "", &PathReadError{"", nil}
-	}
+		Convey("but not when HOME env is set to empty", func() {
+			os.Setenv("HOME", "")
+			defer os.Setenv("HOME", origHome)
 
-	absPath := fp.TildaToHome(path)
+			buff := clog.ToBufferAtLevel("fatal")
+			defer clog.ToDefault()
 
-	contents, err := ioutil.ReadFile(absPath)
-	if err != nil {
-		return "", &PathReadError{absPath, err}
-	}
+			os.Setenv("WR_FATAL_EXIT_TEST", "1")
+			defer os.Unsetenv("WR_FATAL_EXIT_TEST")
 
-	return string(contents), nil
+			_ = GetHome(ctx)
+
+			bufferStr := buff.String()
+			So(bufferStr, ShouldContainSubstring, "fatal=true")
+			So(bufferStr, ShouldNotContainSubstring, "caller=clog")
+			So(bufferStr, ShouldContainSubstring, "stack=")
+			So(bufferStr, ShouldContainSubstring, "could not find home dir")
+		})
+	})
 }

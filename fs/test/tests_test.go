@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2020 Genome Research Ltd.
+ * Copyright (c) 2021 Genome Research Ltd.
  *
  * Author: Sendu Bala <sb10@sanger.ac.uk>
  *
@@ -23,11 +23,10 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-package internal
+package test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -46,13 +45,5 @@ func TestTestFuncs(t *testing.T) {
 		So(err, ShouldBeNil)
 		_, err = os.Open(path)
 		So(err, ShouldNotBeNil)
-
-		Convey("FileAsString returns file content", func() {
-			content := "foo\nbar\n"
-			err = ioutil.WriteFile(path, []byte(content), 0600)
-			So(err, ShouldBeNil)
-			read := FileAsString(path)
-			So(read, ShouldEqual, content)
-		})
 	})
 }

@@ -42,7 +42,7 @@ type listener interface {
 
 // Checker is used to check for available ports on a host.
 type Checker struct {
-	addr      *net.TCPAddr
+	Addr      *net.TCPAddr
 	listeners []listener
 	ports     map[int]bool
 }
@@ -55,7 +55,7 @@ func NewChecker(host string) (*Checker, error) {
 	}
 
 	return &Checker{
-		addr:  addr,
+		Addr:  addr,
 		ports: make(map[int]bool),
 	}, nil
 }
@@ -96,7 +96,7 @@ func (c *Checker) AvailableRange(size int) (int, int, error) {
 }
 
 func (c *Checker) availablePort() (int, error) {
-	l, err := net.ListenTCP("tcp", c.addr)
+	l, err := net.ListenTCP("tcp", c.Addr)
 	if err != nil {
 		return 0, err
 	}

@@ -22,56 +22,34 @@
  * IN THE SOFTWARE.
  ******************************************************************************/
 
-package file
+package dir
 
-// this file implements utility routines related to files.
+// this file implements utility routines related to directories.
 
 import (
-	"fmt"
-	"io/ioutil"
-	"strings"
+	"context"
+	"os"
 
-	fp "github.com/wtsi-ssg/wr/fs/filepath"
+	"github.com/wtsi-ssg/wr/clog"
 )
 
-// PathReadError records an path read error.
-type PathReadError struct {
-	path string
-	Err  error
-}
-
-// Error returns an error related to path could not be read.
-func (p *PathReadError) Error() string {
-	return fmt.Sprintf("path [%s] could not be read: %s", p.path, p.Err)
-}
-
-// GetFirstLine reads the content of a file given its absolute or tilda path and
-// returns the first line excluding trailing newline.
-func GetFirstLine(filename string) (string, error) {
-	content, err := ToString(filename)
+// GetPWD returns the present working directory and exits on error.
+func GetPWD(ctx context.Context) string {
+	pwd, err := os.Getwd()
 	if err != nil {
-		return "", err
+		clog.Fatal(ctx, err.Error())
 	}
 
-	firstLine := strings.TrimSuffix(content, "\n")
-
-	return firstLine, nil
+	return pwd
 }
 
-// ToString takes the path to a file and returns its contents as a string. If
-// path begins with a tilda, TildaToHome() is used to first convert the path to
-// an absolute path, in order to find the file.
-func ToString(path string) (string, error) {
-	if path == "" {
-		return "", &PathReadError{"", nil}
+// GetHome returns the home directory of current user and exits on error.
+func GetHome(ctx context.Context) string {
+	home, herr := os.UserHomeDir()
+
+	if herr != nil || home == "" {
+		clog.Fatal(ctx, "could not find home dir", "err", herr)
 	}
 
-	absPath := fp.TildaToHome(path)
-
-	contents, err := ioutil.ReadFile(absPath)
-	if err != nil {
-		return "", &PathReadError{absPath, err}
-	}
-
-	return string(contents), nil
+	return home
 }

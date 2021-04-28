@@ -1,7 +1,7 @@
 /*******************************************************************************
- * Copyright (c) 2020 Genome Research Ltd.
+ * Copyright (c) 2020, 2021 Genome Research Ltd.
  *
- * Author: Sendu Bala <sb10@sanger.ac.uk>
+ * Author: Sendu Bala <sb10@sanger.ac.uk>, <ac55@sanger.ac.uk>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -27,11 +27,13 @@ package clog
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/inconshreveable/log15"
 	. "github.com/smartystreets/goconvey/convey"
-	"github.com/wtsi-ssg/wr/internal"
+	fl "github.com/wtsi-ssg/wr/fs/file"
+	ft "github.com/wtsi-ssg/wr/fs/test"
 )
 
 func TestLogger(t *testing.T) {
@@ -155,16 +157,30 @@ func TestLogger(t *testing.T) {
 			So(lmsg, ShouldContainSubstring, "stack=")
 			So(lmsg, ShouldContainSubstring, retryLogMsg)
 		})
+
+		Convey("Fatal works and has a stack trace", func() {
+			os.Setenv("WR_FATAL_EXIT_TEST", "1")
+			defer os.Unsetenv("WR_FATAL_EXIT_TEST")
+			Fatal(ctx, "msg", "foo", 1)
+			lmsg := buff.String()
+			hasMsgAndFoo("crit", lmsg)
+			So(lmsg, ShouldContainSubstring, "fatal=true")
+			So(lmsg, ShouldNotContainSubstring, "caller=clog")
+			So(lmsg, ShouldContainSubstring, "stack=")
+			So(lmsg, ShouldContainSubstring, retryLogMsg)
+		})
 	})
 
 	Convey("You can log to a file", t, func() {
-		logPath := internal.FilePathInTempDir(t, "clog.log")
+		logPath := ft.FilePathInTempDir(t, "clog.log")
 
 		err := ToFileAtLevel(logPath, "debug")
 		So(err, ShouldBeNil)
 		Debug(background, "msg")
 
-		So(internal.FileAsString(logPath), ShouldContainSubstring, "msg=msg")
+		strContent, err := fl.ToString(logPath)
+		So(err, ShouldBeNil)
+		So(strContent, ShouldContainSubstring, "msg=msg")
 
 		Convey("And append to a file", func() {
 			err = ToFileAtLevel(logPath, "debug")
@@ -172,7 +188,8 @@ func TestLogger(t *testing.T) {
 
 			Debug(background, "foo")
 
-			logs := internal.FileAsString(logPath)
+			logs, err := fl.ToString(logPath)
+			So(err, ShouldBeNil)
 			So(logs, ShouldContainSubstring, "msg=msg")
 			So(logs, ShouldContainSubstring, "msg=foo")
 		})

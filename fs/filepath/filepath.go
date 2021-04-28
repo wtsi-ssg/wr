@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2020 Genome Research Ltd.
+ * Copyright (c) 2021 Genome Research Ltd.
  *
  * Author: Ashwini Chhipa <ac55@sanger.ac.uk>
  *
@@ -26,7 +26,11 @@ package filepath
 
 // this file implements utility routines for manipulating filename paths.
 
-import "path/filepath"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+)
 
 // RelToAbsPath returns the absolute path of a file given its relative path and
 // the directory name.
@@ -37,4 +41,21 @@ func RelToAbsPath(path string, dir string) string {
 	}
 
 	return absPath
+}
+
+// TildaToHome converts a path beginning with ~/ to the absolute path based in
+// the current home directory. If that cannot be determined, path is returned
+// unaltered.
+func TildaToHome(path string) string {
+	if path == "" {
+		return ""
+	}
+
+	home, herr := os.UserHomeDir()
+	if herr == nil && home != "" && strings.HasPrefix(path, "~/") {
+		path = strings.TrimLeft(path, "~/")
+		path = filepath.Join(home, path)
+	}
+
+	return path
 }
