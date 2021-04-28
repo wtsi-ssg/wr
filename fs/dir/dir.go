@@ -22,40 +22,35 @@
  * IN THE SOFTWARE.
  ******************************************************************************/
 
-package filepath
+package dir
 
-// this file implements utility routines for manipulating filename paths.
+// this file implements utility routines related to directories.
 
 import (
+	"context"
 	"os"
-	"path/filepath"
-	"strings"
+
+	"github.com/wtsi-ssg/wr/clog"
 )
 
-// RelToAbsPath returns the absolute path of a file given its relative path and
-// the directory name.
-func RelToAbsPath(path string, dir string) string {
-	absPath := path
-	if !filepath.IsAbs(absPath) {
-		absPath = filepath.Join(dir, absPath)
+// GetPWD returns the present working directory.
+func GetPWD(ctx context.Context) string {
+	pwd, err := os.Getwd()
+	if err != nil {
+		clog.Fatal(ctx, err.Error())
 	}
 
-	return absPath
+	return pwd
 }
 
-// TildaToHome converts a path beginning with ~/ to the absolute path based in
-// the current home directory. If that cannot be determined, path is returned
-// unaltered.
-func TildaToHome(path string) string {
-	if path == "" {
-		return ""
-	}
-
+// GetHome returns the home directory of current user.
+func GetHome(ctx context.Context) string {
 	home, herr := os.UserHomeDir()
-	if herr == nil && home != "" && strings.HasPrefix(path, "~/") {
-		path = strings.TrimLeft(path, "~/")
-		path = filepath.Join(home, path)
+
+	if herr != nil || home == "" {
+		errStr := "could not find home dir"
+		clog.Fatal(ctx, errStr, "err", herr)
 	}
 
-	return path
+	return home
 }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2020 Genome Research Ltd.
+ * Copyright (c) 2021 Genome Research Ltd.
  *
  * Author: Sendu Bala <sb10@sanger.ac.uk>
  *
@@ -23,14 +23,13 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ******************************************************************************/
 
-package internal
+package test
+
+// this file implements utility routines related to testing.
 
 import (
-	"io/ioutil"
 	"path/filepath"
 	"testing"
-
-	"github.com/smartystreets/goconvey/convey"
 )
 
 // FilePathInTempDir creates a new temporary directory and returns the
@@ -40,12 +39,4 @@ func FilePathInTempDir(t *testing.T, basename string) string {
 	tmpdir := t.TempDir()
 
 	return filepath.Join(tmpdir, basename)
-}
-
-// FileAsString returns the contents of a file as a string.
-func FileAsString(filePath string) string {
-	content, err := ioutil.ReadFile(filePath)
-	convey.So(err, convey.ShouldBeNil)
-
-	return string(content)
 }

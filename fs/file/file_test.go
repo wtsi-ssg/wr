@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2020 Genome Research Ltd.
+ * Copyright (c) 2021 Genome Research Ltd.
  *
  * Author: Ashwini Chhipa <ac55@sanger.ac.uk>
  *
@@ -25,6 +25,7 @@
 package file
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -38,7 +39,7 @@ import (
 const fileMode os.FileMode = 0600
 
 func TestFile(t *testing.T) {
-	Convey("Get the first line of a file", t, func() {
+	Convey("We can the first line of a file", t, func() {
 		tempDir, err := ioutil.TempDir("", "temp_filepath")
 		if err != nil {
 			log.Fatal(err)
@@ -65,11 +66,47 @@ func TestFile(t *testing.T) {
 			So(id, ShouldEqual, "id1")
 		})
 
-		Convey("when the file doesn't exist", func() {
+		Convey("not when the file doesn't exist", func() {
 			tempNonExistingFile := filepath.Join(tempDir, "tempNonExisting.txt")
 			noID, err := GetFirstLine(tempNonExistingFile)
 			So(err, ShouldNotBeNil)
 			So(noID, ShouldBeEmpty)
+		})
+	})
+
+	Convey("Given a path to a file check it's content", t, func() {
+		empContent, err := PathToContent("")
+		So(err, ShouldNotBeNil)
+		So(empContent, ShouldBeEmpty)
+
+		home, herr := os.UserHomeDir()
+		So(herr, ShouldEqual, nil)
+		filepth := filepath.Join(home, "testing_pathtocontent.text")
+
+		file, err := os.Create(filepth)
+		So(err, ShouldEqual, nil)
+
+		wrtn, err := file.WriteString("hello")
+		So(err, ShouldEqual, nil)
+		fmt.Printf("wrote %d bytes\n", wrtn)
+
+		content, err := PathToContent(filepth)
+		So(content, ShouldEqual, "hello")
+		So(err, ShouldEqual, nil)
+
+		content, err = PathToContent("random.txt")
+		So(content, ShouldEqual, "")
+		So(err, ShouldNotBeNil)
+
+		defer os.Remove(filepth)
+
+		Convey("ToString returns file content as a string", func() {
+			content := "foo\nbar\n"
+			path := filepath.Join(home, "testing_tostring.text")
+			err = ioutil.WriteFile(path, []byte(content), 0600)
+			So(err, ShouldBeNil)
+			read := ToString(path)
+			So(read, ShouldEqual, content)
 		})
 	})
 }

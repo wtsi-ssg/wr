@@ -1,7 +1,7 @@
 /*******************************************************************************
- * Copyright (c) 2020 Genome Research Ltd.
+ * Copyright (c) 2021 Genome Research Ltd.
  *
- * Author: Sendu Bala <sb10@sanger.ac.uk>
+ * Author: Sendu Bala <sb10@sanger.ac.uk>, <ac55@sanger.ac.uk>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -27,6 +27,7 @@ package clog
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/inconshreveable/log15"
@@ -151,6 +152,18 @@ func TestLogger(t *testing.T) {
 			Crit(ctx, "msg", "foo", 1)
 			lmsg := buff.String()
 			hasMsgAndFoo("crit", lmsg)
+			So(lmsg, ShouldNotContainSubstring, "caller=clog")
+			So(lmsg, ShouldContainSubstring, "stack=")
+			So(lmsg, ShouldContainSubstring, retryLogMsg)
+		})
+
+		Convey("Fatal works and has a stack trace", func() {
+			os.Setenv("WR_FATAL_EXIT_TEST", "1")
+			defer os.Unsetenv("WR_FATAL_EXIT_TEST")
+			Fatal(ctx, "msg", "foo", 1)
+			lmsg := buff.String()
+			hasMsgAndFoo("crit", lmsg)
+			So(lmsg, ShouldContainSubstring, "fatal=true")
 			So(lmsg, ShouldNotContainSubstring, "caller=clog")
 			So(lmsg, ShouldContainSubstring, "stack=")
 			So(lmsg, ShouldContainSubstring, retryLogMsg)
