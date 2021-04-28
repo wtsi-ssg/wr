@@ -1,7 +1,7 @@
 /*******************************************************************************
- * Copyright (c) 2020 Genome Research Ltd.
+ * Copyright (c) 2020, 2021 Genome Research Ltd.
  *
- * Author: Sendu Bala <sb10@sanger.ac.uk>
+ * Author: Sendu Bala <sb10@sanger.ac.uk>, <ac55@sanger.ac.uk>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -178,7 +178,9 @@ func TestLogger(t *testing.T) {
 		So(err, ShouldBeNil)
 		Debug(background, "msg")
 
-		So(fl.ToString(logPath), ShouldContainSubstring, "msg=msg")
+		strContent, err := fl.ToString(logPath)
+		So(err, ShouldBeNil)
+		So(strContent, ShouldContainSubstring, "msg=msg")
 
 		Convey("And append to a file", func() {
 			err = ToFileAtLevel(logPath, "debug")
@@ -186,7 +188,8 @@ func TestLogger(t *testing.T) {
 
 			Debug(background, "foo")
 
-			logs := fl.ToString(logPath)
+			logs, err := fl.ToString(logPath)
+			So(err, ShouldBeNil)
 			So(logs, ShouldContainSubstring, "msg=msg")
 			So(logs, ShouldContainSubstring, "msg=foo")
 		})

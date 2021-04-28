@@ -47,10 +47,7 @@ func TestPath(t *testing.T) {
 		home, herr := os.UserHomeDir()
 		So(herr, ShouldEqual, nil)
 		filepth := filepath.Join(home, "testing_absolute_path.text")
-		_, err := os.Create(filepth)
-		So(err, ShouldEqual, nil)
 
 		So(TildaToHome("~/testing_absolute_path.text"), ShouldEqual, filepth)
-		defer os.Remove(filepth)
 	})
 }

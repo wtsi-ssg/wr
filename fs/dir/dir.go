@@ -33,7 +33,7 @@ import (
 	"github.com/wtsi-ssg/wr/clog"
 )
 
-// GetPWD returns the present working directory.
+// GetPWD returns the present working directory and exits on error.
 func GetPWD(ctx context.Context) string {
 	pwd, err := os.Getwd()
 	if err != nil {
@@ -43,13 +43,12 @@ func GetPWD(ctx context.Context) string {
 	return pwd
 }
 
-// GetHome returns the home directory of current user.
+// GetHome returns the home directory of current user and exits on error.
 func GetHome(ctx context.Context) string {
 	home, herr := os.UserHomeDir()
 
 	if herr != nil || home == "" {
-		errStr := "could not find home dir"
-		clog.Fatal(ctx, errStr, "err", herr)
+		clog.Fatal(ctx, "could not find home dir", "err", herr)
 	}
 
 	return home

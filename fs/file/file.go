@@ -31,7 +31,6 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/smartystreets/goconvey/convey"
 	fp "github.com/wtsi-ssg/wr/fs/filepath"
 )
 
@@ -46,31 +45,23 @@ func (p *PathReadError) Error() string {
 	return fmt.Sprintf("path [%s] could not be read: %s", p.path, p.Err)
 }
 
-// GetFirstLine reads the content of a file given its absolute path and returns
-// the first line excluding trailing newline.
+// GetFirstLine reads the content of a file given its absolute or tilda path and
+// returns the first line excluding trailing newline.
 func GetFirstLine(filename string) (string, error) {
-	content, err := ioutil.ReadFile(filename)
+	content, err := ToString(filename)
 	if err != nil {
 		return "", err
 	}
 
-	firstLine := strings.TrimSuffix(string(content), "\n")
+	firstLine := strings.TrimSuffix(content, "\n")
 
 	return firstLine, nil
 }
 
-// ToString returns the contents of a file as a string.
-func ToString(filePath string) string {
-	content, err := ioutil.ReadFile(filePath)
-	convey.So(err, convey.ShouldBeNil)
-
-	return string(content)
-}
-
-// PathToContent takes the path to a file and returns its contents as a string.
-// If path begins with a tilda, TildaToHome() is used to first convert the path
-// to an absolute path, in order to find the file.
-func PathToContent(path string) (string, error) {
+// ToString takes the path to a file and returns its contents as a string. If
+// path begins with a tilda, TildaToHome() is used to first convert the path to
+// an absolute path, in order to find the file.
+func ToString(path string) (string, error) {
 	if path == "" {
 		return "", &PathReadError{"", nil}
 	}

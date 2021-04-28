@@ -25,7 +25,6 @@
 package file
 
 import (
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -75,38 +74,27 @@ func TestFile(t *testing.T) {
 	})
 
 	Convey("Given a path to a file check it's content", t, func() {
-		empContent, err := PathToContent("")
+		empContent, err := ToString("")
 		So(err, ShouldNotBeNil)
 		So(empContent, ShouldBeEmpty)
 
 		home, herr := os.UserHomeDir()
 		So(herr, ShouldEqual, nil)
 		filepth := filepath.Join(home, "testing_pathtocontent.text")
+		defer os.Remove(filepth)
 
 		file, err := os.Create(filepth)
 		So(err, ShouldEqual, nil)
 
-		wrtn, err := file.WriteString("hello")
+		_, err = file.WriteString("hello")
 		So(err, ShouldEqual, nil)
-		fmt.Printf("wrote %d bytes\n", wrtn)
 
-		content, err := PathToContent(filepth)
+		content, err := ToString(filepth)
 		So(content, ShouldEqual, "hello")
 		So(err, ShouldEqual, nil)
 
-		content, err = PathToContent("random.txt")
+		content, err = ToString("random.txt")
 		So(content, ShouldEqual, "")
 		So(err, ShouldNotBeNil)
-
-		defer os.Remove(filepth)
-
-		Convey("ToString returns file content as a string", func() {
-			content := "foo\nbar\n"
-			path := filepath.Join(home, "testing_tostring.text")
-			err = ioutil.WriteFile(path, []byte(content), 0600)
-			So(err, ShouldBeNil)
-			read := ToString(path)
-			So(read, ShouldEqual, content)
-		})
 	})
 }

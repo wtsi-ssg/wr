@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2021 Genome Research Ltd.
+ * Copyright (c) 2020, 2021 Genome Research Ltd.
  *
  * Author: Sendu Bala <sb10@sanger.ac.uk>, <ac55@sanger.ac.uk>
  * Based on: https://blog.gopheracademy.com/advent-2016/context-logging/
