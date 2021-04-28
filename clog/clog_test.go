@@ -1,7 +1,7 @@
 /*******************************************************************************
- * Copyright (c) 2021 Genome Research Ltd.
+ * Copyright (c) 2020 Genome Research Ltd.
  *
- * Author: Sendu Bala <sb10@sanger.ac.uk>, <ac55@sanger.ac.uk>
+ * Author: Sendu Bala <sb10@sanger.ac.uk>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -32,7 +32,8 @@ import (
 
 	"github.com/inconshreveable/log15"
 	. "github.com/smartystreets/goconvey/convey"
-	"github.com/wtsi-ssg/wr/internal"
+	fl "github.com/wtsi-ssg/wr/fs/file"
+	ft "github.com/wtsi-ssg/wr/fs/test"
 )
 
 func TestLogger(t *testing.T) {
@@ -171,13 +172,13 @@ func TestLogger(t *testing.T) {
 	})
 
 	Convey("You can log to a file", t, func() {
-		logPath := internal.FilePathInTempDir(t, "clog.log")
+		logPath := ft.FilePathInTempDir(t, "clog.log")
 
 		err := ToFileAtLevel(logPath, "debug")
 		So(err, ShouldBeNil)
 		Debug(background, "msg")
 
-		So(internal.FileAsString(logPath), ShouldContainSubstring, "msg=msg")
+		So(fl.ToString(logPath), ShouldContainSubstring, "msg=msg")
 
 		Convey("And append to a file", func() {
 			err = ToFileAtLevel(logPath, "debug")
@@ -185,7 +186,7 @@ func TestLogger(t *testing.T) {
 
 			Debug(background, "foo")
 
-			logs := internal.FileAsString(logPath)
+			logs := fl.ToString(logPath)
 			So(logs, ShouldContainSubstring, "msg=msg")
 			So(logs, ShouldContainSubstring, "msg=foo")
 		})
