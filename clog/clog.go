@@ -46,6 +46,11 @@ func ToDefault() {
 	toOutputAtLevel(log.StderrHandler, log.LvlWarn)
 }
 
+// ToDefaultAtLevel sets the global logger to log to STDERR at the given level.
+func ToDefaultAtLevel(lvl string) {
+	toOutputAtLevel(log.StreamHandler(os.Stderr, log.LogfmtFormat()), lvlFromString(lvl))
+}
+
 // toOutputAtLevel sets the handler of the global logger to filter on the given
 // level, add caller info, and output to the given handler.
 func toOutputAtLevel(outputHandler log.Handler, lvl log.Lvl) {
