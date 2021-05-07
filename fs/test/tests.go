@@ -44,41 +44,36 @@ func (r *readAndRestoreError) Error() string {
 	return "ReadAndRestore from closed MockStdInErr"
 }
 
-// MockStdInErr represents a mock implementation of STDIN and STDERR.
-type MockStdInErr struct {
-	origStdin    *os.File
-	stdinWriter  *os.File
+// MockStdErr represents a mock implementation of STDERR.
+type MockStdErr struct {
 	origStderr   *os.File
 	stderrReader *os.File
 	outCh        chan []byte
 }
 
-// On creation of a new MockStdInErr, it writes the given text to STDIN, and
-// starts capturing STDERR. Be sure to call RestoreStdIn() after you've done
-// reading from STDIN.
-func NewMockStdInErr(stdinText string) (*MockStdInErr, error) {
-	origStdin, stdinWriter, err := mockStdInRW(stdinText)
-	if err != nil {
-		return nil, err
-	}
+// MockStdIn represents a mock implementation of STDIN.
+type MockStdIn struct {
+	origStdin   *os.File
+	stdinWriter *os.File
+}
 
+// On creation of a new MockStdErr, it starts capturing the STDERR.
+func NewMockStdErr() (*MockStdErr, error) {
 	origStderr, stderrReader, outCh, err := mockStdErrRW()
 	if err != nil {
 		return nil, err
 	}
 
-	return &MockStdInErr{
-		origStdin:    origStdin,
-		stdinWriter:  stdinWriter,
+	return &MockStdErr{
 		origStderr:   origStderr,
 		stderrReader: stderrReader,
 		outCh:        outCh,
 	}, nil
 }
 
-// GetAndRestoreStdErr stops capturing STDERR and returns already captured
+// GetAndRestoreStdErr stops capturing the STDERR and returns already captured
 // STDERR.
-func (se *MockStdInErr) GetAndRestoreStdErr() (string, error) {
+func (se *MockStdErr) GetAndRestoreStdErr() (string, error) {
 	if se.stderrReader == nil {
 		return "", &readAndRestoreError{}
 	}
@@ -93,45 +88,13 @@ func (se *MockStdInErr) GetAndRestoreStdErr() (string, error) {
 }
 
 // RestoreStdErr restores the STDERR to its original value.
-func (se *MockStdInErr) RestoreStdErr() {
+func (se *MockStdErr) RestoreStdErr() {
 	os.Stderr = se.origStderr
 
 	if se.stderrReader != nil {
 		se.stderrReader.Close()
 		se.stderrReader = nil
 	}
-}
-
-// RestoreStdIn restores the STDIN to its original value.
-func (se *MockStdInErr) RestoreStdIn() {
-	os.Stdin = se.origStdin
-
-	if se.stdinWriter != nil {
-		se.stdinWriter.Close()
-		se.stdinWriter = nil
-	}
-}
-
-// mockStdInRW writes the given value to a replaced STDIN.
-func mockStdInRW(stdinText string) (*os.File, *os.File, error) {
-	stdinReader, stdinWriter, err := os.Pipe()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	origStdin := os.Stdin
-	os.Stdin = stdinReader
-
-	_, err = stdinWriter.WriteString(stdinText + "\n")
-	if err != nil {
-		stdinWriter.Close()
-
-		os.Stdin = origStdin
-
-		return nil, nil, err
-	}
-
-	return origStdin, stdinWriter, nil
 }
 
 // mockStdErrRW mocks STDERR and starts capturing it.
@@ -159,9 +122,55 @@ func mockStdErrRW() (*os.File, *os.File, chan []byte, error) {
 	return origStderr, stderrReader, outCh, nil
 }
 
-// FilePathInTempDir creates a new temporary directory and returns the
-// absolute path to a file called basename in that directory (without
-// actually creating the file).
+// On creation of a new NewMockStdIn, it writes the given text to STDIN. Be sure
+// to call RestoreStdIn() after you've done reading from STDIN.
+func NewMockStdIn(stdinText string) (*MockStdIn, error) {
+	origStdin, stdinWriter, err := mockStdInRW(stdinText)
+	if err != nil {
+		return nil, err
+	}
+
+	return &MockStdIn{
+		origStdin:   origStdin,
+		stdinWriter: stdinWriter,
+	}, nil
+}
+
+// RestoreStdIn restores the STDIN to its original value.
+func (si *MockStdIn) RestoreStdIn() {
+	os.Stdin = si.origStdin
+
+	if si.stdinWriter != nil {
+		si.stdinWriter.Close()
+		si.stdinWriter = nil
+	}
+}
+
+// mockStdInRW writes the given value to a replaced STDIN.
+func mockStdInRW(stdinText string) (*os.File, *os.File, error) {
+	stdinReader, stdinWriter, err := os.Pipe()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	origStdin := os.Stdin
+	os.Stdin = stdinReader
+
+	_, err = stdinWriter.WriteString(stdinText + "\n")
+	if err != nil {
+		stdinWriter.Close()
+
+		os.Stdin = origStdin
+
+		return nil, nil, err
+	}
+
+	return origStdin, stdinWriter, nil
+}
+
+// FilePathInTempDir creates a new temporary directory and returns the absolute
+// path to a file called basename in that directory (without actually creating
+// the file).
 func FilePathInTempDir(t *testing.T, basename string) string {
 	tmpdir := t.TempDir()
 

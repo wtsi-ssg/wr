@@ -105,7 +105,7 @@ func TestLogger(t *testing.T) {
 			})
 
 			Convey("But works using ToDefaultAtLevel() set to debug", func() {
-				fse, err := ft.NewMockStdInErr("")
+				fse, err := ft.NewMockStdErr()
 				So(err, ShouldBeNil)
 				ToDefaultAtLevel("debug")
 				Debug(ctx, "msg", "foo", 1)
