@@ -109,7 +109,7 @@ func TestLogger(t *testing.T) {
 				So(err, ShouldBeNil)
 				ToDefaultAtLevel("debug")
 				Debug(ctx, "msg", "foo", 1)
-				stderr, err := fse.ReadAndRestoreStderr()
+				stderr, err := fse.GetAndRestoreStdErr()
 				So(err, ShouldBeNil)
 				So(stderr, ShouldContainSubstring, "foo=1")
 			})

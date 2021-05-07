@@ -26,21 +26,18 @@
 package test
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
-	"github.com/wtsi-ssg/wr/clog"
 )
 
 func TestTestFuncs(t *testing.T) {
 	Convey("FilePathInTempDir returns a non-existent path in an existing tmp dir", t, func() {
 		basename := "foo"
 		path := FilePathInTempDir(t, basename)
-		fmt.Printf("got path %s\n", path)
 		So(path, ShouldStartWith, os.TempDir())
 		So(path, ShouldEndWith, basename)
 		_, err := os.Open(filepath.Dir(path))
@@ -50,17 +47,21 @@ func TestTestFuncs(t *testing.T) {
 	})
 
 	Convey("We can mock stdin", t, func() {
-		origStdin, stdinWriter, err := mockStdinRW("test")
+		origStdin, stdinWriter, err := mockStdInRW("test")
 		So(origStdin, ShouldNotBeNil)
 		So(stdinWriter, ShouldNotBeNil)
 		So(err, ShouldBeNil)
+
+		var response string
+		fmt.Scanf("%s\n", &response)
+		So(response, ShouldEqual, "test")
 
 		os.Stdin = origStdin
 		stdinWriter.Close()
 	})
 
 	Convey("We can mock stderr", t, func() {
-		origStderr, stderrReader, outCh, err := mockStderrRW()
+		origStderr, stderrReader, outCh, err := mockStdErrRW()
 		So(origStderr, ShouldNotBeNil)
 		So(stderrReader, ShouldNotBeNil)
 		So(outCh, ShouldNotBeNil)
@@ -71,31 +72,28 @@ func TestTestFuncs(t *testing.T) {
 	})
 
 	Convey("We can mock stdin and stderr", t, func() {
-		ctx := context.Background()
-
-		mockedStdinerr, err := NewMockStdInErr("test")
-		So(mockedStdinerr, ShouldNotBeNil)
+		mockedStdInErr, err := NewMockStdInErr("test")
+		So(mockedStdInErr, ShouldNotBeNil)
 		So(err, ShouldBeNil)
 
-		Convey("and read the data written to stderr", func() {
-			clog.ToDefaultAtLevel("debug")
-			clog.Debug(ctx, "msg", "foo", 1)
-			stderr, err := mockedStdinerr.ReadAndRestoreStderr()
+		Convey("and read from stderr", func() {
+			fmt.Fprintf(os.Stderr, "test stderr")
+			stdErr, err := mockedStdInErr.GetAndRestoreStdErr()
 			So(err, ShouldBeNil)
-			So(stderr, ShouldContainSubstring, "foo=1")
-			So(mockedStdinerr.stderrReader, ShouldBeNil)
-			So(mockedStdinerr.origStderr, ShouldNotBeNil)
+			So(stdErr, ShouldContainSubstring, "test stderr")
+			So(mockedStdInErr.stderrReader, ShouldBeNil)
+			So(mockedStdInErr.origStderr, ShouldNotBeNil)
 
-			Convey("but not when mock error reader is already closed", func() {
-				_, err = mockedStdinerr.ReadAndRestoreStderr()
+			Convey("but not when mocked reader is already closed", func() {
+				_, err = mockedStdInErr.GetAndRestoreStdErr()
 				So(err, ShouldNotBeNil)
 			})
 		})
 
 		Convey("and restore stdin to default", func() {
-			mockedStdinerr.RestoreStdin()
-			So(mockedStdinerr.stdinWriter, ShouldBeNil)
-			So(mockedStdinerr.origStdin, ShouldNotBeNil)
+			mockedStdInErr.RestoreStdIn()
+			So(mockedStdInErr.stdinWriter, ShouldBeNil)
+			So(mockedStdInErr.origStdin, ShouldNotBeNil)
 		})
 	})
 }

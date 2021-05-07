@@ -44,7 +44,7 @@ func (r *readAndRestoreError) Error() string {
 	return "ReadAndRestore from closed MockStdInErr"
 }
 
-// MockStdInErr represents a mock implementation of stdin and stderr.
+// MockStdInErr represents a mock implementation of STDIN and STDERR.
 type MockStdInErr struct {
 	origStdin    *os.File
 	stdinWriter  *os.File
@@ -53,17 +53,16 @@ type MockStdInErr struct {
 	outCh        chan []byte
 }
 
-// NewMockStdInErr mocks the stdin and captures the stderr. Between creating a
-// new MockStdInErr and calling restore on it, it reads the os.Stdin and gets
-// the contents of stdinText passed to NewMockStdInErr. Output to os.Stderr will
-// be captured and returned from ReadAndRestoreStderr.
+// On creation of a new MockStdInErr, it writes the given text to STDIN, and
+// starts capturing STDERR. Be sure to call RestoreStdIn() after you've done
+// reading from STDIN.
 func NewMockStdInErr(stdinText string) (*MockStdInErr, error) {
-	origStdin, stdinWriter, err := mockStdinRW(stdinText)
+	origStdin, stdinWriter, err := mockStdInRW(stdinText)
 	if err != nil {
 		return nil, err
 	}
 
-	origStderr, stderrReader, outCh, err := mockStderrRW()
+	origStderr, stderrReader, outCh, err := mockStdErrRW()
 	if err != nil {
 		return nil, err
 	}
@@ -77,9 +76,9 @@ func NewMockStdInErr(stdinText string) (*MockStdInErr, error) {
 	}, nil
 }
 
-// ReadAndRestore collects all captured stderr and returns it; it also restores
-// os.Stderr to its original value.
-func (se *MockStdInErr) ReadAndRestoreStderr() (string, error) {
+// GetAndRestoreStdErr stops capturing STDERR and returns already captured
+// STDERR.
+func (se *MockStdInErr) GetAndRestoreStdErr() (string, error) {
 	if se.stderrReader == nil {
 		return "", &readAndRestoreError{}
 	}
@@ -88,13 +87,13 @@ func (se *MockStdInErr) ReadAndRestoreStderr() (string, error) {
 
 	out := <-se.outCh
 
-	se.RestoreStderr()
+	se.RestoreStdErr()
 
 	return string(out), nil
 }
 
-// RestoreStderr restores the stderr to its original value.
-func (se *MockStdInErr) RestoreStderr() {
+// RestoreStdErr restores the STDERR to its original value.
+func (se *MockStdInErr) RestoreStdErr() {
 	os.Stderr = se.origStderr
 
 	if se.stderrReader != nil {
@@ -103,8 +102,8 @@ func (se *MockStdInErr) RestoreStderr() {
 	}
 }
 
-// RestoreStdin restores the stdin to its original value.
-func (se *MockStdInErr) RestoreStdin() {
+// RestoreStdIn restores the STDIN to its original value.
+func (se *MockStdInErr) RestoreStdIn() {
 	os.Stdin = se.origStdin
 
 	if se.stdinWriter != nil {
@@ -113,8 +112,8 @@ func (se *MockStdInErr) RestoreStdin() {
 	}
 }
 
-// mockStdinRW reads os.Stdin and gets the contents of stdinText passed to it.
-func mockStdinRW(stdinText string) (*os.File, *os.File, error) {
+// mockStdInRW writes the given value to a replaced STDIN.
+func mockStdInRW(stdinText string) (*os.File, *os.File, error) {
 	stdinReader, stdinWriter, err := os.Pipe()
 	if err != nil {
 		return nil, nil, err
@@ -135,8 +134,8 @@ func mockStdinRW(stdinText string) (*os.File, *os.File, error) {
 	return origStdin, stdinWriter, nil
 }
 
-// mockStderrRW mocks the stderr and also returns the content of it.
-func mockStderrRW() (*os.File, *os.File, chan []byte, error) {
+// mockStdErrRW mocks STDERR and starts capturing it.
+func mockStdErrRW() (*os.File, *os.File, chan []byte, error) {
 	stderrReader, stderrWriter, err := os.Pipe()
 	if err != nil {
 		return nil, nil, nil, err
