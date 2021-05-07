@@ -26,10 +26,7 @@
 package clog
 
 import (
-	"bytes"
 	"context"
-	"fmt"
-	"io"
 	"os"
 	"testing"
 
@@ -108,11 +105,11 @@ func TestLogger(t *testing.T) {
 			})
 
 			Convey("But works using ToDefaultAtLevel() set to debug", func() {
-				fse, err := NewFakeStdErr()
+				fse, err := ft.NewMockStdInErr("")
 				So(err, ShouldBeNil)
 				ToDefaultAtLevel("debug")
 				Debug(ctx, "msg", "foo", 1)
-				stderr, err := fse.ReadAndRestore()
+				stderr, err := fse.ReadAndRestoreStderr()
 				So(err, ShouldBeNil)
 				So(stderr, ShouldContainSubstring, "foo=1")
 			})
@@ -212,66 +209,4 @@ func TestLogger(t *testing.T) {
 		err := ToFileAtLevel("!/*&^%$", "debug")
 		So(err, ShouldNotBeNil)
 	})
-}
-
-type readAndRestoreError struct {
-	Err error
-}
-
-func (r *readAndRestoreError) Error() string {
-	return "ReadAndRestore from closed FakeStdErr"
-}
-
-type FakeStdErr struct {
-	origStderr   *os.File
-	stderrReader *os.File
-	outCh        chan []byte
-}
-
-func NewFakeStdErr() (*FakeStdErr, error) {
-	stderrReader, stderrWriter, err := os.Pipe()
-	if err != nil {
-		return nil, err
-	}
-
-	origStderr := os.Stderr
-	os.Stderr = stderrWriter
-	outCh := make(chan []byte)
-
-	go func() {
-		var b bytes.Buffer
-		if _, err := io.Copy(&b, stderrReader); err != nil {
-			fmt.Println(err)
-		}
-
-		bytes := b.Bytes()
-		outCh <- bytes
-	}()
-
-	return &FakeStdErr{
-		origStderr:   origStderr,
-		stderrReader: stderrReader,
-		outCh:        outCh,
-	}, nil
-}
-
-// ReadAndRestore collects all captured stderr and returns it; it also restores
-// os.Stderr to its original value.
-func (se *FakeStdErr) ReadAndRestore() (string, error) {
-	if se.stderrReader == nil {
-		return "", &readAndRestoreError{}
-	}
-
-	os.Stderr.Close()
-
-	out := <-se.outCh
-
-	os.Stderr = se.origStderr
-
-	if se.stderrReader != nil {
-		se.stderrReader.Close()
-		se.stderrReader = nil
-	}
-
-	return string(out), nil
 }

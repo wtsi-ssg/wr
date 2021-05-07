@@ -26,12 +26,14 @@
 package test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/wtsi-ssg/wr/clog"
 )
 
 func TestTestFuncs(t *testing.T) {
@@ -45,5 +47,55 @@ func TestTestFuncs(t *testing.T) {
 		So(err, ShouldBeNil)
 		_, err = os.Open(path)
 		So(err, ShouldNotBeNil)
+	})
+
+	Convey("We can mock stdin", t, func() {
+		origStdin, stdinWriter, err := mockStdinRW("test")
+		So(origStdin, ShouldNotBeNil)
+		So(stdinWriter, ShouldNotBeNil)
+		So(err, ShouldBeNil)
+
+		os.Stdin = origStdin
+		stdinWriter.Close()
+	})
+
+	Convey("We can mock stderr", t, func() {
+		origStderr, stderrReader, outCh, err := mockStderrRW()
+		So(origStderr, ShouldNotBeNil)
+		So(stderrReader, ShouldNotBeNil)
+		So(outCh, ShouldNotBeNil)
+		So(err, ShouldBeNil)
+
+		os.Stderr = origStderr
+		stderrReader.Close()
+	})
+
+	Convey("We can mock stdin and stderr", t, func() {
+		ctx := context.Background()
+
+		mockedStdinerr, err := NewMockStdInErr("test")
+		So(mockedStdinerr, ShouldNotBeNil)
+		So(err, ShouldBeNil)
+
+		Convey("and read the data written to stderr", func() {
+			clog.ToDefaultAtLevel("debug")
+			clog.Debug(ctx, "msg", "foo", 1)
+			stderr, err := mockedStdinerr.ReadAndRestoreStderr()
+			So(err, ShouldBeNil)
+			So(stderr, ShouldContainSubstring, "foo=1")
+			So(mockedStdinerr.stderrReader, ShouldBeNil)
+			So(mockedStdinerr.origStderr, ShouldNotBeNil)
+
+			Convey("but not when mock error reader is already closed", func() {
+				_, err = mockedStdinerr.ReadAndRestoreStderr()
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("and restore stdin to default", func() {
+			mockedStdinerr.RestoreStdin()
+			So(mockedStdinerr.stdinWriter, ShouldBeNil)
+			So(mockedStdinerr.origStdin, ShouldNotBeNil)
+		})
 	})
 }
