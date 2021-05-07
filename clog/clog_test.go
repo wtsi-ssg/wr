@@ -103,6 +103,16 @@ func TestLogger(t *testing.T) {
 					So(lmsg, ShouldNotContainSubstring, retryLogMsg)
 				})
 			})
+
+			Convey("But works using ToDefaultAtLevel() set to debug", func() {
+				fse, err := ft.NewMockStdErr()
+				So(err, ShouldBeNil)
+				ToDefaultAtLevel("debug")
+				Debug(ctx, "msg", "foo", 1)
+				stderr, err := fse.GetAndRestoreStdErr()
+				So(err, ShouldBeNil)
+				So(stderr, ShouldContainSubstring, "foo=1")
+			})
 		})
 
 		Convey("Info does nothing at level warn", func() {

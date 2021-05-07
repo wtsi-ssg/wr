@@ -28,13 +28,149 @@ package test
 // this file implements utility routines related to testing.
 
 import (
+	"bytes"
+	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"testing"
 )
 
-// FilePathInTempDir creates a new temporary directory and returns the
-// absolute path to a file called basename in that directory (without
-// actually creating the file).
+// readAndRestoreError records an error for restoring the *os.file handle.
+type readAndRestoreError struct{}
+
+// Error returns an error when restoring an already closed handle.
+func (r *readAndRestoreError) Error() string {
+	return "ReadAndRestore from closed MockStdInErr"
+}
+
+// MockStdErr represents a mock implementation of STDERR.
+type MockStdErr struct {
+	origStderr   *os.File
+	stderrReader *os.File
+	outCh        chan []byte
+}
+
+// MockStdIn represents a mock implementation of STDIN.
+type MockStdIn struct {
+	origStdin   *os.File
+	stdinWriter *os.File
+}
+
+// NewMockStdErr creates a new MockStdErr and starts capturing the STDERR.
+func NewMockStdErr() (*MockStdErr, error) {
+	origStderr, stderrReader, outCh, err := mockStdErrRW()
+	if err != nil {
+		return nil, err
+	}
+
+	return &MockStdErr{
+		origStderr:   origStderr,
+		stderrReader: stderrReader,
+		outCh:        outCh,
+	}, nil
+}
+
+// GetAndRestoreStdErr stops capturing the STDERR and returns already captured
+// STDERR.
+func (se *MockStdErr) GetAndRestoreStdErr() (string, error) {
+	if se.stderrReader == nil {
+		return "", &readAndRestoreError{}
+	}
+
+	os.Stderr.Close()
+
+	out := <-se.outCh
+
+	se.RestoreStdErr()
+
+	return string(out), nil
+}
+
+// RestoreStdErr restores the STDERR to its original value.
+func (se *MockStdErr) RestoreStdErr() {
+	os.Stderr = se.origStderr
+
+	if se.stderrReader != nil {
+		se.stderrReader.Close()
+		se.stderrReader = nil
+	}
+}
+
+// mockStdErrRW mocks STDERR and starts capturing it.
+func mockStdErrRW() (*os.File, *os.File, chan []byte, error) {
+	stderrReader, stderrWriter, err := os.Pipe()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	origStderr := os.Stderr
+	os.Stderr = stderrWriter
+
+	outCh := make(chan []byte)
+
+	go func() {
+		var b bytes.Buffer
+		if _, err := io.Copy(&b, stderrReader); err != nil {
+			fmt.Println(err)
+		}
+
+		bytes := b.Bytes()
+		outCh <- bytes
+	}()
+
+	return origStderr, stderrReader, outCh, nil
+}
+
+// NewMockStdIn creates a new MockStdIn and writes the given text to STDIN. Be
+// sure to call RestoreStdIn() after you've done reading from STDIN.
+func NewMockStdIn(stdinText string) (*MockStdIn, error) {
+	origStdin, stdinWriter, err := mockStdInRW(stdinText)
+	if err != nil {
+		return nil, err
+	}
+
+	return &MockStdIn{
+		origStdin:   origStdin,
+		stdinWriter: stdinWriter,
+	}, nil
+}
+
+// RestoreStdIn restores the STDIN to its original value.
+func (si *MockStdIn) RestoreStdIn() {
+	os.Stdin = si.origStdin
+
+	if si.stdinWriter != nil {
+		si.stdinWriter.Close()
+		si.stdinWriter = nil
+	}
+}
+
+// mockStdInRW writes the given value to a replaced STDIN.
+func mockStdInRW(stdinText string) (*os.File, *os.File, error) {
+	stdinReader, stdinWriter, err := os.Pipe()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	origStdin := os.Stdin
+	os.Stdin = stdinReader
+
+	_, err = stdinWriter.WriteString(stdinText + "\n")
+	if err != nil {
+		stdinWriter.Close()
+
+		os.Stdin = origStdin
+
+		return nil, nil, err
+	}
+
+	return origStdin, stdinWriter, nil
+}
+
+// FilePathInTempDir creates a new temporary directory and returns the absolute
+// path to a file called basename in that directory (without actually creating
+// the file).
 func FilePathInTempDir(t *testing.T, basename string) string {
 	tmpdir := t.TempDir()
 

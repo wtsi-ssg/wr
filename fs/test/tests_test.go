@@ -35,10 +35,72 @@ import (
 )
 
 func TestTestFuncs(t *testing.T) {
+	Convey("We can mock the STDIN and write to it", t, func() {
+		origStdin, stdinWriter, err := mockStdInRW("test")
+		So(origStdin, ShouldNotBeNil)
+		So(stdinWriter, ShouldNotBeNil)
+		So(err, ShouldBeNil)
+
+		var response string
+		fmt.Scanf("%s\n", &response)
+		So(response, ShouldEqual, "test")
+
+		os.Stdin = origStdin
+		stdinWriter.Close()
+	})
+
+	Convey("Given a mocked STDIN", t, func() {
+		mockedStdIn, err := NewMockStdIn("test2")
+		So(mockedStdIn, ShouldNotBeNil)
+		So(err, ShouldBeNil)
+
+		Convey("we can write to it", func() {
+			var response string
+			fmt.Scanf("%s\n", &response)
+			So(response, ShouldEqual, "test2")
+		})
+
+		Convey("and restore it to default", func() {
+			mockedStdIn.RestoreStdIn()
+			So(mockedStdIn.stdinWriter, ShouldBeNil)
+			So(mockedStdIn.origStdin, ShouldNotBeNil)
+		})
+	})
+
+	Convey("We can mock the STDERR", t, func() {
+		origStderr, stderrReader, outCh, err := mockStdErrRW()
+		So(origStderr, ShouldNotBeNil)
+		So(stderrReader, ShouldNotBeNil)
+		So(outCh, ShouldNotBeNil)
+		So(err, ShouldBeNil)
+
+		os.Stderr = origStderr
+		stderrReader.Close()
+	})
+
+	Convey("Given a mocked STDERR", t, func() {
+		mockedStdErr, err := NewMockStdErr()
+		So(mockedStdErr, ShouldNotBeNil)
+		So(err, ShouldBeNil)
+
+		Convey("we can read from it and restore it to default", func() {
+			fmt.Fprintf(os.Stderr, "test stderr")
+			stdErr, err := mockedStdErr.GetAndRestoreStdErr()
+			So(err, ShouldBeNil)
+			So(stdErr, ShouldContainSubstring, "test stderr")
+			So(mockedStdErr.stderrReader, ShouldBeNil)
+			So(mockedStdErr.origStderr, ShouldNotBeNil)
+
+			Convey("but not when it is already closed", func() {
+				_, err = mockedStdErr.GetAndRestoreStdErr()
+				So(err, ShouldNotBeNil)
+			})
+		})
+	})
+
 	Convey("FilePathInTempDir returns a non-existent path in an existing tmp dir", t, func() {
 		basename := "foo"
 		path := FilePathInTempDir(t, basename)
-		fmt.Printf("got path %s\n", path)
 		So(path, ShouldStartWith, os.TempDir())
 		So(path, ShouldEndWith, basename)
 		_, err := os.Open(filepath.Dir(path))
