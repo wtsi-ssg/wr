@@ -57,7 +57,7 @@ type MockStdIn struct {
 	stdinWriter *os.File
 }
 
-// On creation of a new MockStdErr, it starts capturing the STDERR.
+// NewMockStdErr creates a new MockStdErr and starts capturing the STDERR.
 func NewMockStdErr() (*MockStdErr, error) {
 	origStderr, stderrReader, outCh, err := mockStdErrRW()
 	if err != nil {
@@ -122,8 +122,8 @@ func mockStdErrRW() (*os.File, *os.File, chan []byte, error) {
 	return origStderr, stderrReader, outCh, nil
 }
 
-// On creation of a new NewMockStdIn, it writes the given text to STDIN. Be sure
-// to call RestoreStdIn() after you've done reading from STDIN.
+// NewMockStdIn creates a new MockStdIn and writes the given text to STDIN. Be
+// sure to call RestoreStdIn() after you've done reading from STDIN.
 func NewMockStdIn(stdinText string) (*MockStdIn, error) {
 	origStdin, stdinWriter, err := mockStdInRW(stdinText)
 	if err != nil {
