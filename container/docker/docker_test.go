@@ -27,7 +27,7 @@ package docker
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"testing"
 
 	"github.com/docker/docker/api/types"
@@ -169,7 +169,7 @@ func TestDocker(t *testing.T) {
 
 	Convey("Decode the Container stats", t, func() {
 		Convey("for empty ReaderCloser stats", func() {
-			emptyRC := ioutil.NopCloser(bytes.NewReader([]byte("")))
+			emptyRC := io.NopCloser(bytes.NewReader([]byte("")))
 			emptyReaderCloserStats := types.ContainerStats{Body: emptyRC, OSType: "linux"}
 
 			stats, err := decodeDockerContainerStats(emptyReaderCloserStats)
@@ -178,7 +178,7 @@ func TestDocker(t *testing.T) {
 		})
 
 		Convey("for non-empty ReaderCloser stats", func() {
-			nonEmptyRC := ioutil.NopCloser(bytes.NewReader([]byte(testReaderCloserStats)))
+			nonEmptyRC := io.NopCloser(bytes.NewReader([]byte(testReaderCloserStats)))
 			nonEmptyReaderCloserStats := types.ContainerStats{Body: nonEmptyRC, OSType: "linux"}
 
 			stats, err := decodeDockerContainerStats(nonEmptyReaderCloserStats)

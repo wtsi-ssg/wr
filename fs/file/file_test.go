@@ -25,7 +25,6 @@
 package file
 
 import (
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -39,7 +38,7 @@ const fileMode os.FileMode = 0600
 
 func TestFile(t *testing.T) {
 	Convey("We can the first line of a file", t, func() {
-		tempDir, err := ioutil.TempDir("", "temp_filepath")
+		tempDir, err := os.MkdirTemp("", "temp_filepath")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -48,7 +47,7 @@ func TestFile(t *testing.T) {
 
 		Convey("when the file exists", func() {
 			tempFile := filepath.Join(tempDir, "tempFile.txt")
-			err = ioutil.WriteFile(tempFile, []byte("id1"), fileMode)
+			err = os.WriteFile(tempFile, []byte("id1"), fileMode)
 			So(err, ShouldBeNil)
 
 			id, err := GetFirstLine(tempFile)
@@ -56,7 +55,7 @@ func TestFile(t *testing.T) {
 			So(id, ShouldEqual, "id1")
 
 			tempFile1 := filepath.Join(tempDir, "tempFile1.txt")
-			err = ioutil.WriteFile(tempFile1, []byte("id1\n"), fileMode)
+			err = os.WriteFile(tempFile1, []byte("id1\n"), fileMode)
 			So(err, ShouldBeNil)
 
 			id, err = GetFirstLine(tempFile1)
