@@ -76,7 +76,6 @@ linters:
     - cyclop
     - dogsled
     - dupl
-    - durationcheck
     - errorlint
     - exportloopref
     - exhaustive
@@ -122,6 +121,7 @@ linters:
   #   - asciicheck
   #   - bodyclose
   #   - depguard
+  #   - durationcheck
   #   - exhaustivestruct
   #   - gofmt
   #   - gofumpt
