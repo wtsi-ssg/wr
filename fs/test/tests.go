@@ -112,6 +112,7 @@ func mockStdErrRW() (*os.File, *os.File, chan []byte, error) {
 		var b bytes.Buffer
 		if _, err := io.Copy(&b, stderrReader); err != nil {
 			outCh <- []byte(err.Error())
+
 			return
 		}
 
