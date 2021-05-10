@@ -27,7 +27,6 @@ package docker
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io/ioutil"
 	"testing"
 
@@ -147,15 +146,13 @@ func TestDocker(t *testing.T) {
 	// Create a new docker client
 	cli, err := client.NewEnvClient()
 	if err != nil {
-		fmt.Printf("Failed to create a new docker client.\n Skipping tests with error: %s\n", err)
-		t.Skip("skipping test; new docker client cannot be created.")
+		t.Skip("skipping docker tests: ", err)
 	}
 
 	// Test if server is running, if not then skip the tests.
 	_, err = cli.Ping(ctx)
 	if err != nil {
-		fmt.Printf("Ping to server failed.\n Skipping tests with error: %s\n", err)
-		t.Skip("skipping test; docker deamon is not running")
+		t.Skip("skipping docker tests: ", err)
 	}
 
 	// create and start the test containers
@@ -163,8 +160,7 @@ func TestDocker(t *testing.T) {
 
 	cntrIDs, err := createContainers(ctx, cli, cntrNames)
 	if err != nil {
-		fmt.Printf("Failed to create the docker containers.\n Skipping tests with error: %s\n", err)
-		t.Skip("skipping tests; containers could not be created.")
+		t.Skip("skipping docker tests: ", err)
 	}
 
 	Convey("Interactor implements container.Interactor", t, func() {
@@ -250,7 +246,7 @@ func TestDocker(t *testing.T) {
 					// Cleanup: Remove all the dummy container
 					err = removeContainers(ctx, cli, cntrIDs)
 					if err != nil {
-						fmt.Printf("Containers could not be removed")
+						t.Log("Containers could not be removed: ", err)
 					}
 				})
 			})
