@@ -173,6 +173,7 @@ func mockStdInRW(stdinText string) (*os.File, *os.File, error) {
 // path to a file called basename in that directory (without actually creating
 // the file).
 func FilePathInTempDir(t *testing.T, basename string) string {
+	t.Helper()
 	tmpdir := t.TempDir()
 
 	return filepath.Join(tmpdir, basename)
