@@ -25,6 +25,8 @@ linters-settings:
     check-shadowing: true
     enable-all: true
     disable-all: false
+    disable:
+      - fieldalignment
   lll:
     line-length: 120
   misspell:
