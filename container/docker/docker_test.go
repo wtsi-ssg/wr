@@ -34,6 +34,7 @@ import (
 	cn "github.com/docker/docker/api/types/container"
 	nw "github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	specs "github.com/opencontainers/image-spec/specs-go/v1"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-ssg/wr/container"
 )
@@ -110,7 +111,7 @@ func createContainers(ctx context.Context, cli *client.Client, containerNames []
 	for idx, cname := range containerNames {
 		// create the docker container
 		cbody, err := cli.ContainerCreate(ctx, &cn.Config{Image: "ubuntu", Tty: true}, &cn.HostConfig{},
-			&nw.NetworkingConfig{}, cname)
+			&nw.NetworkingConfig{}, &specs.Platform{}, cname)
 		if err != nil {
 			return nil, err
 		}
