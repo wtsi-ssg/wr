@@ -29,7 +29,6 @@ package test
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -112,7 +111,9 @@ func mockStdErrRW() (*os.File, *os.File, chan []byte, error) {
 	go func() {
 		var b bytes.Buffer
 		if _, err := io.Copy(&b, stderrReader); err != nil {
-			fmt.Println(err)
+			outCh <- []byte(err.Error())
+
+			return
 		}
 
 		bytes := b.Bytes()
@@ -172,6 +173,7 @@ func mockStdInRW(stdinText string) (*os.File, *os.File, error) {
 // path to a file called basename in that directory (without actually creating
 // the file).
 func FilePathInTempDir(t *testing.T, basename string) string {
+	t.Helper()
 	tmpdir := t.TempDir()
 
 	return filepath.Join(tmpdir, basename)

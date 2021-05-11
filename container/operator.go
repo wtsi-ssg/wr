@@ -87,7 +87,7 @@ type Operator struct {
 	 )
 	 ....
 	 {
-		 cli, err := client.NewEnvClient()
+		 cli, err := client.NewClientWithOpts(client.FromEnv)
 		 dockerInterator := docker.NewInteractor(cli)
 		 dockerOperator := NewOperator(dockerInterator)
 		 cntrList, err := dockerOperator.GetCurrentContainers(ctx)
@@ -189,8 +189,7 @@ func (o *Operator) GetContainerByPath(ctx context.Context, path string, dir stri
 	// if name is a relative file path, then create the absolute path with dir
 	cidPath := fp.RelToAbsPath(path, dir)
 
-	_, err := os.Stat(cidPath)
-	if err == nil {
+	if _, err := os.Stat(cidPath); err == nil {
 		return o.cidPathToContainer(ctx, cidPath)
 	}
 

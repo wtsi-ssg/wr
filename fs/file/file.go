@@ -28,7 +28,7 @@ package file
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	fp "github.com/wtsi-ssg/wr/fs/filepath"
@@ -68,7 +68,7 @@ func ToString(path string) (string, error) {
 
 	absPath := fp.TildaToHome(path)
 
-	contents, err := ioutil.ReadFile(absPath)
+	contents, err := os.ReadFile(absPath)
 	if err != nil {
 		return "", &PathReadError{absPath, err}
 	}
