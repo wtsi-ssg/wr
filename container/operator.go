@@ -87,7 +87,7 @@ type Operator struct {
 	 )
 	 ....
 	 {
-		 cli, err := client.NewEnvClient()
+		 cli, err := client.NewClientWithOpts(client.FromEnv)
 		 dockerInterator := docker.NewInteractor(cli)
 		 dockerOperator := NewOperator(dockerInterator)
 		 cntrList, err := dockerOperator.GetCurrentContainers(ctx)

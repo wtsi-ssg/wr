@@ -145,7 +145,7 @@ func TestDocker(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a new docker client
-	cli, err := client.NewEnvClient()
+	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		t.Skip("skipping docker tests: ", err)
 	}
