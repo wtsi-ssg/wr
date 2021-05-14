@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2020 Genome Research Ltd.
+ * Copyright (c) 2021 Genome Research Ltd.
  *
  * Author: Ashwini Chhipa <ac55@sanger.ac.uk>
  *
@@ -25,6 +25,8 @@
 package filepath
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -37,5 +39,15 @@ func TestPath(t *testing.T) {
 		So(RelToAbsPath("testing1.txt", "/"), ShouldEqual, "/testing1.txt")
 		So(RelToAbsPath("testing1.txt", "."), ShouldEqual, "testing1.txt")
 		So(RelToAbsPath("testing1.txt", ""), ShouldEqual, "testing1.txt")
+	})
+
+	Convey("Given a path starting with ~/ check it's absolute path", t, func() {
+		So(TildaToHome(""), ShouldBeEmpty)
+
+		home, herr := os.UserHomeDir()
+		So(herr, ShouldEqual, nil)
+		filepth := filepath.Join(home, "testing_absolute_path.text")
+
+		So(TildaToHome("~/testing_absolute_path.text"), ShouldEqual, filepth)
 	})
 }

@@ -11,7 +11,7 @@ linters-settings:
     check-type-assertions: true
     check-blank: true
   exhaustive:
-    default-signifies-exhaustive: false
+    default-signifies-exhaustive: true
   funlen:
     lines: 30
     statements: 20
@@ -25,10 +25,10 @@ linters-settings:
     check-shadowing: true
     enable-all: true
     disable-all: false
+    disable:
+      - fieldalignment
   lll:
     line-length: 120
-  maligned:
-    suggest-new: true
   misspell:
     locale: UK
   nakedret:
@@ -61,14 +61,28 @@ issues:
   new-from-rev: master
 
 linters:
+  disable-all: true
   enable:
-    - megacheck
+    - deadcode
+    - errcheck
+    - gosimple
     - govet
-    - maligned
-    - prealloc
-    - depguard
+    - ineffassign
+    - staticcheck
+    - structcheck
+    - typecheck
+    - unused
+    - varcheck
+    - cyclop
     - dogsled
     - dupl
+    - errorlint
+    - exportloopref
+    - exhaustive
+    - forbidigo
+    - forcetypeassert
+    - funlen
+    - gci
     - gochecknoglobals
     - gochecknoinits
     - gocognit
@@ -76,28 +90,52 @@ linters:
     - gocritic
     - gocyclo
     - godot
+    - godox
     - goerr113
-    - gofmt
+    - goimports
     - golint
     - gomnd
-    - interfacer
+    - gosec
+    - ifshort
+    - importas
     - lll
-    - maligned
+    - makezero
     - misspell
     - nakedret
     - nestif
+    - nilerr
+    - nlreturn
+    - noctx
+    - nolintlint
     - prealloc
+    - predeclared
+    - rowserrcheck
     - stylecheck
+    - thelper
     - unconvert
+    - unparam
+    - wastedassign
     - whitespace
     - wsl
-    - exhaustive
-    - exportloopref
-    - funlen
-    - goimports
-    - gosec
-    - nlreturn
-    - scopelint
-    - unparam
-  disable-all: false
-  fast: false
+  # disable:
+  #   - asciicheck
+  #   - bodyclose
+  #   - depguard
+  #   - durationcheck
+  #   - exhaustivestruct
+  #   - gofmt
+  #   - gofumpt
+  #   - goheader
+  #   - gomoddirectives
+  #   - gomodguard
+  #   - goprintffuncname
+  #   - interfacer
+  #   - maligned
+  #   - paralleltest
+  #   - promlinter
+  #   - revive
+  #   - sqlclosecheck
+  #   - tagliatelle
+  #   - testpackage
+  #   - tparallel
+  #   - wrapcheck

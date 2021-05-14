@@ -22,40 +22,56 @@
  * IN THE SOFTWARE.
  ******************************************************************************/
 
-package filepath
-
-// this file implements utility routines for manipulating filename paths.
+package dir
 
 import (
+	"context"
 	"os"
-	"path/filepath"
 	"strings"
+	"testing"
+
+	. "github.com/smartystreets/goconvey/convey"
+	"github.com/wtsi-ssg/wr/clog"
 )
 
-// RelToAbsPath returns the absolute path of a file given its relative path and
-// the directory name.
-func RelToAbsPath(path string, dir string) string {
-	absPath := path
-	if !filepath.IsAbs(absPath) {
-		absPath = filepath.Join(dir, absPath)
-	}
+func TestDir(t *testing.T) {
+	Convey("We can get the present working directory", t, func() {
+		ctx := context.Background()
+		pWD := GetPWD(ctx)
+		So(pWD, ShouldNotBeEmpty)
 
-	return absPath
-}
+		tempDir := os.TempDir()
+		err := os.Chdir(tempDir)
+		So(err, ShouldBeNil)
 
-// TildaToHome converts a path beginning with ~/ to the absolute path based in
-// the current home directory. If that cannot be determined, path is returned
-// unaltered.
-func TildaToHome(path string) string {
-	if path == "" {
-		return ""
-	}
+		pWD = GetPWD(ctx)
+		So(strings.TrimSuffix(pWD, "/"), ShouldEndWith, strings.TrimSuffix(tempDir, "/"))
+	})
 
-	home, herr := os.UserHomeDir()
-	if herr == nil && home != "" && strings.HasPrefix(path, "~/") {
-		path = strings.TrimLeft(path, "~/")
-		path = filepath.Join(home, path)
-	}
+	Convey("We can get the home directory", t, func() {
+		ctx := context.Background()
 
-	return path
+		origHome := os.Getenv("HOME")
+		home := GetHome(ctx)
+		So(home, ShouldEqual, origHome)
+
+		Convey("but not when HOME env is set to empty", func() {
+			os.Setenv("HOME", "")
+			defer os.Setenv("HOME", origHome)
+
+			buff := clog.ToBufferAtLevel("fatal")
+			defer clog.ToDefault()
+
+			os.Setenv("WR_FATAL_EXIT_TEST", "1")
+			defer os.Unsetenv("WR_FATAL_EXIT_TEST")
+
+			_ = GetHome(ctx)
+
+			bufferStr := buff.String()
+			So(bufferStr, ShouldContainSubstring, "fatal=true")
+			So(bufferStr, ShouldNotContainSubstring, "caller=clog")
+			So(bufferStr, ShouldContainSubstring, "stack=")
+			So(bufferStr, ShouldContainSubstring, "could not find home dir")
+		})
+	})
 }

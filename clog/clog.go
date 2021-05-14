@@ -1,7 +1,7 @@
 /*******************************************************************************
- * Copyright (c) 2020 Genome Research Ltd.
+ * Copyright (c) 2020, 2021 Genome Research Ltd.
  *
- * Author: Sendu Bala <sb10@sanger.ac.uk>
+ * Author: Sendu Bala <sb10@sanger.ac.uk>, <ac55@sanger.ac.uk>
  * Based on: https://blog.gopheracademy.com/advent-2016/context-logging/
  *
  * Permission is hereby granted, free of charge, to any person obtaining
@@ -30,6 +30,7 @@ package clog
 import (
 	"bytes"
 	"context"
+	"os"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/sb10/l15h"
@@ -43,6 +44,11 @@ func init() {
 // ToDefault sets the global logger to log to STDERR at the "warn" level.
 func ToDefault() {
 	toOutputAtLevel(log.StderrHandler, log.LvlWarn)
+}
+
+// ToDefaultAtLevel sets the global logger to log to STDERR at the given level.
+func ToDefaultAtLevel(lvl string) {
+	toOutputAtLevel(log.StreamHandler(os.Stderr, log.LogfmtFormat()), lvlFromString(lvl))
 }
 
 // toOutputAtLevel sets the handler of the global logger to filter on the given
@@ -151,4 +157,17 @@ func Error(ctx context.Context, msg string, args ...interface{}) {
 // the error level. A stack trace is included.
 func Crit(ctx context.Context, msg string, args ...interface{}) {
 	logger(ctx).Crit(msg, args...)
+}
+
+// Fatal logs the given message with context and args to the global logger at
+// the error level before exiting. 'fatal' is set true in stack trace.
+func Fatal(ctx context.Context, msg string, args ...interface{}) {
+	args = append(args, "fatal", true)
+	logger(ctx).Crit(msg, args...)
+
+	if os.Getenv("WR_FATAL_EXIT_TEST") == "1" {
+		return
+	}
+
+	os.Exit(1)
 }

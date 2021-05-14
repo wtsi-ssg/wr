@@ -27,7 +27,6 @@ package container
 import (
 	"context"
 	"errors"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -268,7 +267,7 @@ func TestOperator(t *testing.T) {
 
 		Convey("and given a file path/glob path, return the container id", func() {
 			// Create some files containing container id
-			containerTempDir, err := ioutil.TempDir("", "container_temp_")
+			containerTempDir, err := os.MkdirTemp("", "container_temp_")
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -276,19 +275,19 @@ func TestOperator(t *testing.T) {
 			defer os.RemoveAll(containerTempDir)
 
 			containerFile := filepath.Join(containerTempDir, "Container.txt")
-			err = ioutil.WriteFile(containerFile, []byte("container_id2"), fileMode)
+			err = os.WriteFile(containerFile, []byte("container_id2"), fileMode)
 			So(err, ShouldBeNil)
 
 			newContainerFile := filepath.Join(containerTempDir, "NewContainer.txt")
-			err = ioutil.WriteFile(newContainerFile, []byte("container_id4"), fileMode)
+			err = os.WriteFile(newContainerFile, []byte("container_id4"), fileMode)
 			So(err, ShouldBeNil)
 
 			wrongContainerFile := filepath.Join(containerTempDir, "WrongContainer.txt")
-			err = ioutil.WriteFile(wrongContainerFile, []byte("container_id5"), fileMode)
+			err = os.WriteFile(wrongContainerFile, []byte("container_id5"), fileMode)
 			So(err, ShouldBeNil)
 
 			containerEmptyFile := filepath.Join(containerTempDir, "containerEmpty.txt")
-			err = ioutil.WriteFile(containerEmptyFile, []byte(""), fileMode)
+			err = os.WriteFile(containerEmptyFile, []byte(""), fileMode)
 			So(err, ShouldBeNil)
 
 			Convey("When the file path", func() {
@@ -391,7 +390,7 @@ func TestOperator(t *testing.T) {
 		// container listing
 		empOperator := NewOperator(&MockInteractor{
 			ContainerListFn: func() ([]*Container, error) {
-				_, err := ioutil.ReadFile("nonExistingFile.txt")
+				_, err := os.ReadFile("nonExistingFile.txt")
 
 				return nil, err
 			},

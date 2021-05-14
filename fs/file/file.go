@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2020 Genome Research Ltd.
+ * Copyright (c) 2021 Genome Research Ltd.
  *
  * Author: Ashwini Chhipa <ac55@sanger.ac.uk>
  *
@@ -24,20 +24,54 @@
 
 package file
 
+// this file implements utility routines related to files.
+
 import (
-	"io/ioutil"
+	"fmt"
+	"os"
 	"strings"
+
+	fp "github.com/wtsi-ssg/wr/fs/filepath"
 )
 
-// GetFirstLine reads the content of a file given its absolute path and returns
-// the first line excluding trailing newline.
+// PathReadError records an path read error.
+type PathReadError struct {
+	path string
+	Err  error
+}
+
+// Error returns an error related to path could not be read.
+func (p *PathReadError) Error() string {
+	return fmt.Sprintf("path [%s] could not be read: %s", p.path, p.Err)
+}
+
+// GetFirstLine reads the content of a file given its absolute or tilda path and
+// returns the first line excluding trailing newline.
 func GetFirstLine(filename string) (string, error) {
-	content, err := ioutil.ReadFile(filename)
+	content, err := ToString(filename)
 	if err != nil {
 		return "", err
 	}
 
-	firstLine := strings.TrimSuffix(string(content), "\n")
+	firstLine := strings.TrimSuffix(content, "\n")
 
 	return firstLine, nil
+}
+
+// ToString takes the path to a file and returns its contents as a string. If
+// path begins with a tilda, TildaToHome() is used to first convert the path to
+// an absolute path, in order to find the file.
+func ToString(path string) (string, error) {
+	if path == "" {
+		return "", &PathReadError{"", nil}
+	}
+
+	absPath := fp.TildaToHome(path)
+
+	contents, err := os.ReadFile(absPath)
+	if err != nil {
+		return "", &PathReadError{absPath, err}
+	}
+
+	return string(contents), nil
 }

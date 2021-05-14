@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2020 Genome Research Ltd.
+ * Copyright (c) 2021 Genome Research Ltd.
  *
  * Author: Ashwini Chhipa <ac55@sanger.ac.uk>
  *
@@ -25,7 +25,6 @@
 package file
 
 import (
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -38,8 +37,8 @@ import (
 const fileMode os.FileMode = 0600
 
 func TestFile(t *testing.T) {
-	Convey("Get the first line of a file", t, func() {
-		tempDir, err := ioutil.TempDir("", "temp_filepath")
+	Convey("We can the first line of a file", t, func() {
+		tempDir, err := os.MkdirTemp("", "temp_filepath")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -48,7 +47,7 @@ func TestFile(t *testing.T) {
 
 		Convey("when the file exists", func() {
 			tempFile := filepath.Join(tempDir, "tempFile.txt")
-			err = ioutil.WriteFile(tempFile, []byte("id1"), fileMode)
+			err = os.WriteFile(tempFile, []byte("id1"), fileMode)
 			So(err, ShouldBeNil)
 
 			id, err := GetFirstLine(tempFile)
@@ -56,7 +55,7 @@ func TestFile(t *testing.T) {
 			So(id, ShouldEqual, "id1")
 
 			tempFile1 := filepath.Join(tempDir, "tempFile1.txt")
-			err = ioutil.WriteFile(tempFile1, []byte("id1\n"), fileMode)
+			err = os.WriteFile(tempFile1, []byte("id1\n"), fileMode)
 			So(err, ShouldBeNil)
 
 			id, err = GetFirstLine(tempFile1)
@@ -65,11 +64,36 @@ func TestFile(t *testing.T) {
 			So(id, ShouldEqual, "id1")
 		})
 
-		Convey("when the file doesn't exist", func() {
+		Convey("not when the file doesn't exist", func() {
 			tempNonExistingFile := filepath.Join(tempDir, "tempNonExisting.txt")
 			noID, err := GetFirstLine(tempNonExistingFile)
 			So(err, ShouldNotBeNil)
 			So(noID, ShouldBeEmpty)
 		})
+	})
+
+	Convey("Given a path to a file check it's content", t, func() {
+		empContent, err := ToString("")
+		So(err, ShouldNotBeNil)
+		So(empContent, ShouldBeEmpty)
+
+		home, herr := os.UserHomeDir()
+		So(herr, ShouldEqual, nil)
+		filepth := filepath.Join(home, "testing_pathtocontent.text")
+		defer os.Remove(filepth)
+
+		file, err := os.Create(filepth)
+		So(err, ShouldEqual, nil)
+
+		_, err = file.WriteString("hello")
+		So(err, ShouldEqual, nil)
+
+		content, err := ToString(filepth)
+		So(content, ShouldEqual, "hello")
+		So(err, ShouldEqual, nil)
+
+		content, err = ToString("random.txt")
+		So(content, ShouldEqual, "")
+		So(err, ShouldNotBeNil)
 	})
 }

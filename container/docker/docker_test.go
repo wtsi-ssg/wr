@@ -27,14 +27,14 @@ package docker
 import (
 	"bytes"
 	"context"
-	"fmt"
-	"io/ioutil"
+	"io"
 	"testing"
 
 	"github.com/docker/docker/api/types"
 	cn "github.com/docker/docker/api/types/container"
 	nw "github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	specs "github.com/opencontainers/image-spec/specs-go/v1"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/wtsi-ssg/wr/container"
 )
@@ -111,7 +111,7 @@ func createContainers(ctx context.Context, cli *client.Client, containerNames []
 	for idx, cname := range containerNames {
 		// create the docker container
 		cbody, err := cli.ContainerCreate(ctx, &cn.Config{Image: "ubuntu", Tty: true}, &cn.HostConfig{},
-			&nw.NetworkingConfig{}, cname)
+			&nw.NetworkingConfig{}, &specs.Platform{}, cname)
 		if err != nil {
 			return nil, err
 		}
@@ -145,17 +145,15 @@ func TestDocker(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a new docker client
-	cli, err := client.NewEnvClient()
+	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
-		fmt.Printf("Failed to create a new docker client.\n Skipping tests with error: %s\n", err)
-		t.Skip("skipping test; new docker client cannot be created.")
+		t.Skip("skipping docker tests: ", err)
 	}
 
 	// Test if server is running, if not then skip the tests.
 	_, err = cli.Ping(ctx)
 	if err != nil {
-		fmt.Printf("Ping to server failed.\n Skipping tests with error: %s\n", err)
-		t.Skip("skipping test; docker deamon is not running")
+		t.Skip("skipping docker tests: ", err)
 	}
 
 	// create and start the test containers
@@ -163,8 +161,7 @@ func TestDocker(t *testing.T) {
 
 	cntrIDs, err := createContainers(ctx, cli, cntrNames)
 	if err != nil {
-		fmt.Printf("Failed to create the docker containers.\n Skipping tests with error: %s\n", err)
-		t.Skip("skipping tests; containers could not be created.")
+		t.Skip("skipping docker tests: ", err)
 	}
 
 	Convey("Interactor implements container.Interactor", t, func() {
@@ -173,7 +170,7 @@ func TestDocker(t *testing.T) {
 
 	Convey("Decode the Container stats", t, func() {
 		Convey("for empty ReaderCloser stats", func() {
-			emptyRC := ioutil.NopCloser(bytes.NewReader([]byte("")))
+			emptyRC := io.NopCloser(bytes.NewReader([]byte("")))
 			emptyReaderCloserStats := types.ContainerStats{Body: emptyRC, OSType: "linux"}
 
 			stats, err := decodeDockerContainerStats(emptyReaderCloserStats)
@@ -182,7 +179,7 @@ func TestDocker(t *testing.T) {
 		})
 
 		Convey("for non-empty ReaderCloser stats", func() {
-			nonEmptyRC := ioutil.NopCloser(bytes.NewReader([]byte(testReaderCloserStats)))
+			nonEmptyRC := io.NopCloser(bytes.NewReader([]byte(testReaderCloserStats)))
 			nonEmptyReaderCloserStats := types.ContainerStats{Body: nonEmptyRC, OSType: "linux"}
 
 			stats, err := decodeDockerContainerStats(nonEmptyReaderCloserStats)
@@ -250,7 +247,7 @@ func TestDocker(t *testing.T) {
 					// Cleanup: Remove all the dummy container
 					err = removeContainers(ctx, cli, cntrIDs)
 					if err != nil {
-						fmt.Printf("Containers could not be removed")
+						t.Log("Containers could not be removed: ", err)
 					}
 				})
 			})

@@ -124,7 +124,7 @@ func TestPort(t *testing.T) {
 		Convey("AvailableRange fails when tcp listening fails", func() {
 			addr, err := net.ResolveTCPAddr("tcp", "localhost:1")
 			So(err, ShouldBeNil)
-			checker.addr = addr
+			checker.Addr = addr
 			_, _, err = checker.AvailableRange(2)
 			So(err, ShouldNotBeNil)
 		})

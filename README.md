@@ -29,7 +29,7 @@ To run the benchmarks:
 
 Before committing any code, you should make sure you haven't introduced any
 linting errors. First install the linters:
-`curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.31.0`
+`curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.39.0`
 
 Then:
 `make lint`
