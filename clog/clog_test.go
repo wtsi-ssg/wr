@@ -245,7 +245,6 @@ func TestLogger(t *testing.T) {
 			tl.Close()
 
 			So(l2.String(), ShouldContainSubstring, "wrrunner")
-			So(l2.String(), ShouldContainSubstring, "wrrunner")
 			So(l2.String(), ShouldContainSubstring, "lvl=warn")
 			So(l2.String(), ShouldContainSubstring, "foo=1")
 		})
