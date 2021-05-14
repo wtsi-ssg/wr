@@ -30,6 +30,7 @@ import (
 	"io"
 	"log/syslog"
 	"os"
+	"runtime"
 	"testing"
 	"time"
 
@@ -221,7 +222,15 @@ func TestLogger(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		Convey("it can log at given level", func() {
-			tl, err := follower.New("/var/log/system.log", follower.Config{
+			syslogpath := "/var/log/syslog"
+
+			if runtime.GOOS == "darwin" {
+				syslogpath = "/var/log/system.log"
+			} else if runtime.GOOS == "windows" {
+				t.Skip("skipping test; windows os not supported.")
+			}
+
+			tl, err := follower.New(syslogpath, follower.Config{
 				Whence: io.SeekEnd,
 				Offset: 1,
 				Reopen: true,
