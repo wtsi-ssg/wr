@@ -51,6 +51,19 @@ func ToDefaultAtLevel(lvl string) {
 	toOutputAtLevel(log.StreamHandler(os.Stderr, log.LogfmtFormat()), lvlFromString(lvl))
 }
 
+// ToHandlerAtLevel sets the default logger to a given custom handler at a the
+// given level.
+// Eg.
+// ...
+// handler, _ := log15.SyslogHandler(syslog.LOG_USER,
+// "wrrunner", log15.LogfmtFormat())
+// clog.ToHandlerAtLevel(handler, "info")
+// ...
+// The above example sets the logging to syslog.
+func ToHandlerAtLevel(outputHandler log.Handler, lvl string) {
+	toOutputAtLevel(outputHandler, lvlFromString(lvl))
+}
+
 // toOutputAtLevel sets the handler of the global logger to filter on the given
 // level, add caller info, and output to the given handler.
 func toOutputAtLevel(outputHandler log.Handler, lvl log.Lvl) {

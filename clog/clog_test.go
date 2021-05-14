@@ -27,10 +27,14 @@ package clog
 
 import (
 	"context"
+	"io"
+	"log/syslog"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/inconshreveable/log15"
+	"github.com/papertrail/go-tail/follower"
 	. "github.com/smartystreets/goconvey/convey"
 	fl "github.com/wtsi-ssg/wr/fs/file"
 	ft "github.com/wtsi-ssg/wr/fs/test"
@@ -208,5 +212,33 @@ func TestLogger(t *testing.T) {
 	Convey("You can't log to a file given a bad path", t, func() {
 		err := ToFileAtLevel("!/*&^%$", "debug")
 		So(err, ShouldNotBeNil)
+	})
+
+	Convey("Given a custom handler", t, func() {
+		ctx := context.Background()
+		handler, err := log15.SyslogHandler(syslog.LOG_USER,
+			"wrrunner", log15.LogfmtFormat())
+		So(err, ShouldBeNil)
+
+		Convey("it can log at given level", func() {
+			tl, err := follower.New("/var/log/system.log", follower.Config{
+				Whence: io.SeekEnd,
+				Offset: 1,
+				Reopen: true,
+			})
+			So(err, ShouldBeNil)
+
+			time.Sleep(100 * time.Millisecond)
+			ToHandlerAtLevel(handler, "warn")
+			Warn(ctx, "msg", "foo", 1)
+
+			l2 := <-tl.Lines()
+			tl.Close()
+
+			So(l2.String(), ShouldContainSubstring, "wrrunner")
+			So(l2.String(), ShouldContainSubstring, "wrrunner")
+			So(l2.String(), ShouldContainSubstring, "lvl=warn")
+			So(l2.String(), ShouldContainSubstring, "foo=1")
+		})
 	})
 }

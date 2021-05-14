@@ -14,6 +14,7 @@ require (
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
+	github.com/papertrail/go-tail v0.0.0-20180509224916-973c153b0431 // indirect
 	github.com/ricochet2200/go-disk-usage v0.0.0-20150921141558-f0d1b743428f
 	github.com/rs/xid v1.3.0
 	github.com/sb10/l15h v0.0.0-20170510122137-64c488bf8e22
