@@ -32,7 +32,6 @@ import (
 	"os"
 	"runtime"
 	"testing"
-	"time"
 
 	"github.com/inconshreveable/log15"
 	"github.com/papertrail/go-tail/follower"
@@ -230,23 +229,22 @@ func TestLogger(t *testing.T) {
 				t.Skip("skipping test; windows os not supported.")
 			}
 
-			tl, err := follower.New(syslogpath, follower.Config{
+			tailLogHandler, err := follower.New(syslogpath, follower.Config{
 				Whence: io.SeekEnd,
 				Offset: 1,
 				Reopen: true,
 			})
 			So(err, ShouldBeNil)
 
-			time.Sleep(100 * time.Millisecond)
 			ToHandlerAtLevel(handler, "warn")
 			Warn(ctx, "msg", "foo", 1)
 
-			l2 := <-tl.Lines()
-			tl.Close()
+			tailedLogs := <-tailLogHandler.Lines()
+			tailLogHandler.Close()
 
-			So(l2.String(), ShouldContainSubstring, "wrrunner")
-			So(l2.String(), ShouldContainSubstring, "lvl=warn")
-			So(l2.String(), ShouldContainSubstring, "foo=1")
+			So(tailedLogs.String(), ShouldContainSubstring, "wrrunner")
+			So(tailedLogs.String(), ShouldContainSubstring, "lvl=warn")
+			So(tailedLogs.String(), ShouldContainSubstring, "foo=1")
 		})
 	})
 }
