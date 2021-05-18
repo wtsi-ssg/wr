@@ -31,7 +31,9 @@ import (
 	"log/syslog"
 	"os"
 	"runtime"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/inconshreveable/log15"
 	"github.com/papertrail/go-tail/follower"
@@ -229,9 +231,9 @@ func TestLogger(t *testing.T) {
 				t.Skip("skipping test; windows os not supported.")
 			}
 
-			tailLogHandler, err := follower.New(syslogpath, follower.Config{
+			tailLogFollower, err := follower.New(syslogpath, follower.Config{
 				Whence: io.SeekEnd,
-				Offset: 1,
+				Offset: 0,
 				Reopen: true,
 			})
 			So(err, ShouldBeNil)
@@ -239,12 +241,27 @@ func TestLogger(t *testing.T) {
 			ToHandlerAtLevel(handler, "warn")
 			Warn(ctx, "msg", "foo", 1)
 
-			tailedLogs := <-tailLogHandler.Lines()
-			tailLogHandler.Close()
+			logChan := make(chan string, 1)
+			go func() {
+				for line := range tailLogFollower.Lines() {
+					if strings.Contains(line.String(), "wrrunner") {
+						logChan <- line.String()
 
-			So(tailedLogs.String(), ShouldContainSubstring, "wrrunner")
-			So(tailedLogs.String(), ShouldContainSubstring, "lvl=warn")
-			So(tailedLogs.String(), ShouldContainSubstring, "foo=1")
+						break
+					}
+				}
+			}()
+
+			select {
+			case tailedLog := <-logChan:
+				So(tailedLog, ShouldContainSubstring, "lvl=warn")
+				So(tailedLog, ShouldContainSubstring, "foo=1")
+			case <-time.After(3 * time.Second):
+				t.Error("Timeout waiting for a log from custom handler")
+				t.Fail()
+			}
+
+			tailLogFollower.Close()
 		})
 	})
 }
