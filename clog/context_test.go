@@ -65,4 +65,40 @@ func TestContext(t *testing.T) {
 		So(isInt, ShouldBeTrue)
 		So(num, ShouldEqual, retrynum)
 	})
+
+	Convey("ContextWithJobKey returns a context with a job key", t, func() {
+		jobKey := "foo"
+		ctx := ContextWithJobKey(background, jobKey)
+		So(ctx, ShouldNotBeNil)
+
+		val := ctx.Value(contextJobKey)
+		So(checkValIsString(val), ShouldEqual, jobKey)
+	})
+
+	Convey("ContextWithServerID returns a context with an id", t, func() {
+		id := "foo"
+		ctx := ContextWithServerID(background, id)
+		So(ctx, ShouldNotBeNil)
+
+		val := ctx.Value(contextServerID)
+		So(checkValIsString(val), ShouldEqual, id)
+	})
+
+	Convey("ContextWithSchedulerType returns a context with a scheduler type", t, func() {
+		sType := "local"
+		ctx := ContextWithSchedulerType(background, sType)
+		So(ctx, ShouldNotBeNil)
+
+		val := ctx.Value(contextSchedulerType)
+		So(checkValIsString(val), ShouldEqual, sType)
+	})
+
+	Convey("ContextWithCloudType returns a context with a cloud type", t, func() {
+		cType := "cloud"
+		ctx := ContextWithCloudType(background, cType)
+		So(ctx, ShouldNotBeNil)
+
+		val := ctx.Value(contextCloudType)
+		So(checkValIsString(val), ShouldEqual, cType)
+	})
 }

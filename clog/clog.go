@@ -36,6 +36,8 @@ import (
 	"github.com/sb10/l15h"
 )
 
+// Logging to STDERR and file at a same time
+
 // init sets our default logging syle.
 func init() {
 	ToDefault()
@@ -63,15 +65,32 @@ func ToHandlerAtLevel(outputHandler log.Handler, lvl string) {
 	toOutputAtLevel(outputHandler, lvlFromString(lvl))
 }
 
+// GetHandler returns the global logger handler used for all logging.
+func GetHandler() log.Handler {
+	return log.Root().GetHandler()
+}
+
 // toOutputAtLevel sets the handler of the global logger to filter on the given
 // level, add caller info, and output to the given handler.
 func toOutputAtLevel(outputHandler log.Handler, lvl log.Lvl) {
-	h := log.LvlFilterHandler(
+	h := createFilteredInfoHandler(outputHandler, lvl)
+	setRootHandler(h)
+}
+
+// createFilteredInfoHandler wraps the given output handler in handlers that add
+// caller info and filters on the given level.
+func createFilteredInfoHandler(outputHandler log.Handler, lvl log.Lvl) log.Handler {
+	return log.LvlFilterHandler(
 		lvl,
 		l15h.CallerInfoHandler(
 			outputHandler,
 		),
 	)
+}
+
+// setRootHandler sets the given handler as the root handler that all logging
+// will use.
+func setRootHandler(h log.Handler) {
 	log.Root().SetHandler(h)
 }
 
@@ -84,15 +103,30 @@ func ToBufferAtLevel(lvl string) *bytes.Buffer {
 	return buff
 }
 
+// CreateFileHandlerAtLevel returns a log15 file handler at the given level.
+func CreateFileHandlerAtLevel(path, lvl string) (log.Handler, error) {
+	fh, err := log.FileHandler(path, log.LogfmtFormat())
+	if err != nil {
+		return nil, err
+	}
+
+	return createFilteredInfoHandler(fh, lvlFromString(lvl)), nil
+}
+
+// AddHandler adds the given log15 handler to global logger.
+func AddHandler(handler log.Handler) {
+	l15h.AddHandler(log.Root(), handler)
+}
+
 // ToFileAtLevel sets the global logger to log to a file at the given path
 // and at the given level.
 func ToFileAtLevel(path, lvl string) error {
-	fh, err := log.FileHandler(path, log.LogfmtFormat())
+	fh, err := CreateFileHandlerAtLevel(path, lvl)
 	if err != nil {
 		return err
 	}
 
-	toOutputAtLevel(fh, lvlFromString(lvl))
+	setRootHandler(fh)
 
 	return nil
 }
