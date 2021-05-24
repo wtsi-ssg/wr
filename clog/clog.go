@@ -36,8 +36,6 @@ import (
 	"github.com/sb10/l15h"
 )
 
-// Logging to STDERR and file at a same time
-
 // init sets our default logging syle.
 func init() {
 	ToDefault()
