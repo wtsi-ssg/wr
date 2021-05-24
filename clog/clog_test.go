@@ -45,8 +45,11 @@ import (
 // returns false if timeout occurs.
 func checkTailedLog(tailer *tail.Tail) bool {
 	logChan := make(chan string, 1)
+	started := make(chan bool)
 
 	go func() {
+		started <- true
+
 		for line := range tailer.Lines {
 			if strings.Contains(line.Text, "wrrunner") {
 				logChan <- line.Text
@@ -56,13 +59,14 @@ func checkTailedLog(tailer *tail.Tail) bool {
 		}
 	}()
 
+	<-started
 	select {
 	case tailedLog := <-logChan:
 		So(tailedLog, ShouldContainSubstring, "lvl=warn")
 		So(tailedLog, ShouldContainSubstring, "foo=1")
 
 		return true
-	case <-time.After(3 * time.Second):
+	case <-time.After(1 * time.Second):
 		return false
 	}
 }
@@ -268,7 +272,8 @@ func TestLogger(t *testing.T) {
 					Offset: 0,
 					Whence: os.SEEK_END,
 				},
-				Poll: true,
+				Poll:   true,
+				Logger: tail.DiscardingLogger,
 			})
 			So(err, ShouldBeNil)
 
