@@ -38,6 +38,10 @@ const (
 	retrySetKey correlationIDType = iota
 	retryActivityKey
 	retryNumKey
+	contextJobKey
+	contextServerID
+	contextSchedulerType
+	contextCloudType
 )
 
 // ContextForRetries returns a context which knows a new unique retryset
@@ -53,4 +57,24 @@ func ContextForRetries(ctx context.Context, activity string) context.Context {
 // ContextWithRetryNum returns a context which knows the given retrynum.
 func ContextWithRetryNum(ctx context.Context, retrynum int) context.Context {
 	return context.WithValue(ctx, retryNumKey, retrynum)
+}
+
+// ContextWithJobKey returns a context which knows the given key.
+func ContextWithJobKey(ctx context.Context, key string) context.Context {
+	return context.WithValue(ctx, contextJobKey, key)
+}
+
+// ContextWithServerID returns a context which knows the given id.
+func ContextWithServerID(ctx context.Context, key string) context.Context {
+	return context.WithValue(ctx, contextServerID, key)
+}
+
+// ContextWithCloudType returns a context which knows the given cloud type.
+func ContextWithCloudType(ctx context.Context, key string) context.Context {
+	return context.WithValue(ctx, contextCloudType, key)
+}
+
+// ContextWithSchedulerType returns a context which knows the given scheduler type.
+func ContextWithSchedulerType(ctx context.Context, key string) context.Context {
+	return context.WithValue(ctx, contextSchedulerType, key)
 }
