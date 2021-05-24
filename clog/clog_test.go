@@ -66,7 +66,7 @@ func checkTailedLog(tailer *tail.Tail) bool {
 		So(tailedLog, ShouldContainSubstring, "foo=1")
 
 		return true
-	case <-time.After(1 * time.Second):
+	case <-time.After(1 * time.Minute):
 		return false
 	}
 }
