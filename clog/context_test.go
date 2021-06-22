@@ -112,11 +112,11 @@ func TestContext(t *testing.T) {
 	})
 
 	Convey("ContextWithServerFlavour returns a context with a server flavour", t, func() {
-		sFlavour := "m1.tiny"
-		ctx := ContextWithServerFlavour(background, sFlavour)
+		sFlavor := "m1.tiny"
+		ctx := ContextWithServerFlavor(background, sFlavor)
 		So(ctx, ShouldNotBeNil)
 
-		val := ctx.Value(contextServerFlavour)
-		So(checkValIsString(val), ShouldEqual, sFlavour)
+		val := ctx.Value(contextServerFlavor)
+		So(checkValIsString(val), ShouldEqual, sFlavor)
 	})
 }
