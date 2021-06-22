@@ -81,10 +81,12 @@ func ContextWithSchedulerType(ctx context.Context, key string) context.Context {
 	return context.WithValue(ctx, contextSchedulerType, key)
 }
 
+// ContextWithCallValue returns a context which knows the given call value.
 func ContextWithCallValue(ctx context.Context, key string) context.Context {
 	return context.WithValue(ctx, contextCallValue, key)
 }
 
+// ContextWithServerFlavour returns a context which knows the given server flavour.
 func ContextWithServerFlavour(ctx context.Context, key string) context.Context {
 	return context.WithValue(ctx, contextServerFlavour, key)
 }
