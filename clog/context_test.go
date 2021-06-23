@@ -103,7 +103,7 @@ func TestContext(t *testing.T) {
 	})
 
 	Convey("ContextWithCallValue returns a context with a call value", t, func() {
-		cValue := "test"
+		cValue := "bar"
 		ctx := ContextWithCallValue(background, cValue)
 		So(ctx, ShouldNotBeNil)
 
@@ -112,7 +112,7 @@ func TestContext(t *testing.T) {
 	})
 
 	Convey("ContextWithServerFlavor returns a context with a server flavour", t, func() {
-		sFlavor := "m1.tiny"
+		sFlavor := "bar"
 		ctx := ContextWithServerFlavor(background, sFlavor)
 		So(ctx, ShouldNotBeNil)
 
