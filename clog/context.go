@@ -86,7 +86,7 @@ func ContextWithCallValue(ctx context.Context, key string) context.Context {
 	return context.WithValue(ctx, contextCallValue, key)
 }
 
-// ContextWithServerFlavour returns a context which knows the given server flavour.
+// ContextWithServerFlavor returns a context which knows the given server flavour.
 func ContextWithServerFlavor(ctx context.Context, key string) context.Context {
 	return context.WithValue(ctx, contextServerFlavor, key)
 }

@@ -111,7 +111,7 @@ func TestContext(t *testing.T) {
 		So(checkValIsString(val), ShouldEqual, cValue)
 	})
 
-	Convey("ContextWithServerFlavour returns a context with a server flavour", t, func() {
+	Convey("ContextWithServerFlavor returns a context with a server flavour", t, func() {
 		sFlavor := "m1.tiny"
 		ctx := ContextWithServerFlavor(background, sFlavor)
 		So(ctx, ShouldNotBeNil)
