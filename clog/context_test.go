@@ -101,4 +101,22 @@ func TestContext(t *testing.T) {
 		val := ctx.Value(contextCloudType)
 		So(checkValIsString(val), ShouldEqual, cType)
 	})
+
+	Convey("ContextWithCallValue returns a context with a call value", t, func() {
+		cValue := "test"
+		ctx := ContextWithCallValue(background, cValue)
+		So(ctx, ShouldNotBeNil)
+
+		val := ctx.Value(contextCallValue)
+		So(checkValIsString(val), ShouldEqual, cValue)
+	})
+
+	Convey("ContextWithServerFlavor returns a context with a server flavour", t, func() {
+		sFlavor := "m1.tiny"
+		ctx := ContextWithServerFlavor(background, sFlavor)
+		So(ctx, ShouldNotBeNil)
+
+		val := ctx.Value(contextServerFlavor)
+		So(checkValIsString(val), ShouldEqual, sFlavor)
+	})
 }

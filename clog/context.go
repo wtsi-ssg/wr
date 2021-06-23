@@ -42,6 +42,8 @@ const (
 	contextServerID
 	contextSchedulerType
 	contextCloudType
+	contextCallValue
+	contextServerFlavor
 )
 
 // ContextForRetries returns a context which knows a new unique retryset
@@ -77,4 +79,14 @@ func ContextWithCloudType(ctx context.Context, key string) context.Context {
 // ContextWithSchedulerType returns a context which knows the given scheduler type.
 func ContextWithSchedulerType(ctx context.Context, key string) context.Context {
 	return context.WithValue(ctx, contextSchedulerType, key)
+}
+
+// ContextWithCallValue returns a context which knows the given call value.
+func ContextWithCallValue(ctx context.Context, key string) context.Context {
+	return context.WithValue(ctx, contextCallValue, key)
+}
+
+// ContextWithServerFlavor returns a context which knows the given server flavour.
+func ContextWithServerFlavor(ctx context.Context, key string) context.Context {
+	return context.WithValue(ctx, contextServerFlavor, key)
 }
