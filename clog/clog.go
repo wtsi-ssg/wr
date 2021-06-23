@@ -148,6 +148,12 @@ func logger(ctx context.Context) log.Logger {
 		logger = addStringKeyToLogger(ctx, logger, retrySetKey, "retryset")
 		logger = addStringKeyToLogger(ctx, logger, retryActivityKey, "retryactivity")
 		logger = addIntKeyToLogger(ctx, logger, retryNumKey, "retrynum")
+		logger = addStringKeyToLogger(ctx, logger, contextJobKey, "jobkey")
+		logger = addStringKeyToLogger(ctx, logger, contextServerID, "serverid")
+		logger = addStringKeyToLogger(ctx, logger, contextSchedulerType, "schedulertype")
+		logger = addStringKeyToLogger(ctx, logger, contextCloudType, "cloudtype")
+		logger = addStringKeyToLogger(ctx, logger, contextCallValue, "callvalue")
+		logger = addStringKeyToLogger(ctx, logger, contextServerFlavor, "serverflavor")
 	}
 
 	return logger

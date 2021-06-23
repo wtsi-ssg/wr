@@ -105,6 +105,48 @@ func TestLogger(t *testing.T) {
 		So(buff.String(), ShouldContainSubstring, "retrynum=3")
 	})
 
+	Convey("JobKey context gets logged", t, func() {
+		buff := ToBufferAtLevel("debug")
+		ctx := ContextWithJobKey(background, "bar")
+		Debug(ctx, "msg", "foo", 1)
+		So(buff.String(), ShouldContainSubstring, "jobkey=bar")
+	})
+
+	Convey("ServerID context gets logged", t, func() {
+		buff := ToBufferAtLevel("debug")
+		ctx := ContextWithServerID(background, "bar")
+		Debug(ctx, "msg", "foo", 1)
+		So(buff.String(), ShouldContainSubstring, "serverid=bar")
+	})
+
+	Convey("CloudType context gets logged", t, func() {
+		buff := ToBufferAtLevel("debug")
+		ctx := ContextWithCloudType(background, "bar")
+		Debug(ctx, "msg", "foo", 1)
+		So(buff.String(), ShouldContainSubstring, "cloudtype=bar")
+	})
+
+	Convey("SchedulerType context gets logged", t, func() {
+		buff := ToBufferAtLevel("debug")
+		ctx := ContextWithSchedulerType(background, "bar")
+		Debug(ctx, "msg", "foo", 1)
+		So(buff.String(), ShouldContainSubstring, "schedulertype=bar")
+	})
+
+	Convey("CallValue context gets logged", t, func() {
+		buff := ToBufferAtLevel("debug")
+		ctx := ContextWithCallValue(background, "bar")
+		Debug(ctx, "msg", "foo", 1)
+		So(buff.String(), ShouldContainSubstring, "callvalue=bar")
+	})
+
+	Convey("ServerFlavor context gets logged", t, func() {
+		buff := ToBufferAtLevel("debug")
+		ctx := ContextWithServerFlavor(background, "bar")
+		Debug(ctx, "msg", "foo", 1)
+		So(buff.String(), ShouldContainSubstring, "serverflavor=bar")
+	})
+
 	Convey("With logging set to a buffer at warn level, and some context", t, func() {
 		buff := ToBufferAtLevel("warn")
 		retryNum := 3
@@ -126,6 +168,7 @@ func TestLogger(t *testing.T) {
 
 				Debug(ctx, "msg", "foo", 1)
 				lmsg := buff.String()
+
 				hasMsgAndFoo("dbug", lmsg)
 				So(lmsg, ShouldContainSubstring, "caller=clog")
 				So(lmsg, ShouldContainSubstring, retryLogMsg)
