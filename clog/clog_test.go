@@ -34,6 +34,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/acarl005/stripansi"
 	"github.com/hpcloud/tail"
 	"github.com/inconshreveable/log15"
 	. "github.com/smartystreets/goconvey/convey"
@@ -122,6 +123,7 @@ func TestLogger(t *testing.T) {
 	Convey("CloudType context gets logged", t, func() {
 		buff := ToBufferAtLevel("debug")
 		ctx := ContextWithCloudType(background, "bar")
+		ctx = ContextWithServerID(ctx, "bar")
 		Debug(ctx, "msg", "foo", 1)
 		So(buff.String(), ShouldContainSubstring, "cloudtype=bar")
 	})
@@ -145,6 +147,13 @@ func TestLogger(t *testing.T) {
 		ctx := ContextWithServerFlavor(background, "bar")
 		Debug(ctx, "msg", "foo", 1)
 		So(buff.String(), ShouldContainSubstring, "serverflavor=bar")
+	})
+
+	Convey("LogHandler context gets logged", t, func() {
+		buff := ToBufferAtLevel("debug")
+		ctx := ContextWithLogHandler(background, "barHandler")
+		Debug(ctx, "msg", "foo", 1)
+		So(buff.String(), ShouldContainSubstring, "loghandler=barHandler")
 	})
 
 	Convey("With logging set to a buffer at warn level, and some context", t, func() {
@@ -195,7 +204,7 @@ func TestLogger(t *testing.T) {
 				Debug(ctx, "msg", "foo", 1)
 				stderr, err := fse.GetAndRestoreStdErr()
 				So(err, ShouldBeNil)
-				So(stderr, ShouldContainSubstring, "foo=1")
+				So(stripansi.Strip(stderr), ShouldContainSubstring, "foo=1")
 			})
 		})
 

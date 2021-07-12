@@ -119,4 +119,13 @@ func TestContext(t *testing.T) {
 		val := ctx.Value(contextServerFlavor)
 		So(checkValIsString(val), ShouldEqual, sFlavor)
 	})
+
+	Convey("ContextWithLogHandler returns a context with a log handler", t, func() {
+		logHandler := "barHandler"
+		ctx := ContextWithLogHandler(background, logHandler)
+		So(ctx, ShouldNotBeNil)
+
+		val := ctx.Value(contextLogHandler)
+		So(checkValIsString(val), ShouldEqual, logHandler)
+	})
 }

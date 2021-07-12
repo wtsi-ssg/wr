@@ -48,7 +48,7 @@ func ToDefault() {
 
 // ToDefaultAtLevel sets the global logger to log to STDERR at the given level.
 func ToDefaultAtLevel(lvl string) {
-	toOutputAtLevel(log.StreamHandler(os.Stderr, log.LogfmtFormat()), lvlFromString(lvl))
+	toOutputAtLevel(log.StreamHandler(os.Stderr, log.TerminalFormat()), lvlFromString(lvl))
 }
 
 // ToHandlerAtLevel sets the default logger to a given custom handler at the
@@ -154,6 +154,7 @@ func logger(ctx context.Context) log.Logger {
 		logger = addStringKeyToLogger(ctx, logger, contextCloudType, "cloudtype")
 		logger = addStringKeyToLogger(ctx, logger, contextCallValue, "callvalue")
 		logger = addStringKeyToLogger(ctx, logger, contextServerFlavor, "serverflavor")
+		logger = addStringKeyToLogger(ctx, logger, contextLogHandler, "loghandler")
 	}
 
 	return logger
