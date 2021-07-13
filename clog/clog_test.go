@@ -155,7 +155,7 @@ func TestLogger(t *testing.T) {
 		So(buff.String(), ShouldContainSubstring, "loghandler=barHandler")
 	})
 
-  Convey("With logging set to a buffer at warn level, and some context", t, func() {
+	Convey("With logging set to a buffer at warn level, and some context", t, func() {
 		buff := ToBufferAtLevel("warn")
 		retryNum := 3
 		ctx := ContextWithRetryNum(background, retryNum)
