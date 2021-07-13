@@ -26,9 +26,11 @@
 package clog
 
 import (
+	"bytes"
 	"context"
 	"testing"
 
+	"github.com/inconshreveable/log15"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -121,11 +123,12 @@ func TestContext(t *testing.T) {
 	})
 
 	Convey("ContextWithLogHandler returns a context with a log handler", t, func() {
-		logHandler := "barHandler"
+		buff := new(bytes.Buffer)
+		logHandler := log15.StreamHandler(buff, log15.TerminalFormat())
 		ctx := ContextWithLogHandler(background, logHandler)
 		So(ctx, ShouldNotBeNil)
 
 		val := ctx.Value(contextLogHandler)
-		So(checkValIsString(val), ShouldEqual, logHandler)
+		So(val, ShouldHaveSameTypeAs, logHandler)
 	})
 }
