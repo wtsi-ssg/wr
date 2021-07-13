@@ -26,6 +26,7 @@
 package clog
 
 import (
+	"bytes"
 	"context"
 	"log/syslog"
 	"os"
@@ -148,11 +149,18 @@ func TestLogger(t *testing.T) {
 		So(buff.String(), ShouldContainSubstring, "serverflavor=bar")
 	})
 
-	Convey("LogHandler context gets logged", t, func() {
+	Convey("LogHandler changes how we log", t, func() {
 		buff := ToBufferAtLevel("debug")
-		ctx := ContextWithLogHandler(background, "barHandler")
+		Debug(background, "msg", "foo", 1)
+		So(buff.String(), ShouldStartWith, "t=")
+		So(buff.String(), ShouldContainSubstring, "foo=1")
+
+		buff2 := new(bytes.Buffer)
+		handler := log15.StreamHandler(buff2, log15.TerminalFormat())
+		ctx := ContextWithLogHandler(background, handler)
 		Debug(ctx, "msg", "foo", 1)
-		So(buff.String(), ShouldContainSubstring, "loghandler=barHandler")
+		So(buff2.String(), ShouldNotStartWith, "t=")
+		So(stripansi.Strip(buff2.String()), ShouldContainSubstring, "foo=1")
 	})
 
 	Convey("With logging set to a buffer at warn level, and some context", t, func() {

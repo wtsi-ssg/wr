@@ -28,6 +28,8 @@ package clog
 
 import (
 	"context"
+
+	"github.com/inconshreveable/log15"
 )
 
 // correlationIDType is for the *Key constants, which provide private quick-to-
@@ -93,6 +95,6 @@ func ContextWithServerFlavor(ctx context.Context, key string) context.Context {
 }
 
 // ContextWithLogHandler returns a context which knows the given log handler.
-func ContextWithLogHandler(ctx context.Context, key string) context.Context {
+func ContextWithLogHandler(ctx context.Context, key log15.Handler) context.Context {
 	return context.WithValue(ctx, contextLogHandler, key)
 }
