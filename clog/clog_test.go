@@ -123,7 +123,6 @@ func TestLogger(t *testing.T) {
 	Convey("CloudType context gets logged", t, func() {
 		buff := ToBufferAtLevel("debug")
 		ctx := ContextWithCloudType(background, "bar")
-		ctx = ContextWithServerID(ctx, "bar")
 		Debug(ctx, "msg", "foo", 1)
 		So(buff.String(), ShouldContainSubstring, "cloudtype=bar")
 	})
@@ -156,7 +155,7 @@ func TestLogger(t *testing.T) {
 		So(buff.String(), ShouldContainSubstring, "loghandler=barHandler")
 	})
 
-	Convey("With logging set to a buffer at warn level, and some context", t, func() {
+  Convey("With logging set to a buffer at warn level, and some context", t, func() {
 		buff := ToBufferAtLevel("warn")
 		retryNum := 3
 		ctx := ContextWithRetryNum(background, retryNum)
