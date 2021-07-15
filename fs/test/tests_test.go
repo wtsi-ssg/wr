@@ -92,15 +92,15 @@ func TestTestFuncs(t *testing.T) {
 
 		Convey("we can read from it and restore it to default", func() {
 			fmt.Fprintf(os.Stderr, "test stderr")
-			stdErr, err := mockedStdErr.GetAndRestoreStdErr()
-			So(err, ShouldBeNil)
+			stdErr, errg := mockedStdErr.GetAndRestoreStdErr()
+			So(errg, ShouldBeNil)
 			So(stdErr, ShouldContainSubstring, "test stderr")
 			So(mockedStdErr.stderrReader, ShouldBeNil)
 			So(mockedStdErr.origStderr, ShouldNotBeNil)
 
 			Convey("but not when it is already closed", func() {
-				_, err = mockedStdErr.GetAndRestoreStdErr()
-				So(err, ShouldNotBeNil)
+				_, errg = mockedStdErr.GetAndRestoreStdErr()
+				So(errg, ShouldNotBeNil)
 			})
 		})
 
