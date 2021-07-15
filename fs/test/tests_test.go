@@ -54,6 +54,7 @@ func TestTestFuncs(t *testing.T) {
 
 	Convey("Given a mocked STDIN", t, func() {
 		mockedStdIn, err := NewMockStdIn()
+		defer mockedStdIn.RestoreStdIn()
 		So(mockedStdIn, ShouldNotBeNil)
 		So(err, ShouldBeNil)
 
@@ -85,6 +86,7 @@ func TestTestFuncs(t *testing.T) {
 
 	Convey("Given a mocked STDERR", t, func() {
 		mockedStdErr, err := NewMockStdErr()
+		defer mockedStdErr.RestoreStdErr()
 		So(mockedStdErr, ShouldNotBeNil)
 		So(err, ShouldBeNil)
 
@@ -100,6 +102,17 @@ func TestTestFuncs(t *testing.T) {
 				_, err = mockedStdErr.GetAndRestoreStdErr()
 				So(err, ShouldNotBeNil)
 			})
+		})
+
+		Convey("reading fails if we close the reader", func() {
+			err = mockedStdErr.stderrReader.Close()
+			So(err, ShouldBeNil)
+
+			fmt.Fprintf(os.Stderr, "test stderr")
+			stdErr, err := mockedStdErr.GetAndRestoreStdErr()
+			So(err, ShouldBeNil)
+			So(stdErr, ShouldContainSubstring, "file already closed")
+			So(stdErr, ShouldNotContainSubstring, "test stderr")
 		})
 	})
 
