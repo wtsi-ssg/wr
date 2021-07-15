@@ -26,6 +26,7 @@
 package clog
 
 import (
+	"bytes"
 	"context"
 	"log/syslog"
 	"os"
@@ -294,40 +295,40 @@ func TestLogger(t *testing.T) {
 		So(err, ShouldNotBeNil)
 	})
 
-	Convey("Given a custom handler", t, func() {
-		ctx := context.Background()
-		handler, err := log15.SyslogHandler(syslog.LOG_USER,
-			"wrrunner", log15.LogfmtFormat())
-		So(err, ShouldBeNil)
+	Convey("You can log to an abitrary handler at desired level", t, func() {
+		buff := new(bytes.Buffer)
+		handler := log15.StreamHandler(buff, log15.LogfmtFormat())
 
-		Convey("it can log at given level", func() {
-			syslogpath := "/var/log/syslog"
+		ToHandlerAtLevel(handler, "warn")
+		Warn(background, "msg", "foo", 1)
+		So(buff.String(), ShouldContainSubstring, "foo=1")
 
-			if runtime.GOOS == "darwin" {
-				syslogpath = "/var/log/system.log"
-			} else if runtime.GOOS == "windows" {
-				t.Skip("skipping test; windows os not supported.")
-			}
+		if syslogpath := getSyslogPath(); syslogpath != "" {
+			Convey("Including a syslog handler", func() {
+				handler, err := log15.SyslogHandler(syslog.LOG_USER,
+					"wrrunner", log15.LogfmtFormat())
+				So(err, ShouldBeNil)
 
-			tailer, err := tail.TailFile(syslogpath, tail.Config{
-				Follow: true,
-				Location: &tail.SeekInfo{
-					Offset: 0,
-					Whence: os.SEEK_END,
-				},
-				Poll:   true,
-				Logger: tail.DiscardingLogger,
+				tailer, err := tail.TailFile(syslogpath, tail.Config{
+					Follow: true,
+					Location: &tail.SeekInfo{
+						Offset: 0,
+						Whence: os.SEEK_END,
+					},
+					Poll:   true,
+					Logger: tail.DiscardingLogger,
+				})
+				So(err, ShouldBeNil)
+
+				ToHandlerAtLevel(handler, "warn")
+				Warn(background, "msg", "foo", 1)
+
+				if !checkTailedLog(tailer) {
+					t.Error("Timeout waiting for a log from custom handler")
+					t.Fail()
+				}
 			})
-			So(err, ShouldBeNil)
-
-			ToHandlerAtLevel(handler, "warn")
-			Warn(ctx, "msg", "foo", 1)
-
-			if !checkTailedLog(tailer) {
-				t.Error("Timeout waiting for a log from custom handler")
-				t.Fail()
-			}
-		})
+		}
 	})
 
 	Convey("CreateFileHandler can be used to create a file handler", t, func() {
@@ -366,4 +367,28 @@ func TestLogger(t *testing.T) {
 		So(strContent, ShouldContainSubstring, "warn=1")
 		So(strContent, ShouldNotContainSubstring, "debug=1")
 	})
+}
+
+// getSyslogPath tries to find the path to the syslog file. If it can't be found
+// or isn't readable, returns blank.
+func getSyslogPath() string {
+	syslogpath := "/var/log/syslog"
+
+	if runtime.GOOS == "darwin" {
+		syslogpath = "/var/log/system.log"
+	} else if runtime.GOOS == "windows" {
+		return ""
+	}
+
+	f, err := os.Open(syslogpath)
+	if err != nil {
+		return ""
+	}
+
+	err = f.Close()
+	if err != nil {
+		return ""
+	}
+
+	return syslogpath
 }
