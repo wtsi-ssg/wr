@@ -36,9 +36,12 @@ import (
 
 func TestTestFuncs(t *testing.T) {
 	Convey("We can mock the STDIN and write to it", t, func() {
-		origStdin, stdinWriter, err := mockStdInRW("test")
+		origStdin, stdinWriter, err := mockStdInRW()
 		So(origStdin, ShouldNotBeNil)
 		So(stdinWriter, ShouldNotBeNil)
+		So(err, ShouldBeNil)
+
+		_, err = stdinWriter.WriteString("test\n")
 		So(err, ShouldBeNil)
 
 		var response string
@@ -50,11 +53,13 @@ func TestTestFuncs(t *testing.T) {
 	})
 
 	Convey("Given a mocked STDIN", t, func() {
-		mockedStdIn, err := NewMockStdIn("test2")
+		mockedStdIn, err := NewMockStdIn()
 		So(mockedStdIn, ShouldNotBeNil)
 		So(err, ShouldBeNil)
 
 		Convey("we can write to it", func() {
+			err = mockedStdIn.WriteString("test2")
+
 			var response string
 			fmt.Scanf("%s\n", &response)
 			So(response, ShouldEqual, "test2")

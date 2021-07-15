@@ -56,18 +56,41 @@ type MockStdIn struct {
 	stdinWriter *os.File
 }
 
-// NewMockStdErr creates a new MockStdErr and starts capturing the STDERR.
+// NewMockStdErr creates a new MockStdErr and starts capturing the STDERR. Be
+// sure to call GetAndRestoreStdErr() after you've done writing to STDERR, or
+// RestoreStdErr() if this returns an error.
 func NewMockStdErr() (*MockStdErr, error) {
 	origStderr, stderrReader, outCh, err := mockStdErrRW()
-	if err != nil {
-		return nil, err
-	}
 
 	return &MockStdErr{
 		origStderr:   origStderr,
 		stderrReader: stderrReader,
 		outCh:        outCh,
-	}, nil
+	}, err
+}
+
+// mockStdErrRW mocks STDERR and starts capturing it.
+func mockStdErrRW() (*os.File, *os.File, chan []byte, error) {
+	stderrReader, stderrWriter, err := os.Pipe()
+
+	origStderr := os.Stderr
+	os.Stderr = stderrWriter
+
+	outCh := make(chan []byte)
+
+	go func() {
+		var b bytes.Buffer
+		if _, err := io.Copy(&b, stderrReader); err != nil {
+			outCh <- []byte(err.Error())
+
+			return
+		}
+
+		bytes := b.Bytes()
+		outCh <- bytes
+	}()
+
+	return origStderr, stderrReader, outCh, err
 }
 
 // GetAndRestoreStdErr stops capturing the STDERR and returns already captured
@@ -96,45 +119,32 @@ func (se *MockStdErr) RestoreStdErr() {
 	}
 }
 
-// mockStdErrRW mocks STDERR and starts capturing it.
-func mockStdErrRW() (*os.File, *os.File, chan []byte, error) {
-	stderrReader, stderrWriter, err := os.Pipe()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	origStderr := os.Stderr
-	os.Stderr = stderrWriter
-
-	outCh := make(chan []byte)
-
-	go func() {
-		var b bytes.Buffer
-		if _, err := io.Copy(&b, stderrReader); err != nil {
-			outCh <- []byte(err.Error())
-
-			return
-		}
-
-		bytes := b.Bytes()
-		outCh <- bytes
-	}()
-
-	return origStderr, stderrReader, outCh, nil
-}
-
-// NewMockStdIn creates a new MockStdIn and writes the given text to STDIN. Be
-// sure to call RestoreStdIn() after you've done reading from STDIN.
-func NewMockStdIn(stdinText string) (*MockStdIn, error) {
-	origStdin, stdinWriter, err := mockStdInRW(stdinText)
-	if err != nil {
-		return nil, err
-	}
+// NewMockStdIn creates a new MockStdIn. Be sure to call RestoreStdIn() after
+// you've done reading from STDIN, or if this returns an error.
+func NewMockStdIn() (*MockStdIn, error) {
+	origStdin, stdinWriter, err := mockStdInRW()
 
 	return &MockStdIn{
 		origStdin:   origStdin,
 		stdinWriter: stdinWriter,
-	}, nil
+	}, err
+}
+
+// mockStdInRW writes the given value to a replaced STDIN.
+func mockStdInRW() (*os.File, *os.File, error) {
+	stdinReader, stdinWriter, err := os.Pipe()
+
+	origStdin := os.Stdin
+	os.Stdin = stdinReader
+
+	return origStdin, stdinWriter, err
+}
+
+// WriteString writes the given string to our mock STDIN.
+func (si *MockStdIn) WriteString(stdinText string) error {
+	_, err := si.stdinWriter.WriteString(stdinText + "\n")
+
+	return err
 }
 
 // RestoreStdIn restores the STDIN to its original value.
@@ -145,28 +155,6 @@ func (si *MockStdIn) RestoreStdIn() {
 		si.stdinWriter.Close()
 		si.stdinWriter = nil
 	}
-}
-
-// mockStdInRW writes the given value to a replaced STDIN.
-func mockStdInRW(stdinText string) (*os.File, *os.File, error) {
-	stdinReader, stdinWriter, err := os.Pipe()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	origStdin := os.Stdin
-	os.Stdin = stdinReader
-
-	_, err = stdinWriter.WriteString(stdinText + "\n")
-	if err != nil {
-		stdinWriter.Close()
-
-		os.Stdin = origStdin
-
-		return nil, nil, err
-	}
-
-	return origStdin, stdinWriter, nil
 }
 
 // FilePathInTempDir creates a new temporary directory and returns the absolute
