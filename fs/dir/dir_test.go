@@ -26,7 +26,9 @@ package dir
 
 import (
 	"context"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -37,15 +39,56 @@ import (
 func TestDir(t *testing.T) {
 	Convey("We can get the present working directory", t, func() {
 		ctx := context.Background()
-		pWD := GetPWD(ctx)
-		So(pWD, ShouldNotBeEmpty)
+		origPWD := GetPWD(ctx)
+		So(origPWD, ShouldNotBeEmpty)
 
 		tempDir := os.TempDir()
 		err := os.Chdir(tempDir)
 		So(err, ShouldBeNil)
 
-		pWD = GetPWD(ctx)
-		So(strings.TrimSuffix(pWD, "/"), ShouldEndWith, strings.TrimSuffix(tempDir, "/"))
+		defer func() {
+			err = os.Chdir(origPWD)
+			So(err, ShouldBeNil)
+		}()
+
+		pwd := GetPWD(ctx)
+		So(strings.TrimSuffix(pwd, "/"), ShouldEndWith, strings.TrimSuffix(tempDir, "/"))
+
+		Convey("unless it doesn't exist", func() {
+			dir := filepath.Join(tempDir, "non")
+			err = os.MkdirAll(dir, fs.ModePerm)
+			So(err, ShouldBeNil)
+
+			err := os.Chdir(dir)
+			So(err, ShouldBeNil)
+
+			err = os.RemoveAll(dir)
+			So(err, ShouldBeNil)
+
+			buff := clog.ToBufferAtLevel("fatal")
+			defer clog.ToDefault()
+
+			os.Setenv("WR_FATAL_EXIT_TEST", "1")
+			defer os.Unsetenv("WR_FATAL_EXIT_TEST")
+
+			_ = GetPWD(ctx)
+
+			bufferStr := buff.String()
+
+			if bufferStr == "" {
+				pwd, err = os.Getwd()
+				So(err, ShouldBeNil)
+				So(pwd, ShouldNotEqual, dir)
+				SkipConvey("can't test GetPWD failure on a system that never fails pwd", func() {})
+
+				return
+			}
+
+			So(bufferStr, ShouldContainSubstring, "fatal=true")
+			So(bufferStr, ShouldNotContainSubstring, "caller=clog")
+			So(bufferStr, ShouldContainSubstring, "stack=")
+			So(bufferStr, ShouldContainSubstring, "no such file or directory")
+		})
 	})
 
 	Convey("We can get the home directory", t, func() {
