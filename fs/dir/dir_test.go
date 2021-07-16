@@ -74,6 +74,16 @@ func TestDir(t *testing.T) {
 			_ = GetPWD(ctx)
 
 			bufferStr := buff.String()
+
+			if bufferStr == "" {
+				pwd, err = os.Getwd()
+				So(err, ShouldBeNil)
+				So(pwd, ShouldNotEqual, dir)
+				SkipConvey("can't test GetPWD failure on a system that never fails pwd", func() {})
+
+				return
+			}
+
 			So(bufferStr, ShouldContainSubstring, "fatal=true")
 			So(bufferStr, ShouldNotContainSubstring, "caller=clog")
 			So(bufferStr, ShouldContainSubstring, "stack=")
