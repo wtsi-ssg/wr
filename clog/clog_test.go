@@ -153,6 +153,30 @@ func TestLogger(t *testing.T) {
 		})
 	})
 
+	Convey("Context with a file handler logs to a given file", t, func() {
+		logPath := ft.FilePathInTempDir(t, "clog.log")
+		ctxf, err := ContextWithFileHandler(context.Background(), logPath, "debug")
+		So(ctxf, ShouldNotBeNil)
+		So(err, ShouldBeNil)
+
+		Debug(ctxf, "msg", "foo", 1)
+		content, err := fl.ToString(logPath)
+		So(content, ShouldContainSubstring, "foo=1")
+		So(err, ShouldBeNil)
+
+		Convey("Unless the path is invalid", func() {
+			ctxf, err = ContextWithFileHandler(context.Background(), "", "debug")
+			So(ctxf, ShouldBeNil)
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("but doesn't log to console", func() {
+			buff := ToBufferAtLevel("debug")
+			Debug(ctxf, "msg", "foo", 1)
+			So(buff.String(), ShouldBeEmpty)
+		})
+	})
+
 	Convey("With logging set to a buffer at warn level, and some context", t, func() {
 		buff := ToBufferAtLevel("warn")
 		retryNum := 3
