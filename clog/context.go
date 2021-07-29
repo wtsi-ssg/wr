@@ -28,6 +28,8 @@ package clog
 
 import (
 	"context"
+
+	"github.com/inconshreveable/log15"
 )
 
 // correlationIDType is for the *Key constants, which provide private quick-to-
@@ -44,6 +46,7 @@ const (
 	contextCloudType
 	contextCallValue
 	contextServerFlavor
+	contextLogHandler
 )
 
 // ContextForRetries returns a context which knows a new unique retryset
@@ -89,4 +92,9 @@ func ContextWithCallValue(ctx context.Context, key string) context.Context {
 // ContextWithServerFlavor returns a context which knows the given server flavour.
 func ContextWithServerFlavor(ctx context.Context, key string) context.Context {
 	return context.WithValue(ctx, contextServerFlavor, key)
+}
+
+// ContextWithLogHandler returns a context which knows the given log handler.
+func ContextWithLogHandler(ctx context.Context, key log15.Handler) context.Context {
+	return context.WithValue(ctx, contextLogHandler, key)
 }

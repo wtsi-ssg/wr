@@ -35,6 +35,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/acarl005/stripansi"
 	"github.com/hpcloud/tail"
 	"github.com/inconshreveable/log15"
 	. "github.com/smartystreets/goconvey/convey"
@@ -118,6 +119,64 @@ func TestLogger(t *testing.T) {
 		So(buff.String(), ShouldContainSubstring, "serverflavor=bar")
 	})
 
+	Convey("LogHandler changes how we log", t, func() {
+		buff := ToBufferAtLevel("debug")
+		Debug(background, "msg", "foo", 1)
+		So(buff.String(), ShouldStartWith, "t=")
+		So(buff.String(), ShouldContainSubstring, "foo=1")
+
+		Convey("also when the context gets set with a different log handler", func() {
+			buff2 := new(bytes.Buffer)
+			handler := log15.StreamHandler(buff2, log15.TerminalFormat())
+			ctx := ContextWithLogHandler(background, handler)
+			Debug(ctx, "msg", "fooT", 1)
+			So(buff2.String(), ShouldNotStartWith, "t=")
+			So(stripansi.Strip(buff2.String()), ShouldStartWith, "DBUG")
+			So(stripansi.Strip(buff2.String()), ShouldContainSubstring, "fooT=1")
+
+			Convey("and that can also include other context", func() {
+				buff2.Reset()
+				ctx = ContextWithServerFlavor(ctx, "bar")
+				Debug(ctx, "msg", "fooT", 1)
+				So(buff2.String(), ShouldNotStartWith, "t=")
+				So(stripansi.Strip(buff2.String()), ShouldStartWith, "DBUG")
+				So(stripansi.Strip(buff2.String()), ShouldContainSubstring, "fooT=1")
+				So(stripansi.Strip(buff2.String()), ShouldContainSubstring, "serverflavor=bar")
+			})
+
+			Convey("but this doesn't affect the logging with background context", func() {
+				buff.Reset()
+				Debug(background, "msg", "fooB", 1)
+				So(buff.String(), ShouldStartWith, "t=")
+				So(buff.String(), ShouldContainSubstring, "fooB=1")
+			})
+		})
+	})
+
+	Convey("Context with a file handler logs to a given file", t, func() {
+		logPath := ft.FilePathInTempDir(t, "clog.log")
+		ctxf, err := ContextWithFileHandler(context.Background(), logPath, "debug")
+		So(ctxf, ShouldNotBeNil)
+		So(err, ShouldBeNil)
+
+		Debug(ctxf, "msg", "foo", 1)
+		content, err := fl.ToString(logPath)
+		So(content, ShouldContainSubstring, "foo=1")
+		So(err, ShouldBeNil)
+
+		Convey("Unless the path is invalid", func() {
+			ctxf, err = ContextWithFileHandler(context.Background(), "", "debug")
+			So(ctxf, ShouldBeNil)
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("but doesn't log to console", func() {
+			buff := ToBufferAtLevel("debug")
+			Debug(ctxf, "msg", "foo", 1)
+			So(buff.String(), ShouldBeEmpty)
+		})
+	})
+
 	Convey("With logging set to a buffer at warn level, and some context", t, func() {
 		buff := ToBufferAtLevel("warn")
 		retryNum := 3
@@ -166,7 +225,7 @@ func TestLogger(t *testing.T) {
 				Debug(ctx, "msg", "foo", 1)
 				stderr, err := fse.GetAndRestoreStdErr()
 				So(err, ShouldBeNil)
-				So(stderr, ShouldContainSubstring, "foo=1")
+				So(stripansi.Strip(stderr), ShouldContainSubstring, "foo=1")
 			})
 		})
 

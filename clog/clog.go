@@ -52,7 +52,7 @@ func ToDefault() {
 
 // ToDefaultAtLevel sets the global logger to log to STDERR at the given level.
 func ToDefaultAtLevel(lvl string) {
-	toOutputAtLevel(log.StreamHandler(os.Stderr, log.LogfmtFormat()), lvlFromString(lvl))
+	toOutputAtLevel(log.StreamHandler(os.Stderr, log.TerminalFormat()), lvlFromString(lvl))
 }
 
 // ToHandlerAtLevel sets the default logger to a given custom handler at the
@@ -103,6 +103,17 @@ func ToBufferAtLevel(lvl string) *bytes.Buffer {
 	toOutputAtLevel(log.StreamHandler(buff, log.LogfmtFormat()), lvlFromString(lvl))
 
 	return buff
+}
+
+// ContextWithFileHandler returns a context that will log to the given file at
+// the given level.
+func ContextWithFileHandler(ctx context.Context, path, lvl string) (context.Context, error) {
+	fh, err := CreateFileHandlerAtLevel(path, lvl)
+	if err != nil {
+		return nil, err
+	}
+
+	return ContextWithLogHandler(ctx, fh), nil
 }
 
 // CreateFileHandlerAtLevel returns a log15 file handler at the given level.
@@ -158,6 +169,7 @@ func logger(ctx context.Context) log.Logger {
 		logger = addStringKeyToLogger(ctx, logger, contextCloudType, "cloudtype")
 		logger = addStringKeyToLogger(ctx, logger, contextCallValue, "callvalue")
 		logger = addStringKeyToLogger(ctx, logger, contextServerFlavor, "serverflavor")
+		logger = addHandlerToLogger(ctx, logger)
 	}
 
 	return logger
@@ -178,6 +190,17 @@ func addStringKeyToLogger(ctx context.Context, logger log.Logger, key correlatio
 func addIntKeyToLogger(ctx context.Context, logger log.Logger, key correlationIDType, loggerKey string) log.Logger {
 	if val, ok := ctx.Value(key).(int); ok {
 		logger = logger.New(loggerKey, val)
+	}
+
+	return logger
+}
+
+// addHandlerToLogger checks if a handler has been set in the context and
+// sets the logger's handler to it.
+func addHandlerToLogger(ctx context.Context, logger log.Logger) log.Logger {
+	if val, ok := ctx.Value(contextLogHandler).(log.Handler); ok {
+		logger = logger.New()
+		logger.SetHandler(val)
 	}
 
 	return logger
