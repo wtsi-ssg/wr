@@ -101,6 +101,15 @@ func ToBufferAtLevel(lvl string) *bytes.Buffer {
 	return buff
 }
 
+func ContextWithFileHandler(ctx context.Context, path, lvl string) (context.Context, error) {
+	fh, err := CreateFileHandlerAtLevel(path, lvl)
+	if err != nil {
+		return nil, err
+	}
+
+	return ContextWithLogHandler(ctx, fh), nil
+}
+
 // CreateFileHandlerAtLevel returns a log15 file handler at the given level.
 func CreateFileHandlerAtLevel(path, lvl string) (log.Handler, error) {
 	fh, err := log.FileHandler(path, log.LogfmtFormat())
@@ -154,7 +163,7 @@ func logger(ctx context.Context) log.Logger {
 		logger = addStringKeyToLogger(ctx, logger, contextCloudType, "cloudtype")
 		logger = addStringKeyToLogger(ctx, logger, contextCallValue, "callvalue")
 		logger = addStringKeyToLogger(ctx, logger, contextServerFlavor, "serverflavor")
-		addHandlerToLogger(ctx, logger)
+		logger = addHandlerToLogger(ctx, logger)
 	}
 
 	return logger
@@ -170,19 +179,22 @@ func addStringKeyToLogger(ctx context.Context, logger log.Logger, key correlatio
 	return logger
 }
 
-// addHandlerToLogger checks if a handler has been set in the context and
-// sets the logger's handler to it.
-func addHandlerToLogger(ctx context.Context, logger log.Logger) {
-	if val, ok := ctx.Value(contextLogHandler).(log.Handler); ok {
-		logger.SetHandler(val)
-	}
-}
-
 // addIntKeyToLogger checks if the given int key is set in the logger and
 // returns a new logger with that context under the logger key if so.
 func addIntKeyToLogger(ctx context.Context, logger log.Logger, key correlationIDType, loggerKey string) log.Logger {
 	if val, ok := ctx.Value(key).(int); ok {
 		logger = logger.New(loggerKey, val)
+	}
+
+	return logger
+}
+
+// addHandlerToLogger checks if a handler has been set in the context and
+// sets the logger's handler to it.
+func addHandlerToLogger(ctx context.Context, logger log.Logger) log.Logger {
+	if val, ok := ctx.Value(contextLogHandler).(log.Handler); ok {
+		logger = logger.New()
+		logger.SetHandler(val)
 	}
 
 	return logger

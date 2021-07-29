@@ -155,12 +155,32 @@ func TestLogger(t *testing.T) {
 		So(buff.String(), ShouldStartWith, "t=")
 		So(buff.String(), ShouldContainSubstring, "foo=1")
 
-		buff2 := new(bytes.Buffer)
-		handler := log15.StreamHandler(buff2, log15.TerminalFormat())
-		ctx := ContextWithLogHandler(background, handler)
-		Debug(ctx, "msg", "foo", 1)
-		So(buff2.String(), ShouldNotStartWith, "t=")
-		So(stripansi.Strip(buff2.String()), ShouldContainSubstring, "foo=1")
+		Convey("also when the context gets set with a different log handler", func() {
+			buff2 := new(bytes.Buffer)
+			handler := log15.StreamHandler(buff2, log15.TerminalFormat())
+			ctx := ContextWithLogHandler(background, handler)
+			Debug(ctx, "msg", "fooT", 1)
+			So(buff2.String(), ShouldNotStartWith, "t=")
+			So(stripansi.Strip(buff2.String()), ShouldStartWith, "DBUG")
+			So(stripansi.Strip(buff2.String()), ShouldContainSubstring, "fooT=1")
+
+			Convey("and that can also include other context", func() {
+				buff2.Reset()
+				ctx = ContextWithServerFlavor(ctx, "bar")
+				Debug(ctx, "msg", "fooT", 1)
+				So(buff2.String(), ShouldNotStartWith, "t=")
+				So(stripansi.Strip(buff2.String()), ShouldStartWith, "DBUG")
+				So(stripansi.Strip(buff2.String()), ShouldContainSubstring, "fooT=1")
+				So(stripansi.Strip(buff2.String()), ShouldContainSubstring, "serverflavor=bar")
+			})
+
+			Convey("but this doesn't affect the logging with background context", func() {
+				buff.Reset()
+				Debug(background, "msg", "fooB", 1)
+				So(buff.String(), ShouldStartWith, "t=")
+				So(buff.String(), ShouldContainSubstring, "fooB=1")
+			})
+		})
 	})
 
 	Convey("With logging set to a buffer at warn level, and some context", t, func() {
