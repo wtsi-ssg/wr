@@ -105,7 +105,8 @@ func ToBufferAtLevel(lvl string) *bytes.Buffer {
 	return buff
 }
 
-// ContextWithFileHandler returns a context with a log handler at the given level.
+// ContextWithFileHandler returns a context that will log to the given file at
+// the given level.
 func ContextWithFileHandler(ctx context.Context, path, lvl string) (context.Context, error) {
 	fh, err := CreateFileHandlerAtLevel(path, lvl)
 	if err != nil {
