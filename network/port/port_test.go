@@ -105,20 +105,15 @@ func TestPort(t *testing.T) {
 		})
 
 		Convey("You can get a range of available ports multiple times in a row", func() {
-			min, max, err := checker.AvailableRange(2)
-			So(err, ShouldBeNil)
-			So(min, ShouldBeBetweenOrEqual, 1, maxPort)
-			So(max, ShouldEqual, min+1)
+			if ok := checkAvailableRange(checker, 2); !ok {
+				return
+			}
 
-			min, max, err = checker.AvailableRange(67)
-			So(err, ShouldBeNil)
-			So(min, ShouldBeBetweenOrEqual, 1, maxPort)
-			So(max, ShouldEqual, min+66)
+			if ok := checkAvailableRange(checker, 4); !ok {
+				return
+			}
 
-			min, max, err = checker.AvailableRange(67)
-			So(err, ShouldBeNil)
-			So(min, ShouldBeBetweenOrEqual, 1, maxPort)
-			So(max, ShouldEqual, min+66)
+			checkAvailableRange(checker, 4)
 		})
 
 		Convey("AvailableRange fails when tcp listening fails", func() {
@@ -165,4 +160,19 @@ func rangeTest(checker *Checker, truePorts []int, expected []int) {
 	So(has, ShouldBeTrue)
 	So(len(set), ShouldEqual, 4)
 	So(set, ShouldResemble, expected)
+}
+
+func checkAvailableRange(checker *Checker, size int) bool {
+	min, max, err := checker.AvailableRange(size)
+	if err != nil {
+		So(err.Error(), ShouldContainSubstring, "too many open files")
+		SkipConvey("your ulimit -n is too low for AvailableRange to function", func() {})
+
+		return false
+	}
+
+	So(min, ShouldBeBetweenOrEqual, 1, maxPort)
+	So(max, ShouldEqual, min+size-1)
+
+	return true
 }

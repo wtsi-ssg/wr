@@ -36,9 +36,12 @@ import (
 
 func TestTestFuncs(t *testing.T) {
 	Convey("We can mock the STDIN and write to it", t, func() {
-		origStdin, stdinWriter, err := mockStdInRW("test")
+		origStdin, stdinWriter, err := mockStdInRW()
 		So(origStdin, ShouldNotBeNil)
 		So(stdinWriter, ShouldNotBeNil)
+		So(err, ShouldBeNil)
+
+		_, err = stdinWriter.WriteString("test\n")
 		So(err, ShouldBeNil)
 
 		var response string
@@ -50,11 +53,14 @@ func TestTestFuncs(t *testing.T) {
 	})
 
 	Convey("Given a mocked STDIN", t, func() {
-		mockedStdIn, err := NewMockStdIn("test2")
+		mockedStdIn, err := NewMockStdIn()
+		defer mockedStdIn.RestoreStdIn()
 		So(mockedStdIn, ShouldNotBeNil)
 		So(err, ShouldBeNil)
 
 		Convey("we can write to it", func() {
+			err = mockedStdIn.WriteString("test2")
+
 			var response string
 			fmt.Scanf("%s\n", &response)
 			So(response, ShouldEqual, "test2")
@@ -80,21 +86,33 @@ func TestTestFuncs(t *testing.T) {
 
 	Convey("Given a mocked STDERR", t, func() {
 		mockedStdErr, err := NewMockStdErr()
+		defer mockedStdErr.RestoreStdErr()
 		So(mockedStdErr, ShouldNotBeNil)
 		So(err, ShouldBeNil)
 
 		Convey("we can read from it and restore it to default", func() {
 			fmt.Fprintf(os.Stderr, "test stderr")
-			stdErr, err := mockedStdErr.GetAndRestoreStdErr()
-			So(err, ShouldBeNil)
+			stdErr, errg := mockedStdErr.GetAndRestoreStdErr()
+			So(errg, ShouldBeNil)
 			So(stdErr, ShouldContainSubstring, "test stderr")
 			So(mockedStdErr.stderrReader, ShouldBeNil)
 			So(mockedStdErr.origStderr, ShouldNotBeNil)
 
 			Convey("but not when it is already closed", func() {
-				_, err = mockedStdErr.GetAndRestoreStdErr()
-				So(err, ShouldNotBeNil)
+				_, errg = mockedStdErr.GetAndRestoreStdErr()
+				So(errg, ShouldNotBeNil)
 			})
+		})
+
+		Convey("reading fails if we close the reader", func() {
+			err = mockedStdErr.stderrReader.Close()
+			So(err, ShouldBeNil)
+
+			fmt.Fprintf(os.Stderr, "test stderr")
+			stdErr, err := mockedStdErr.GetAndRestoreStdErr()
+			So(err, ShouldBeNil)
+			So(stdErr, ShouldContainSubstring, "file already closed")
+			So(stdErr, ShouldNotContainSubstring, "test stderr")
 		})
 	})
 

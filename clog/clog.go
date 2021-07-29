@@ -36,6 +36,10 @@ import (
 	"github.com/sb10/l15h"
 )
 
+// osExit is used to disable real os.Exit for testing purposes when calling
+// Fatal().
+var osExit = os.Exit
+
 // init sets our default logging syle.
 func init() {
 	ToDefault()
@@ -233,13 +237,18 @@ func Crit(ctx context.Context, msg string, args ...interface{}) {
 
 // Fatal logs the given message with context and args to the global logger at
 // the error level before exiting. 'fatal' is set true in stack trace.
+//
+// If the WR_FATAL_EXIT_TEST environment variable is set to 1, we don't
+// actually exit.
 func Fatal(ctx context.Context, msg string, args ...interface{}) {
 	args = append(args, "fatal", true)
 	logger(ctx).Crit(msg, args...)
 
 	if os.Getenv("WR_FATAL_EXIT_TEST") == "1" {
-		return
+		defer func() { osExit = os.Exit }()
+
+		osExit = func(int) {}
 	}
 
-	os.Exit(1)
+	osExit(1)
 }
