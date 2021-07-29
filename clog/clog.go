@@ -101,6 +101,7 @@ func ToBufferAtLevel(lvl string) *bytes.Buffer {
 	return buff
 }
 
+// ContextWithFileHandler returns a context with a log handler at the given level.
 func ContextWithFileHandler(ctx context.Context, path, lvl string) (context.Context, error) {
 	fh, err := CreateFileHandlerAtLevel(path, lvl)
 	if err != nil {
@@ -178,6 +179,14 @@ func addStringKeyToLogger(ctx context.Context, logger log.Logger, key correlatio
 
 	return logger
 }
+
+// // addHandlerToLogger checks if a handler has been set in the context and
+// // sets the logger's handler to it.
+// func addHandlerToLogger(ctx context.Context, logger log.Logger) {
+// 	if val, ok := ctx.Value(contextLogHandler).(log.Handler); ok {
+// 		logger.SetHandler(val)
+// 	}
+// }
 
 // addIntKeyToLogger checks if the given int key is set in the logger and
 // returns a new logger with that context under the logger key if so.
