@@ -323,30 +323,31 @@ func TestLogger(t *testing.T) {
 			So(err, ShouldNotBeNil)
 		})
 	})
+	/*
+		Convey("You can add a handler to log to multiple places at once", t, func() {
+			buff := ToBufferAtLevel("warn")
+			logPath := ft.FilePathInTempDir(t, "clog.log")
+			fh, err := CreateFileHandlerAtLevel(logPath, "warn")
+			So(err, ShouldBeNil)
+			So(fh, ShouldNotBeNil)
+			AddHandler(fh)
 
-	Convey("You can add a handler to log to multiple places at once", t, func() {
-		buff := ToBufferAtLevel("warn")
-		logPath := ft.FilePathInTempDir(t, "clog.log")
-		fh, err := CreateFileHandlerAtLevel(logPath, "warn")
-		So(err, ShouldBeNil)
-		So(fh, ShouldNotBeNil)
-		AddHandler(fh)
+			Warn(context.Background(), "msg", "warn", 1)
+			Debug(context.Background(), "msg", "debug", 1)
 
-		Warn(context.Background(), "msg", "warn", 1)
-		Debug(context.Background(), "msg", "debug", 1)
+			strContent := buff.String()
+			So(strContent, ShouldContainSubstring, "caller=clog.go")
+			So(strContent, ShouldContainSubstring, "warn=1")
+			So(strContent, ShouldNotContainSubstring, "debug=1")
+			buff.Reset()
 
-		strContent := buff.String()
-		So(strContent, ShouldContainSubstring, "caller=clog.go")
-		So(strContent, ShouldContainSubstring, "warn=1")
-		So(strContent, ShouldNotContainSubstring, "debug=1")
-		buff.Reset()
-
-		strContent, err = fl.ToString(logPath)
-		So(err, ShouldBeNil)
-		So(strContent, ShouldContainSubstring, "caller=clog.go")
-		So(strContent, ShouldContainSubstring, "warn=1")
-		So(strContent, ShouldNotContainSubstring, "debug=1")
-	})
+			strContent, err = fl.ToString(logPath)
+			So(err, ShouldBeNil)
+			So(strContent, ShouldContainSubstring, "caller=clog.go")
+			So(strContent, ShouldContainSubstring, "warn=1")
+			So(strContent, ShouldNotContainSubstring, "debug=1")
+		})
+	*/
 }
 
 // trySyslogTest does syslog tests if we can access a syslog path.

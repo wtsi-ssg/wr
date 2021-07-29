@@ -125,10 +125,10 @@ func CreateFileHandlerAtLevel(path, lvl string) (log.Handler, error) {
 	return createFilteredInfoHandler(fh, lvlFromString(lvl)), nil
 }
 
-// AddHandler adds the given log15 handler to global logger.
-func AddHandler(handler log.Handler) {
-	l15h.AddHandler(log.Root(), handler)
-}
+// // AddHandler adds the given log15 handler to global logger.
+// func AddHandler(handler log.Handler) {
+// 	l15h.AddHandler(log.Root(), handler)
+// }
 
 // ToFileAtLevel sets the global logger to log to a file at the given path
 // and at the given level.
