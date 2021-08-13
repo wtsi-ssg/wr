@@ -45,6 +45,8 @@ import (
 
 func TestLogger(t *testing.T) {
 	background := context.Background()
+	msg := "msg=msg"
+	foo := "foo=1"
 
 	Convey("GetHandler returns a log15 handler", t, func() {
 		handler := GetHandler()
@@ -123,7 +125,7 @@ func TestLogger(t *testing.T) {
 		buff := ToBufferAtLevel("debug")
 		Debug(background, "msg", "foo", 1)
 		So(buff.String(), ShouldStartWith, "t=")
-		So(buff.String(), ShouldContainSubstring, "foo=1")
+		So(buff.String(), ShouldContainSubstring, foo)
 
 		Convey("also when the context gets set with a different log handler", func() {
 			buff2 := new(bytes.Buffer)
@@ -133,6 +135,7 @@ func TestLogger(t *testing.T) {
 			So(buff2.String(), ShouldNotStartWith, "t=")
 			So(stripansi.Strip(buff2.String()), ShouldStartWith, "DBUG")
 			So(stripansi.Strip(buff2.String()), ShouldContainSubstring, "fooT=1")
+			So(stripansi.Strip(buff2.String()), ShouldNotContainSubstring, "caller")
 
 			Convey("and that can also include other context", func() {
 				buff2.Reset()
@@ -142,6 +145,7 @@ func TestLogger(t *testing.T) {
 				So(stripansi.Strip(buff2.String()), ShouldStartWith, "DBUG")
 				So(stripansi.Strip(buff2.String()), ShouldContainSubstring, "fooT=1")
 				So(stripansi.Strip(buff2.String()), ShouldContainSubstring, "serverflavor=bar")
+				So(stripansi.Strip(buff2.String()), ShouldNotContainSubstring, "caller")
 			})
 
 			Convey("but this doesn't affect the logging with background context", func() {
@@ -161,7 +165,7 @@ func TestLogger(t *testing.T) {
 
 		Debug(ctxf, "msg", "foo", 1)
 		content, err := fl.ToString(logPath)
-		So(content, ShouldContainSubstring, "foo=1")
+		So(content, ShouldContainSubstring, foo)
 		So(err, ShouldBeNil)
 
 		Convey("Unless the path is invalid", func() {
@@ -185,8 +189,8 @@ func TestLogger(t *testing.T) {
 
 		hasMsgAndFoo := func(lvl, lmsg string) {
 			So(lmsg, ShouldContainSubstring, "lvl="+lvl)
-			So(lmsg, ShouldContainSubstring, "msg=msg")
-			So(lmsg, ShouldContainSubstring, "foo=1")
+			So(lmsg, ShouldContainSubstring, msg)
+			So(lmsg, ShouldContainSubstring, foo)
 		}
 
 		Convey("Debug does nothing at level warn", func() {
@@ -225,7 +229,7 @@ func TestLogger(t *testing.T) {
 				Debug(ctx, "msg", "foo", 1)
 				stderr, err := fse.GetAndRestoreStdErr()
 				So(err, ShouldBeNil)
-				So(stripansi.Strip(stderr), ShouldContainSubstring, "foo=1")
+				So(stripansi.Strip(stderr), ShouldContainSubstring, foo)
 			})
 		})
 
@@ -330,7 +334,7 @@ func TestLogger(t *testing.T) {
 
 		ToHandlerAtLevel(handler, "warn")
 		Warn(background, "msg", "foo", 1)
-		So(buff.String(), ShouldContainSubstring, "foo=1")
+		So(buff.String(), ShouldContainSubstring, foo)
 
 		trySyslogTest(t)
 	})
@@ -350,6 +354,7 @@ func TestLogger(t *testing.T) {
 
 	Convey("You can add a handler to log to multiple places at once", t, func() {
 		buff := ToBufferAtLevel("warn")
+		caller := "caller=clog/clog_test.go"
 		logPath := ft.FilePathInTempDir(t, "clog.log")
 		fh, err := CreateFileHandlerAtLevel(logPath, "warn")
 		So(err, ShouldBeNil)
@@ -360,16 +365,74 @@ func TestLogger(t *testing.T) {
 		Debug(context.Background(), "msg", "debug", 1)
 
 		strContent := buff.String()
-		So(strContent, ShouldContainSubstring, "caller=clog.go")
+		So(strContent, ShouldContainSubstring, caller)
 		So(strContent, ShouldContainSubstring, "warn=1")
 		So(strContent, ShouldNotContainSubstring, "debug=1")
 		buff.Reset()
 
 		strContent, err = fl.ToString(logPath)
 		So(err, ShouldBeNil)
-		So(strContent, ShouldContainSubstring, "caller=clog.go")
+		So(strContent, ShouldContainSubstring, caller)
 		So(strContent, ShouldContainSubstring, "warn=1")
 		So(strContent, ShouldNotContainSubstring, "debug=1")
+	})
+}
+
+// taken from https://github.com/sb10/l15h/blob/master/l15h_test.go#L80
+func TestCaller(t *testing.T) {
+	Convey("You can set up the CallerInfoHandler", t, func() {
+		ctx := context.Background()
+		buff := new(bytes.Buffer)
+		msg := "msg=msg"
+		foo := "foo=1"
+		ec := "caller=clog/clog_test.go:"
+		h := CallerInfoHandler(log15.StreamHandler(buff, log15.LogfmtFormat()))
+		setRootHandler(h)
+
+		Convey("Debug() includes caller", func() {
+			Debug(ctx, "msg", "foo", 1)
+			lmsg := buff.String()
+			So(lmsg, ShouldContainSubstring, msg)
+			So(lmsg, ShouldContainSubstring, foo)
+			So(lmsg, ShouldContainSubstring, ec)
+		})
+
+		Convey("Info() doesn't include caller", func() {
+			Info(ctx, "msg", "foo", 1)
+			lmsg := buff.String()
+			So(lmsg, ShouldContainSubstring, msg)
+			So(lmsg, ShouldContainSubstring, foo)
+			So(lmsg, ShouldNotContainSubstring, ec)
+		})
+
+		Convey("Warn() includes caller", func() {
+			Warn(ctx, "msg", "foo", 1)
+			lmsg := buff.String()
+			So(lmsg, ShouldContainSubstring, msg)
+			So(lmsg, ShouldContainSubstring, foo)
+			So(lmsg, ShouldContainSubstring, ec)
+		})
+
+		Convey("Error() includes caller", func() {
+			Warn(ctx, "msg", "foo", 1)
+			lmsg := buff.String()
+			So(lmsg, ShouldContainSubstring, msg)
+			So(lmsg, ShouldContainSubstring, foo)
+			So(lmsg, ShouldContainSubstring, ec)
+		})
+
+		Convey("Crit() includes stack", func() {
+			Crit(ctx, "msg", "foo", 1)
+			lmsg := buff.String()
+			So(lmsg, ShouldContainSubstring, msg)
+			So(lmsg, ShouldContainSubstring, foo)
+			So(lmsg, ShouldContainSubstring, ` stack="[github.com/wtsi-ssg/wr/clog/clog.go:`)
+			So(lmsg, ShouldContainSubstring, "github.com/wtsi-ssg/wr/clog/clog_test.go:")
+		})
+
+		Reset(func() {
+			buff.Reset()
+		})
 	})
 }
 

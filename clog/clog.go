@@ -30,8 +30,11 @@ package clog
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
+	"path/filepath"
 
+	"github.com/go-stack/stack"
 	log "github.com/inconshreveable/log15"
 	"github.com/sb10/l15h"
 )
@@ -52,7 +55,14 @@ func ToDefault() {
 
 // ToDefaultAtLevel sets the global logger to log to STDERR at the given level.
 func ToDefaultAtLevel(lvl string) {
-	toOutputAtLevel(log.StreamHandler(os.Stderr, log.TerminalFormat()), lvlFromString(lvl))
+	toStderrAtLevel(lvlFromString(lvl))
+}
+
+// toStderrAtLevel sets the handler of the global logger at the given level to
+// log to STDERR.
+func toStderrAtLevel(lvl log.Lvl) {
+	h := log.StreamHandler(os.Stderr, log.TerminalFormat())
+	setRootHandler(log.LvlFilterHandler(lvl, h))
 }
 
 // ToHandlerAtLevel sets the default logger to a given custom handler at the
@@ -79,12 +89,39 @@ func toOutputAtLevel(outputHandler log.Handler, lvl log.Lvl) {
 	setRootHandler(h)
 }
 
+// CallerInfoHandler returns a Handler that, at the Debug, Warn and Error
+// levels, adds the file and line number of the calling function to the context
+// with key "caller". At the Crit levels it instead adds a stack trace to the
+// context with key "stack". The stack trace is formatted as a space separated
+// list of call sites inside matching []'s. The most recent call site is listed
+// first.
+//
+// taken from https://github.com/sb10/l15h/blob/master/l15h.go#L143
+func CallerInfoHandler(h log.Handler) log.Handler {
+	return log.FuncHandler(func(r *log.Record) error {
+		s := stack.Trace().TrimBelow(r.Call).TrimRuntime()
+		if len(s) > 0 {
+			switch r.Lvl {
+			case log.LvlInfo:
+				break
+			case log.LvlDebug, log.LvlWarn, log.LvlError:
+				path := filepath.Join(fmt.Sprintf("%k", s[1]), fmt.Sprintf("%v", s[1]))
+				r.Ctx = append(r.Ctx, "caller", path)
+			case log.LvlCrit:
+				r.Ctx = append(r.Ctx, "stack", fmt.Sprintf("%+v", s))
+			}
+		}
+
+		return h.Log(r)
+	})
+}
+
 // createFilteredInfoHandler wraps the given output handler in handlers that add
 // caller info and filters on the given level.
 func createFilteredInfoHandler(outputHandler log.Handler, lvl log.Lvl) log.Handler {
 	return log.LvlFilterHandler(
 		lvl,
-		l15h.CallerInfoHandler(
+		CallerInfoHandler(
 			outputHandler,
 		),
 	)

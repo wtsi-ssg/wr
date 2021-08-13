@@ -8,6 +8,7 @@ require (
 	github.com/containerd/containerd v1.5.4 // indirect
 	github.com/docker/docker v20.10.6+incompatible
 	github.com/docker/go-connections v0.4.0 // indirect
+	github.com/go-stack/stack v1.8.0
 	github.com/hpcloud/tail v1.0.0
 	github.com/inconshreveable/log15 v0.0.0-20201112154412-8562bdadbbac
 	github.com/mattn/go-colorable v0.1.8 // indirect
