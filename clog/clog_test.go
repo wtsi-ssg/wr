@@ -2,6 +2,7 @@
  * Copyright (c) 2020, 2021 Genome Research Ltd.
  *
  * Author: Sendu Bala <sb10@sanger.ac.uk>, <ac55@sanger.ac.uk>
+ * TestCaller based on code from github.com/sb10/l15h
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -378,7 +379,6 @@ func TestLogger(t *testing.T) {
 	})
 }
 
-// taken from https://github.com/sb10/l15h/blob/master/l15h_test.go#L80
 func TestCaller(t *testing.T) {
 	Convey("You can set up the CallerInfoHandler", t, func() {
 		ctx := context.Background()

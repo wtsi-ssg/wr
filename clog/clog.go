@@ -3,6 +3,7 @@
  *
  * Author: Sendu Bala <sb10@sanger.ac.uk>, <ac55@sanger.ac.uk>
  * Based on: https://blog.gopheracademy.com/advent-2016/context-logging/
+ * CallerInfoHandler based on code from github.com/sb10/l15h
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -95,8 +96,6 @@ func toOutputAtLevel(outputHandler log.Handler, lvl log.Lvl) {
 // context with key "stack". The stack trace is formatted as a space separated
 // list of call sites inside matching []'s. The most recent call site is listed
 // first.
-//
-// taken from https://github.com/sb10/l15h/blob/master/l15h.go#L143
 func CallerInfoHandler(h log.Handler) log.Handler {
 	return log.FuncHandler(func(r *log.Record) error {
 		s := stack.Trace().TrimBelow(r.Call).TrimRuntime()
