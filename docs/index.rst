@@ -1,20 +1,86 @@
-.. wr documentation master file, created by
-   sphinx-quickstart on Mon Oct 11 14:24:52 2021.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+wr: the workflow runner
+=======================================
 
-Welcome to wr's documentation!
-==============================
+.. meta::
+    :description lang=en: wr: the high performance workflow runner.
+
+`wr`_ is a workflow runner. You use it to run the commands in your workflow
+easily, automatically, reliably, with repeatability, and while making optimal
+use of your available computing resources.
+
+wr is implemented as a polling-free in-memory job queue with an on-disk acid
+transactional embedded database, written in go.
+
+High performance
+    Low latency and overhead, plus high performance at scale, lets you
+    confidently run any number of any kind of command.
+
+Real-time
+    Real-time status updates with a view on all your workflows on one screen.
+
+History
+    Permanent searchable history of all the commands you ever ran, with details
+    and summary statistics on how long they took to run and how much memory they
+    used.
+
+Dependencies
+    "Live" dependencies allow for easy automation of on-going projects.
+    Read more about :doc:`/advanced/dependencies`.
+
+OpenStack
+    Best-in-class OpenStack support, with increadibly easy deployment and
+    auto-scaling up and down. All without you having to know anything about
+    OpenStack.
+    Read more about :doc:`/schedulers/openstack`.
+
+S3
+    Mount S3-like object stores, for an easy way to run commands against remote
+    files whilst enjoying high performance.
+    Read more about :doc:`/s3`.
+
+
+.. _wr: https://github.com/VertebrateResequencing/wr
+
+First steps
+-----------
+
+* **Tutorial**: :doc:`/tutorial`
+
+* **Getting started**:
+  :doc:`Install </basics/install>` |
+  :doc:`Start the manager </basics/manager>` |
+  :doc:`Add commands </basics/add>` |
+  :doc:`Check status </basics/status>`
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :hidden:
+   :caption: First steps
 
+   /tutorial
+   /basics/install
+   /basics/manager
+   /basics/add
+   /basics/status
 
+Advanced usage
+--------------
 
-Indices and tables
-==================
+Learn about some of the more advanced features of wr.
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+* **Dependencies**
+  :doc:`Specify dependencies </advanced/dependencies>`
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :glob:
+   :caption: Advanced usage
+
+   /advanced/dependencies
+
+How-to Guides
+-------------
+
+These guides will help walk you through specific use cases.
+
