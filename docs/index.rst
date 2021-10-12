@@ -5,7 +5,7 @@ wr: the workflow runner
     :description lang=en: wr: the high performance workflow runner.
 
 `wr`_ is a workflow runner. You use it to run the commands in your workflow
-easily, automatically, reliably, with repeatability, and while making optimal
+easily, automatically, reliably, with repeatability, all while making optimal
 use of your available computing resources.
 
 wr is implemented as a polling-free in-memory job queue with an on-disk acid
@@ -68,7 +68,7 @@ Advanced usage
 
 Learn about some of the more advanced features of wr.
 
-* **Dependencies**
+* **Dependencies**:
   :doc:`Specify dependencies </advanced/dependencies>`
 
 .. toctree::
