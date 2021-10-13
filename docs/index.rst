@@ -83,3 +83,14 @@ How-to Guides
 
 These guides will help walk you through specific use cases.
 
+Support
+-------
+
+The best way to report bugs or make feature requests is to `create an issue on
+github <https://github.com/VertebrateResequencing/wr/issues/new>`.
+
+To chat with the developers and get help or discuss feature requests, join us on
+`gitter <https://gitter.im/wtsi-wr>`.
+
+
+If you'd like to contribute to wr's development, follow this guide.
