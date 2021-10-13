@@ -36,7 +36,7 @@ OpenStack
 S3
     Mount S3-like object stores, for an easy way to run commands against remote
     files whilst enjoying high performance.
-    Read more about :doc:`/s3`.
+    Read more about :doc:`/schedulers/s3`.
 
 
 .. _wr: https://github.com/VertebrateResequencing/wr
@@ -44,7 +44,7 @@ S3
 First steps
 -----------
 
-* **Tutorial**: :doc:`Basics </tutorials/basic.rst>`
+* **Tutorial**: :doc:`Basics </tutorials/basic>`
 
 * **Getting started**:
   :doc:`Install </basics/install>` |
