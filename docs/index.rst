@@ -44,7 +44,7 @@ S3
 First steps
 -----------
 
-* **Tutorial**: `Basics </tutorials/basic.rst>`
+* **Tutorial**: :doc:`Basics </tutorials/basic.rst>`
 
 * **Getting started**:
   :doc:`Install </basics/install>` |
