@@ -44,7 +44,7 @@ S3
 First steps
 -----------
 
-* **Tutorial**: :doc:`tutorials/basic.rst`
+* **Tutorial**: `Basics </tutorials/basic.rst>`
 
 * **Getting started**:
   :doc:`Install </basics/install>` |
@@ -74,7 +74,6 @@ Learn about some of the more advanced features of wr.
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :glob:
    :caption: Advanced usage
 
    /advanced/dependencies
