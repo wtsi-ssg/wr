@@ -1,5 +1,5 @@
 wr: the workflow runner
-=======================================
+=======================
 
 .. meta::
     :description lang=en: wr: the high performance workflow runner.
@@ -44,7 +44,7 @@ S3
 First steps
 -----------
 
-* **Tutorial**: :doc:`/tutorial`
+* **Tutorial**: :doc:`tutorials/basic.rst`
 
 * **Getting started**:
   :doc:`Install </basics/install>` |
