@@ -38,19 +38,26 @@ S3
     files whilst enjoying high performance.
     Read more about :doc:`/schedulers/s3`.
 
-
 .. _wr: https://github.com/VertebrateResequencing/wr
 
 First steps
 -----------
 
-* **Tutorial**: :doc:`Basics </tutorials/basic>`
+* **Tutorial**: :doc:`Basics </tutorials/basic>` (Why use wr? What does it do?
+  How do you use it?)
 
 * **Getting started**:
   :doc:`Install </basics/install>` |
   :doc:`Start the manager </basics/manager>` |
-  :doc:`Add commands </basics/add>` |
+  :doc:`Add jobs </basics/add>` |
   :doc:`Check status </basics/status>`
+
+* **Manipulate jobs**:
+  :doc:`Retry </basics/retry>` |
+  :doc:`Kill </basics/kill>` |
+  :doc:`Remove </basics/remove>` |
+  :doc:`Modify </basics/mod>` |
+  :doc:`Limit </basics/limit>`
 
 .. toctree::
    :maxdepth: 2
@@ -62,35 +69,68 @@ First steps
    /basics/manager
    /basics/add
    /basics/status
+   /basics/retry
+   /basics/kill
+   /basics/remove
+   /basics/mod
+   /basics/limit
 
-Advanced usage
---------------
+Schedulers
+----------
 
-Learn about some of the more advanced features of wr.
+After you've added jobs to wr's queue, wr schedules the jobs so they will be
+executed on your compute resources efficiently. You can learn more about how it
+schedules :doc:`in general </schedulers/schedulers>`, but you probably just need
+to pick the right scheduler for your circumstances:
 
-* **Dependencies**:
-  :doc:`Specify dependencies </advanced/dependencies>`
+* :doc:`Local </schedulers/local>` for executing on just your local machine.
+* :doc:`LSF </schedulers/lsf>` for executing on an LSF cluster.
+* :doc:`OpenStack </schedulers/openstack>` for executing on an OpenStack cluser.
 
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: Advanced usage
+   :caption: Schedulers
+
+   /schedulers/schedulers
+   /schedulers/local
+   /schedulers/lsf
+   /schedulers/openstack
+
+Advanced topics
+---------------
+
+Learn about some of the more advanced features of wr.
+
+* :doc:`Create workflows using dependencies </advanced/dependencies>`
+* :doc:`Work with files in S3 </advanced/s3>`
+* :doc:`Disaster recovery </advanced/recovery>`
+* :doc:`Contribute to wr's development </advanced/contribute>`
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: Advanced
 
    /advanced/dependencies
+   /advanced/recovery
+   /advanced/contribute
 
 How-to Guides
 -------------
 
 These guides will help walk you through specific use cases.
 
+* :doc:`Execute workflows in OpenStack using S3 </tutorials/openstack>`
+
 Support
 -------
 
 The best way to report bugs or make feature requests is to `create an issue on
-github <https://github.com/VertebrateResequencing/wr/issues/new>`.
+github <https://github.com/VertebrateResequencing/wr/issues/new>`_.
 
 To chat with the developers and get help or discuss feature requests, join us on
-`gitter <https://gitter.im/wtsi-wr>`.
+`gitter <https://gitter.im/wtsi-wr>`_.
 
-
-If you'd like to contribute to wr's development, follow this guide.
+If you'd like to contribute to wr's development, follow
+:doc:`this guide </advanced/contribute>`.
