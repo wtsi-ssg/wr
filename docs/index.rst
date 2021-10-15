@@ -106,6 +106,7 @@ Learn about some of the more advanced features of wr.
 
 * :doc:`Create workflows using dependencies </advanced/dependencies>`
 * :doc:`Work with files in S3 </advanced/s3>`
+* :doc:`Improve security </advanced/security>`
 * :doc:`Disaster recovery </advanced/recovery>`
 * :doc:`Use wr via its REST API </advanced/rest>`
 
@@ -115,6 +116,8 @@ Learn about some of the more advanced features of wr.
    :caption: Advanced
 
    /advanced/dependencies
+   /advanced/s3
+   /advanced/security
    /advanced/recovery
    /advanced/rest
    /advanced/contribute
