@@ -14,6 +14,4 @@ open (where log messages will appear) while you open another terminal to
 replicate the problem.
 
 Once you have some error messages, if the message doesn't make the solution
-obvious, please seek help from the developers by talking to us on
-`gitter <https://gitter.im/wtsi-wr>`_, or by creating an issue on
-`github <https://github.com/VertebrateResequencing/wr/issues/new>`_.
+obvious, please :ref:`get-in-touch`.

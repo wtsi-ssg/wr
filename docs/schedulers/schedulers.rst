@@ -29,7 +29,7 @@ What actually happens under the hood after you add jobs?
 
     1. When jobs become "ready" in the queue (eg. as soon as they're first
        added), count how many are in each reservation group (possibly altering
-       that first if :ref:`resource_usage_learning` is in place), and ask the
+       that first if :ref:`resource-usage-learning` is in place), and ask the
        scheduler to schedule that many ``wr runner --server <ip of manager's
        host:manager's port> --scheduler_group <reservation group>`` commands.
     2. In case something silently goes wrong with the scheduler or runners,

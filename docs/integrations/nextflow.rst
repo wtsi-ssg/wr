@@ -28,18 +28,16 @@ Thus, it is desirable to have Nextflow use wr as an execution backend to run
 your Nextflow workflows in an LSF cluster or in an OpenStack environment (which
 has an S3-compatible object store available).
 
-Support for wr in Nextflow is via the nf-wr plugin.
-
-.. note::
-    The plugin is not yet compatible with the latest versions of Nextflow. You
-    need to use an older version, eg. ``NXF_VER=20.10.0 nextflow [...]``.
-
-You can build it by doing::
+Support for wr in Nextflow is via the nf-wr plugin. You can build it by doing::
 
     git clone https://github.com/nextflow-io/nf-wr.git
     cd nf-wr
     make assemble
     export NXF_CLASSPATH=$PWD/build/libs/nf-wr-1.0.0.jar
+
+.. note::
+    The plugin is not yet compatible with the latest versions of Nextflow. You
+    need to use an older version, eg. ``NXF_VER=20.10.0 nextflow [...]``.
 
 You can then use Nextflow as normal, installed in its usual way.
 
@@ -165,8 +163,8 @@ a script with wr that mounts this S3 location, eg. ``mount.sh``::
 
 .. note::
     In the future, ``wr cloud deploy`` may have an option to mount a bucket for
-    you, making this much easier. Get in touch if you'd like this feature sooner
-    rather than later.
+    you, making this much easier. :ref:`get-in-touch` if you'd like this feature
+    sooner rather than later.
 
 Deploy using your desired image and/or script, and mention any config files your
 script might need (``~/.s3cfg`` is copied over by default, but if following the

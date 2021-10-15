@@ -64,7 +64,7 @@ domain, but it doesn't matter what IP address is associated with that domain.
     deploy`` successfully.
 
     If you access the web interface on a MacBook via an SSH tunnel (using the
-    forwarding suggested :ref:`here <ssh_forwarding_example>`), you can alter
+    forwarding suggested :ref:`here <ssh-forwarding-example>`), you can alter
     /private/etc/hosts (you will need sudo privileges) by appending the line
     ``127.0.0.1       wrMyUserName.teamname.sanger.ac.uk``, and then you can
     access https://wrMyUserName.teamname.sanger.ac.uk/ in your webbrowser with

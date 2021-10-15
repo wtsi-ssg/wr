@@ -4,10 +4,10 @@ Add
 coming soon...
 
 
-.. _resource_usage_learning:
+.. _resource-usage-learning:
 Resource Usage Learning
 -----------------------
 
-.. _job_priority:
+.. _job-priority:
 Priority
 --------

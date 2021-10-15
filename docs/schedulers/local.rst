@@ -11,7 +11,7 @@ your machine at once.
 
 This does mean that "larger" jobs (those that use more cpu and memory) will be
 scheduled first, and potentially start running before smaller jobs that had
-higher user-supplied :ref:`job_priority`. However, for jobs of the same size,
+higher user-supplied :ref:`job-priority`. However, for jobs of the same size,
 your own assigned priority will take effect.
 
 To limit the amount of local resources used to execute your commands, you can

@@ -8,7 +8,7 @@ maximum performance and the full feature set.
 
 For clients written in other languages, however, you can use wr's REST API,
 sending and receiving JSON over HTTPS. The REST API is quite limited at the
-moment. If you find you need more functionality, please :ref:`get_in_touch`.
+moment. If you find you need more functionality, please :ref:`get-in-touch`.
 
 Quick Start
 -----------

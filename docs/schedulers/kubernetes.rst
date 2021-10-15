@@ -7,7 +7,7 @@ has been tested with kubernetes versions 1.9.5 and 1.10.
 
 .. note::
     The kubernetes support has not been well tested and may be out of date; if
-    you have a need for this to work, please :ref:`get_in_touch`.
+    you have a need for this to work, please :ref:`get-in-touch`.
 
 There are myriad methods of starting a Kubernetes cluster, see
 `kubernetes.io <https://kubernetes.io/docs/setup/pick-right-solution/>`_ for an

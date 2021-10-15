@@ -108,7 +108,6 @@ Learn about some of the more advanced features of wr.
 * :doc:`Work with files in S3 </advanced/s3>`
 * :doc:`Disaster recovery </advanced/recovery>`
 * :doc:`Use wr via its REST API </advanced/rest>`
-* :doc:`Contribute to wr's development </advanced/contribute>`
 
 .. toctree::
    :maxdepth: 2
@@ -134,7 +133,7 @@ For these systems, wr can integrate with them for use as an execution "backend",
 giving you the best of both worlds. Learn how to use wr as a backend for:
 
 * :doc:`Cromwell </integrations/cromwell>`
-* :doc:`Cromwell </integrations/nextflow>`
+* :doc:`Nextflow </integrations/nextflow>`
 
 .. toctree::
    :maxdepth: 2
@@ -158,9 +157,9 @@ These guides will help walk you through specific use cases.
 
    /guides/openstack
 
-.. _get_in_touch:
-Support
--------
+.. _get-in-touch:
+Get in touch
+------------
 
 The best way to report bugs or make feature requests is to `create an issue on
 github <https://github.com/VertebrateResequencing/wr/issues/new>`_.
