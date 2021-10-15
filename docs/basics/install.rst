@@ -31,7 +31,7 @@ following example ~/.ssh/config file may help. (In this example, 11302 is the
 web interface port that wr tells you about.)
 
 .. code-block:: console
-    :name: ssh_forwarding_example
+    :name: ssh-forwarding-example
 
     Host ssh.myserver.org
     LocalForward 11302 login.internal.myserver.org:11302
