@@ -158,6 +158,7 @@ These guides will help walk you through specific use cases.
    /guides/openstack
 
 .. _get-in-touch:
+
 Get in touch
 ------------
 
