@@ -26,13 +26,20 @@ document.
 
 Example .ssh/config
 
-If you're having difficulty accessing the web frontend via an ssh tunnel, the following example ~/.ssh/config file may help. (In this example, 11302 is the web interface port that wr tells you about.)
+If you're having difficulty accessing the web frontend via an ssh tunnel, the
+following example ~/.ssh/config file may help. (In this example, 11302 is the
+web interface port that wr tells you about.)
 
-Host ssh.myserver.org
-LocalForward 11302 login.internal.myserver.org:11302
-DynamicForward 20002
-ProxyCommand none
-Host *.internal.myserver.org
-User myusername
-ProxyCommand nc -X 5 -x localhost:20002 %h %p
-You'll then be able to access the website at https://login.internal.myserver.org:11302 or perhaps https://localhost:11302
+.. code-block:: console
+    :name: ssh_forwarding_example
+
+    Host ssh.myserver.org
+    LocalForward 11302 login.internal.myserver.org:11302
+    DynamicForward 20002
+    ProxyCommand none
+    Host *.internal.myserver.org
+    User myusername
+    ProxyCommand nc -X 5 -x localhost:20002 %h %p
+
+You'll then be able to access the website at
+https://login.internal.myserver.org:11302 or perhaps https://localhost:11302
