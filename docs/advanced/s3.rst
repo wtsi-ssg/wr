@@ -1,0 +1,162 @@
+S3
+==
+
+S3 is an object store that first became available in Amazon AWS, but is now
+available on-premise through services providing S3-like interfaces.
+
+By storing the input and output data for your commands in S3, you can build a
+more "cloud-like" workflow on-premise, making any subsequent shift to the cloud
+easier, or potentially making better use of an on-premise OpenStack cluster.
+
+``wr add`` has a ``--mounts`` option that lets you mount S3 buckets prior to
+executing your commands. The mounts option can first be tested with ``wr
+mount``, which also provides detailed help for the mount options. For this to
+work, you will need a working ``~/.s3cfg`` or ``~/.aws/credentials`` file: if a
+tool like ``s3cmd`` works for you, so will ``wr mount``. Using ``--mounts`` on a
+wr cloud deployment will work automagically by copying over your S3 config
+file(s) to spawned servers.
+
+Mounts can be done a number of different ways, and make the commands you add
+cleaner and simpler.
+
+For example, instead of doing something like (on an image where s3cmd has been
+installed and configured)::
+
+    echo 's3cmd get s3://inbucket/path/input.file && myexe -i input.file > output.file && s3cmd put output.file s3://outbucket/path/output.file' | wr add
+
+You could (not requiring s3cmd be installed)::
+
+    echo 'myexe -i inputs/input.file > outputs/output.file' | wr add --mount_json '[{"Mount":"inputs","Targets":[{"Path":"inbucket/path"}]},{"Mount":"outputs","Targets":[{"Path":"outbucket/path","Write":true}]}]'
+
+Or even nicer::
+
+    echo 'myexe -i input.file > output.file' | wr add --mounts 'ur:inbucket/path,cw:outbucket/path'
+
+(Note that for direct use as a working directory like this, we ought to enable
+caching on the writable target. Without caching we can only do serial writes and
+for more complicated commands things may not work as expected.)
+
+You could have a text file with many of these short and sweet command lines, and
+specify the ``--mounts`` just once as an option to ``wr add``. The performance
+will also be higher than when using ``s3cmd`` or ``s3fs`` et al.
+
+If an individual command will read the same data multiple times, enable
+per-command caching (which gets deleted once the cmd completes)::
+
+    --mounts 'cr:inbucket/path'
+
+If multiple different commands could run on the same machine and access the same
+data, put the cache in a fixed location (where it won't ever get deleted by wr;
+be careful about doing this for writable mounts!; this is also slower than than
+the previous scenario if you don't read whole files)::
+
+    --mount_json '[{"Targets":[{"Path":"inbucket/path","CacheDir":"/tmp/mounts_cache"}]}]'
+
+.. note::
+    Do **not** try and mount them at the same location: it won't work! Give them
+    unique mount points, but the same cache location.
+
+wr add's ``--mounts`` option is a convenience that provides a subset of the
+possibilities that the ``--mount_json`` provides, but is easier to use in the
+typical case: you want all your S3 files available from your command's working
+directory. If you want them available from sub-directories or elsewhere, you'll
+need to use ``--mount_json``.
+
+Unlike ``s3cmd``, wr's mount options support "profiles", useful if you need to
+mount multiple buckets that have different configurations. In your ``~/.s3cfg``
+file, after the [default] section add more named sections with the necessary
+settings, then select the section (or "profile") to use by saying
+``profile@bucket`` when specifying your bucket, where 'profile' is the name of
+the desired section.
+
+.. note::
+    If you turn on caching and find that commands that read lots of files fail
+    due to being unable to open or read a file, it could be due to you exceeding
+    your open file limit. Increase your limit to some very high value like
+    131072 by eg. doing ``echo 131072 > /proc/sys/fs/file-max``. If using
+    OpenStack, this may mean having to create a new image, or using a
+    ``--cloud_script`` that sets the limit high.
+
+Sanger Institute users
+^^^^^^^^^^^^^^^^^^^^^^
+
+If you work at the Sanger Institute, here are some tips.
+
+Your ``~/.s3cfg`` file should look something like::
+
+    [default]
+    access_key = MYACCESSKEY
+    secret_key = mysecret
+    encrypt = False
+    host_base = cog.sanger.ac.uk
+    host_bucket = %(bucket)s.cog.sanger.ac.uk
+    progress_meter = True
+    use_https = True
+
+NPG have put a public bucket together containing lots of reference-related files
+that you might want to use. Eg. If you will run samtools to do something with
+cram files you might::
+
+    --mount_json '[{"Targets":[{"Path":"inbucket/path"},{"Path":"npg-repository","CacheDir":"/tmp/mounts_cache"}]}]'
+
+And then in the JSON you supply to ``wr add -f`` say something like::
+
+    {"cmd":"samtools view ...","env":["REF_PATH=cram_cache/%2s/%2s/%s"]}
+
+Inside the npg-repository bucket you'll also find reference indexes for use by
+bwa, samtools and other software. For tools like samtools that need the index
+file and the original fasta file in the same directory, you can take advantage
+of the multiplexing possible in --mounts::
+
+    --mounts 'ur:inbucket/path,cr:npg-repository/references/Homo_sapiens/GRCh38_15_noEBV/all/fasta,cr:npg-repository/references/Homo_sapiens/GRCh38_15_noEBV/all/samtools'
+
+(Now your cmd will see Homo_sapiens.GRCh38_15_noEBV.fa and
+Homo_sapiens.GRCh38_15_noEBV.fa.fai in the current directory, along with your
+input files.)
+
+iRODS @ Sanger
+^^^^^^^^^^^^^^
+
+For Sanger Institute users that need to process data in OpenStack that is stored
+in iRODS, your best bet is probably to copy the data to S3 first, and then use
+S3 mounts as described above.
+
+Because putting files in to S3 (ceph) happens at about 40MB/s from an OpenStack
+node but only about 20MB/s from a farm node (while reading from iRODS is a
+similar speed from both), you may prefer to do these copy jobs in OpenStack.
+That means bringing up instances with the iRODS clients installed and
+authentication sorted out.
+
+The following guide assumes you have non-interactive (non-Kerberos)
+authentication already configured and working on the farm.
+
+First, find a recent image that has the iRODS client installed, such as
+``bionic-WTSI-irodsclient_e49001``.
+
+Now create an OpenStack-specific version of the environment file that excludes any local paths::
+
+    grep -Ev "plugins|certificate" ~/.irods/irods_environment.json > ~/.irods/irods_environment.json.openstack
+
+One time only, we need to create an OpenStack-specific iRODS authentication
+file:
+
+1. ``wr cloud deploy --os "bionic-WTSI-irodsclient" --config_files '~/.irods/irods_environment.json.openstack:~/.irods/irods_environment.json'``
+2. ``ssh -i ~/.wr_production/cloud_resources.openstack.key ubuntu@[ip address from step 1]``
+3. ``iinit``
+4. [enter your password and then as quickly as possible - time is important - carry out steps 5-7]
+5. ``exit``
+6. ``sftp -i ~/.wr_production/cloud_resources.openstack.key ubuntu@[ip address from step 1]``
+7. ``get .irods/.irodsA``
+8. ``exit``
+9. ``mv .irodsA ~/.irods/.irodsA.openstack``
+10. ``wr cloud teardown``
+
+From now on, when we wish to do iRODS -> S3 copy jobs, we just have to be sure
+to copy over these irods files to the servers we create, and use the right
+image, eg.:
+
+1. ``wr cloud deploy --config_files '~/.irods/irods_environment.json.openstack:~/.irods/irods_environment.json,~/.irods/.irodsA.openstack:~/.irods/.irodsA,~/.s3cfg'``
+2. ``echo "iget /seq/123/123.bam" | wr add --mounts 'cw:s3seq/123' --cloud_os "bionic-WTSI-irodsclient"```
+
+(Note that this doesn't work without caching turned on because random writes are
+not supported without caching.)

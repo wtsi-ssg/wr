@@ -13,5 +13,6 @@
     "go.lintTool": "golangci-lint",
     "go.lintFlags": [
         "--fast"
-    ]
+    ],
+    "restructuredtext.confPath": "${workspaceFolder}/docs"
 }
