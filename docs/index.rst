@@ -51,7 +51,7 @@ First steps
   How do you use it?)
 
 * **Getting started**:
-  :doc:`Install </basics/install>` & `configure </basics/config>` |
+  :doc:`Install </basics/install>` & :doc:`configure </basics/config>` |
   :doc:`Start the manager </basics/manager>` (:doc:`resolve problems with that </basics/problems>`) |
   :doc:`Add jobs </basics/add>` |
   :doc:`Check status </basics/status>`
