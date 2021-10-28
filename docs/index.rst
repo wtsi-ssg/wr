@@ -38,7 +38,11 @@ S3
     files whilst enjoying high performance.
     Read more about :doc:`/advanced/s3`.
 
+wr is being used in production by multiple groups at the `Sanger Institute`_ and
+has processed hundreds of TB of data and run millions of commands.
+
 .. _wr: https://github.com/VertebrateResequencing/wr
+.. _Sanger Institute: https://www.sanger.ac.uk
 
 First steps
 -----------
@@ -47,7 +51,7 @@ First steps
   How do you use it?)
 
 * **Getting started**:
-  :doc:`Install </basics/install>` |
+  :doc:`Install </basics/install>` & `configure </basics/config>` |
   :doc:`Start the manager </basics/manager>` (:doc:`resolve problems with that </basics/problems>`) |
   :doc:`Add jobs </basics/add>` |
   :doc:`Check status </basics/status>`
@@ -66,6 +70,7 @@ First steps
 
    /guides/basic
    /basics/install
+   /basics/config
    /basics/manager
    /basics/problems
    /basics/add

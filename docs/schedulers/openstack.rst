@@ -1,27 +1,108 @@
 OpenStack
 =========
 
-coming soon...
+The OpenStack scheduler lets you add jobs to wr's queue and have wr execute them
+in an OpenStack envionment. It will create OpenStack instances of appropriate
+flavors to cope with the amount of work you have to do (auto scale-up), and
+destroy them when your work completes (auto scale-down).
 
-Using wr with OpenStack requires that you source your openstack rc file; see wr
-cloud deploy -h.
+It uses bin-packing to potentially fit multiple jobs on an instance at once, and
+re-uses instances if there's more work to do.
+
+Usage
+-----
+
+Using wr with OpenStack requires that you source your openstack RC file. Log in
+to your OpenStack dashboard web interface and look for the 'Download Openstack
+RC File' button. For older installs this is in the Compute -> Access & Security,
+'API Access' tab. For newer installs it is under Project -> API Access. You may
+need to add to that RC file OS_POOL_NAME to define the name of the network to
+get floating IPs from (for older installs this defaults to "nova", for newer
+ones it defaults to "public").
+
+If you're able to create your own OpenStack network, keys, security profiles and
+instance, ssh to your OpenStack instance, install wr there, copy your RC file
+there, source it and then::
+
+   wr manager start -s openstack --local_username yourname
 
 .. note::
+   See ``wr manager start -h`` for various other options you may need to set,
+   in particular all the '--cloud*' options.
+
+When this manager needs to create new OpenStack instances to run your commands
+on, it will create them in the same network and with similar security settings
+as the instance you start the manager on.
+
+An easier alternative to this, especially if you don't know how to use
+OpenStack, is to have wr deploy to OpenStack from a machine that has API access
+to your OpenStack environment (somewhere that the ``openstack`` commands work).
+
+First source your RC file, then::
+
+   wr cloud deploy
+
+.. note::
+   Again, see ``wr cloud deploy -h`` for various other options you may need to
+   set, which are like the manager's '--cloud*' options, but without the 'cloud'
+   prefix.
+
    ``wr cloud deploy`` has a default ``--os``, but it may not be suitable for
    your particular installation of OpenStack. Don't forget that you can change
    the default by setting 'cloudos' in your :doc:`config </basics/config>`.
 
+The cloud deploy will create the various required OpenStack resources such as
+network, key and instance, copy your wr executable to the instance, and start
+the manager there. It will also set up some ssh port forwarding, so that you can
+use the other wr commands on the local machine you deploy from, and they will
+communicate with the manager on the OpenStack instance.
 
+When you've finished your work, you should delete the resources wr created by
+doing::
 
-   managerdbbkfile: "s3://bucket/wr_backups/db_bk"
+   wr cloud teardown
 
-The managerdbbkfile pointing to a location in S3 means that if for some reason
-the deployed instance where wr is running goes bad and gets destroyed, you can
-just deploy again and recover state)
+After you teardown, the manager's log file can be found on the local machine you
+deployed from in (by default) `~/.wr_production/log.openstack`.
 
+Using cloud deploy is also the best way to ensure complete recovery of state in
+the event of a disaster. See :doc:`/advanced/recovery>` for more details. With
+the 'managerdbbkfile' config option pointing to a location in S3, if for some
+reason the deployed instance where wr is running goes bad and gets destroyed,
+you can just deploy again and recover state.
+
+Follow the :doc:`OpenStack tutorial </guides/openstack>` for an example of doing
+some real work in OpenStack.
+
+The private key
+---------------
+
+wr will create a key in OpenStack that is used to ssh to the instances it
+creates. The key is named after the '--local_username' option you supply to
+``wr manager start -s openstack``, which is set to your actual username when
+using ``wr cloud deploy``.
+
+It's important that this name is globally unique, because if a key with that
+name already exists, wr will not create a new one and instead try to re-use it,
+but won't have the actual private key on disk, so won't be able to ssh to any
+instances it creates.
+
+.. tip::
+   The most common cause of failure to cloud deploy or start the manager on an
+   OpenStack instance is a problem with the private key already existing. A ``wr
+   cloud teardown`` or ``wr manager stop`` should normally delete the key, but
+   something might go wrong and a key gets left behind. Use ``openstack keypair
+   list`` and ``openstack keypair delete`` to delete your wr keypair before
+   trying again.
+
+The private key is by default stored in
+``~/.wr_production/cloud_resources.openstack.key`` on both the machine you
+deploy from and the OpenStack instance the manager runs on, so you can supply it
+to ``ssh -i`` to manually ssh to the instances wr creates should you need to
+investigate something.
 
 Docker users
-^^^^^^^^^^^^
+------------
 
 If you use docker, you will have to configure it to not conflict with your local
 system's network or the network that wr will create for you. For example, the
@@ -32,7 +113,7 @@ script you supply to ``wr cloud deploy --script`` might start::
    [further commands for installing docker]
 
 Sanger Institute users
-^^^^^^^^^^^^^^^^^^^^^^
+----------------------
 
 If you're at the Sanger Institute and want to use wr with OpenStack, you'll need
 to use a flavor regex of something like::
@@ -53,32 +134,6 @@ It'll be easiest if you set these and other cloud options in your config file
    cloudos: "bionic-server"
    clouduser: "ubuntu"
    cloudram: 2048
-
-   And your `~/.wr_config.yml` might look like:
-
-Multiple deployments
---------------------
-
-Normally you can do a single ``wr cloud deploy --deployment production``, and a
-single ``wr cloud deploy --deployment development``. This should be fine if
-you're a normal single user running workflows for yourself. Other people can do
-their own deployments from the same machine and you won't have any conflicts.
-
-If, however, you have full control of a machine and want to run multiple
-deployments yourself (eg. you're running wr for other people, but want to keep
-each of their workflows in separate cloud networks), you can do something like::
-
-   export MY_UNIQUE_DEPLOYMENT_NAME="one"
-   export WR_MANAGERPORT=11320
-   export WR_MANAGERWEB=11321
-   export WR_MANAGERDIR="~/.wr_$MY_UNIQUE_DEPLOYMENT_NAME"
-   wr cloud deploy --resource_name $MY_UNIQUE_DEPLOYMENT_NAME
-   [use wr commands as normal]
-   wr cloud teardown --resource_name $MY_UNIQUE_DEPLOYMENT_NAME
-
-You will have to arrange that the value of ``--resource_name`` is unique within
-your cloud, and that WR_MANAGERPORT and WR_MANAGERWEB are unique (and not used
-by anyone else) on your machine, for each deployment you want to do.
 
 Implementation details
 ----------------------

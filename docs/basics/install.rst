@@ -1,45 +1,56 @@
 Install
 =======
 
-coming soon...
+The recommended way to install wr is to download a release from `github`_. Click
+on "Assets" for the most recent release and download either the linux or macos
+.zip file as appropriate. Windows is not supported.
 
+.. _github: https://github.com/VertebrateResequencing/wr/releases
 
+.. note::
+    The macos version cannot currently be used to "deploy" to linux systems, so
+    if you have a Mac but plan on using wr with a linux-based OpenStack system,
+    download the linux version of wr and run it on a linux system, eg. one of
+    your OpenStack nodes.
 
-The download .zip should contain the wr executable, this README.md, and a
-CHANGELOG.md. 
+The downloaded .zip should contain the wr executable, a README.md, and a
+CHANGELOG.md.
+
 You can use the wr executable directly from where you extracted it, or move it
-to where you normally install software to.
-
+to where you normally install software to (ie. somewhere in your $PATH).
 
 The wr executable must be available at that same absolute path on all compute
 nodes in your cluster, so you need to place it on a shared disk or install it in
-the same place on all machines. In cloud environments, the wr executable is
-copied for you to new cloud servers, so it doesn't need to be part of your OS
-images. If you use config files, these must also be readable by all nodes (when
-you don't have a shared disk, it's best to configure using environment
-variables). If you are ssh tunnelling to the node where you are running wr and
-wish to use the web interface, you will have to forward the host and port that
-it tells you the web interface can be reached on, and/or perhaps also dynamic
-forward using something like nc. An example .ssh/config is at the end of this
-document.
+the same place on all machines.
 
+.. note::
+    In cloud environments, the wr executable is automatically copied for you to
+    new cloud servers, so it doesn't need to be part of your OS images.
 
-Example .ssh/config
+Build
+-----
+Alternatively to downloading the pre-built executable, you can build wr yourself
+(check the go.mod file to see the minimum version of go required):
 
-If you're having difficulty accessing the web frontend via an ssh tunnel, the
-following example ~/.ssh/config file may help. (In this example, 11302 is the
-web interface port that wr tells you about.)
+1. Install go on your machine according to https://golang.org/doc/install. An
+   example way of setting up a personal Go installation in your home directory
+   would be::
 
-.. code-block:: console
-    :name: ssh-forwarding-example
+        export GOV=1.17.1
+        wget https://dl.google.com/go/go$GOV.linux-amd64.tar.gz
+        tar -xvzf go$GOV.linux-amd64.tar.gz && rm go$GOV.linux-amd64.tar.gz
+        export PATH=$PATH:$HOME/go/bin
 
-    Host ssh.myserver.org
-    LocalForward 11302 login.internal.myserver.org:11302
-    DynamicForward 20002
-    ProxyCommand none
-    Host *.internal.myserver.org
-    User myusername
-    ProxyCommand nc -X 5 -x localhost:20002 %h %p
+2. Download, compile, and install wr (not inside $GOPATH, if you set that)::
 
-You'll then be able to access the website at
-https://login.internal.myserver.org:11302 or perhaps https://localhost:11302
+        git clone https://github.com/VertebrateResequencing/wr.git
+        cd wr
+        make
+
+3. The ``wr`` executable should now be in ``$HOME/go/bin``.
+
+.. note::
+    If you don't have ``make`` installed and don't mind if ``wr version`` will
+    not work, you can instead replace ``make`` above with::
+
+        go install -tags netgo
