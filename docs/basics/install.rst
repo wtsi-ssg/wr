@@ -29,6 +29,7 @@ the same place on all machines.
 
 Build
 -----
+
 Alternatively to downloading the pre-built executable, you can build wr yourself
 (check the go.mod file to see the minimum version of go required):
 
@@ -54,3 +55,14 @@ Alternatively to downloading the pre-built executable, you can build wr yourself
     not work, you can instead replace ``make`` above with::
 
         go install -tags netgo
+
+Bash auto completion
+--------------------
+
+If you build wr yourself on the machine you will use wr on, and you use bash as
+your shell, you can install bash auto-completion so you can tab complete the
+various wr sub commands::
+
+    wr completion bash > ~/.wr_autocomplete.sh
+    source ~/.wr_autocomplete.sh
+    echo "source ~/.wr_autocomplete.sh" >> ~/.bashrc
