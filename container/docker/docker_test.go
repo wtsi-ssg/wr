@@ -220,9 +220,8 @@ func TestDocker(t *testing.T) {
 
 	Convey("Given a Docker Interator", t, func() {
 		Convey("it can list the current containers", func() {
-			dockerInterator := NewInteractor(cli)
-
-			Convey("when the docker client is nonempty", func() {
+			Convey("when the docker client is valid", func() {
+				dockerInterator := NewInteractor(cli)
 				cntList, err := dockerInterator.ContainerList(ctx)
 				So(err, ShouldBeNil)
 				So(len(cntList), ShouldBeGreaterThanOrEqualTo, len(cntrIDs))
@@ -258,15 +257,6 @@ func TestDocker(t *testing.T) {
 						t.Log("Containers could not be removed: ", err)
 					}
 				})
-			})
-
-			Convey("not when the docker client is empty", func() {
-				dockerEmptyInterator := NewInteractor(&client.Client{})
-				So(func() {
-					cntList, err := dockerEmptyInterator.ContainerList(ctx)
-					So(err, ShouldNotBeNil)
-					So(cntList, ShouldBeEmpty)
-				}, ShouldPanic)
 			})
 
 			Convey("not when the docker client is invalid", func() {
