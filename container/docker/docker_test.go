@@ -28,6 +28,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"os"
 	"testing"
 
 	"github.com/docker/docker/api/types"
@@ -108,10 +109,20 @@ const testReaderCloserStats = `{
 func createContainers(ctx context.Context, cli *client.Client, containerNames []string) ([]string, error) {
 	cntrIDs := make([]string, len(containerNames))
 
+	rc, err := cli.ImagePull(ctx, "ubuntu", types.ImagePullOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = io.Copy(os.Stdout, rc)
+	if err != nil {
+		return nil, err
+	}
+
 	for idx, cname := range containerNames {
 		// create the docker container
 		cbody, err := cli.ContainerCreate(ctx, &cn.Config{Image: "ubuntu", Tty: true}, &cn.HostConfig{},
-			&nw.NetworkingConfig{}, &specs.Platform{}, cname)
+			&nw.NetworkingConfig{}, &specs.Platform{Architecture: "amd64", OS: "linux"}, cname)
 		if err != nil {
 			return nil, err
 		}
@@ -207,13 +218,9 @@ func TestDocker(t *testing.T) {
 	})
 
 	Convey("Given a Docker Interator", t, func() {
-		// with a nonempty client
-		dockerInterator := NewInteractor(cli)
-
-		// with an empty client
-		dockerEmptyInterator := NewInteractor(&client.Client{})
-
 		Convey("it can list the current containers", func() {
+			dockerInterator := NewInteractor(cli)
+
 			Convey("when the docker client is nonempty", func() {
 				cntList, err := dockerInterator.ContainerList(ctx)
 				So(err, ShouldBeNil)
@@ -253,9 +260,12 @@ func TestDocker(t *testing.T) {
 			})
 
 			Convey("not when the docker client is empty", func() {
-				cntList, err := dockerEmptyInterator.ContainerList(ctx)
-				So(err, ShouldNotBeNil)
-				So(cntList, ShouldBeEmpty)
+				dockerEmptyInterator := NewInteractor(&client.Client{})
+				So(func() {
+					cntList, err := dockerEmptyInterator.ContainerList(ctx)
+					So(err, ShouldNotBeNil)
+					So(cntList, ShouldBeEmpty)
+				}, ShouldPanic)
 			})
 		})
 	})
