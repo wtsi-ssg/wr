@@ -14,6 +14,12 @@ scheduled first, and potentially start running before smaller jobs that had
 higher user-supplied :ref:`job-priority`. However, for jobs of the same size,
 your own assigned priority will take effect.
 
+.. note::
+    The manager only regards the usage of the commands it executes itself,
+    comparing that against the maximum physical resources avaiable. It does not
+    consider usage of any other proecesses you may have running when doing the
+    bin-packing and deciding how many commands to execute at once.
+
 To limit the amount of local resources used to execute your commands, you can
 supply the max_cores and max_ram arguements, where -1 (the default) means
 unlimited. For example, to limit to 2 cpus and 1GB RAM::

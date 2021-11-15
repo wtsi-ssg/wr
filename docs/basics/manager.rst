@@ -56,7 +56,7 @@ the REST API.
     tells you the web interface can be reached on. The following example
     ``~/.ssh/config`` file may help. (In this example, 46408 is the web
     interface port that wr tells you about, domain is your domain name,
-    ss.domain is the host you ssh to, and manager_node.internal.domain is the
+    ssh.domain is the host you ssh to, and manager_node.internal.domain is the
     host you start the manager on.)
 
     .. code-block:: console
@@ -119,7 +119,7 @@ want to do.
 
 .. note::
     If you're doing cloud deployments, after setting the environment variables
-    be sure to also specify '--resource_name', eg: ``wr cloud deploy
+    be sure to also specify ``--resource_name``, eg: ``wr cloud deploy
     --resource_name $MY_UNIQUE_DEPLOYMENT_NAME`` and ``wr cloud teardown
     --resource_name $MY_UNIQUE_DEPLOYMENT_NAME``.
 

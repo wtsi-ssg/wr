@@ -9,12 +9,55 @@ more "cloud-like" workflow on-premise, making any subsequent shift to the cloud
 easier, or potentially making better use of an on-premise OpenStack cluster.
 
 ``wr add`` has a ``--mounts`` option that lets you mount S3 buckets prior to
-executing your commands. The mounts option can first be tested with ``wr
-mount``, which also provides detailed help for the mount options. For this to
-work, you will need a working ``~/.s3cfg`` or ``~/.aws/credentials`` file: if a
-tool like ``s3cmd`` works for you, so will ``wr mount``. Using ``--mounts`` on a
-wr cloud deployment will work automagically by copying over your S3 config
-file(s) to spawned servers.
+executing your commands. ``--mounts`` is a convenience option that lets you
+specify your mounts in the common case that you wish the contents of 1 or more
+remote directories to be accessible from the command working directory. For
+anything more complicated you'll need to use ``--mount_json``. You can't use
+both ``--mounts`` and ``--mount_json`` at once.
+
+.. note::
+    For mounting to work, you must be able to carry out fuse mounts, which means
+    fuse-utils must be installed, and ``/etc/fuse.conf`` should have
+    'user_allow_other' set. An easy way to enable it is to run::
+
+        sudo perl -i -pne 's/#user_allow_other/user_allow_other/;' /etc/fuse.conf
+    
+    When wr creates OpenStack instances for you, it will attempt to do this for
+    you.
+
+    You will also need a working ``~/.s3cfg`` or ``~/.aws/credentials`` file: if
+    a tool like ``s3cmd`` works for you, so will wr's mounting. ``wr cloud
+    deploy`` will by default copy over your credential files to created
+    instances, so they will have S3 access.
+
+The format of ``--mounts`` is a comma-separated list of
+``[c|u][r|w]:[profile@]bucket[/path]`` strings. The first character as 'c' means
+to turn on caching, while 'u' means uncached. The second character as 'r' means
+read-only, while 'w' means writeable (only one of them can have w). After the
+colon you can optionally specify the profile name followed by the @ symbol,
+followed by the required remote bucket name and ideally the path to the deepest
+subdirectory that contains the data you wish to access.
+
+The format of ``--mount_json`` is a JSON string for an array of Config objects
+describing all your mount parameters. A JSON array begins and ends with a square
+bracket, and each item is separated with a comma. A JSON object can be written
+by starting and ending it with curly braces. Parameter names and their values
+are put in double quotes (except for numbers, which are left bare, booleans
+where you write, unquoted, true or false, and arrays as described previously),
+and the pair separated with a colon, and pairs separated from each other with
+commas. For example (all on one line)::
+    
+    --mount_json '[{"Mount":"/tmp/wr_mnt","Targets":[{"Profile":"default","Path":"mybucket/subdir","Write":true}]}]'
+
+.. tip::
+    You can use ``wr mount`` to manually test your mount options before using
+    them with ``wr add``. After mounting, test the mount with eg. ``ls mnt`` if
+    using the default mount location. It runs in the background, and it's
+    important to cleanly terminate it by sending it SIGTERM with eg. ``kill``
+    after your test.
+
+    ``wr mount -h`` goes in to detail about all the options possible in the
+    JSON.
 
 Mounts can be done a number of different ways, and make the commands you add
 cleaner and simpler.
@@ -55,12 +98,6 @@ the previous scenario if you don't read whole files)::
 .. note::
     Do **not** try and mount them at the same location: it won't work! Give them
     unique mount points, but the same cache location.
-
-wr add's ``--mounts`` option is a convenience that provides a subset of the
-possibilities that the ``--mount_json`` provides, but is easier to use in the
-typical case: you want all your S3 files available from your command's working
-directory. If you want them available from sub-directories or elsewhere, you'll
-need to use ``--mount_json``.
 
 Unlike ``s3cmd``, wr's mount options support "profiles", useful if you need to
 mount multiple buckets that have different configurations. In your ``~/.s3cfg``
