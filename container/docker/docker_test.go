@@ -28,6 +28,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"net"
 	"os"
 	"testing"
 
@@ -266,6 +267,19 @@ func TestDocker(t *testing.T) {
 					So(err, ShouldNotBeNil)
 					So(cntList, ShouldBeEmpty)
 				}, ShouldPanic)
+			})
+
+			Convey("not when the docker client is invalid", func() {
+				badClient, err := client.NewClientWithOpts(client.FromEnv,
+					client.WithDialContext(func(ctx context.Context, network, addr string) (net.Conn, error) {
+						return nil, io.EOF
+					}))
+				So(err, ShouldBeNil)
+
+				dockerBadInterator := NewInteractor(badClient)
+				cntList, err := dockerBadInterator.ContainerList(ctx)
+				So(err, ShouldNotBeNil)
+				So(cntList, ShouldBeEmpty)
 			})
 		})
 	})
