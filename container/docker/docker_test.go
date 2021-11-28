@@ -108,36 +108,52 @@ const testReaderCloserStats = `{
 // createContainers creates and starts the test containers, given a list of
 // container names.
 func createContainers(ctx context.Context, cli *client.Client, containerNames []string) ([]string, error) {
-	cntrIDs := make([]string, len(containerNames))
+	if err := pullUbuntuImage(ctx, cli); err != nil {
+		return nil, err
+	}
 
+	return createAndStartNamedContainers(ctx, cli, containerNames)
+}
+
+func pullUbuntuImage(ctx context.Context, cli *client.Client) error {
 	rc, err := cli.ImagePull(ctx, "ubuntu", types.ImagePullOptions{})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	_, err = io.Copy(os.Stdout, rc)
-	if err != nil {
-		return nil, err
-	}
+
+	return err
+}
+
+func createAndStartNamedContainers(ctx context.Context, cli *client.Client, containerNames []string) ([]string, error) {
+	cntrIDs := make([]string, len(containerNames))
 
 	for idx, cname := range containerNames {
-		// create the docker container
-		cbody, err := cli.ContainerCreate(ctx, &cn.Config{Image: "ubuntu", Tty: true}, &cn.HostConfig{},
-			&nw.NetworkingConfig{}, &specs.Platform{Architecture: "amd64", OS: "linux"}, cname)
+		containerID, err := createContainer(ctx, cli, cname)
 		if err != nil {
 			return nil, err
 		}
 
-		// start the docker container
-		err = cli.ContainerStart(ctx, cbody.ID, types.ContainerStartOptions{})
-		if err != nil {
+		if err = startContainer(ctx, cli, containerID); err != nil {
 			return nil, err
 		}
 
-		cntrIDs[idx] = cbody.ID
+		cntrIDs[idx] = containerID
 	}
 
 	return cntrIDs, nil
+}
+
+func createContainer(ctx context.Context, cli *client.Client, cname string) (string, error) {
+	cbody, err := cli.ContainerCreate(ctx, &cn.Config{Image: "ubuntu", Tty: true}, &cn.HostConfig{},
+		&nw.NetworkingConfig{}, &specs.Platform{Architecture: "amd64", OS: "linux"}, cname)
+
+	return cbody.ID, err
+}
+
+func startContainer(ctx context.Context, cli *client.Client, containerID string) error {
+	return cli.ContainerStart(ctx, containerID, types.ContainerStartOptions{})
 }
 
 // removeContainers removes all the containers given a list of containers as a
