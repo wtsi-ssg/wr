@@ -78,41 +78,44 @@ Possible url query parameters are:
 The server will return a JSON string describing an array of job status objects 
 with these properties:
 
-=============  =================
-Property       Type   
-=============  =================
-Key            string
-RepGroup       string
-DepGroups      []string
-Dependencies   []string
-Cmd            string
-State          JobState
-Cwd            string
-CwdBase        string
-HomeChanged    bool
-Behaviours     string
-Mounts         string
-MonitorDocker  string
-ExpectedRAM    int (Megabytes)
-ExpectedTime   float64 (seconds)
-RequestedDisk  int (Gigabytes)
-Cores          int
-PeakRAM        int
-OtherRequests  []string
-Exited         bool
-Exitcode       int
-FailReason     string
-Pid            int
-Host           string
-Walltime       float64
-CPUtime        float64
-Started        int64
-Ended          int64
-StdErr         string
-StdOut         string
-Attempts       uint32
-Similar        int  
-=============  =================
+===============  =================
+Property         Type   
+===============  =================
+Key              string
+RepGroup         string
+DepGroups        []string
+Dependencies     []string
+Cmd              string
+State            JobState
+Cwd              string
+CwdBase          string
+HomeChanged      bool
+Behaviours       string
+Mounts           string
+MonitorDocker    string
+WithDocker       string
+WithSingularity  string
+ContainerMounts  string
+ExpectedRAM      int (Megabytes)
+ExpectedTime     float64 (seconds)
+RequestedDisk    int (Gigabytes)
+Cores            int
+PeakRAM          int
+OtherRequests    []string
+Exited           bool
+Exitcode         int
+FailReason       string
+Pid              int
+Host             string
+Walltime         float64
+CPUtime          float64
+Started          int64
+Ended            int64
+StdErr           string
+StdOut           string
+Attempts         uint32
+Similar          int  
+===============  =================
 
 POST /rest/v1/jobs/
 -------------------
@@ -133,6 +136,13 @@ properties, one for each job you wish to add:
 * **monitor_docker=[string]** (--name or --cidfile of docker container cmd will
   run, or ? (%3F) to monitor the first docker container to start running after
   cmd starts to run)
+* **with_docker=[string]** (image name/path of a docker container to create and
+  run cmd inside, with monitoring turned on for it, using the environment
+  variables specified in **env**)
+* **with_singularity=[string]** (image name/path of a singularity container to
+  create and run cmd inside, using all environment variables)
+* **container_mounts=[string]** (comma seperated list of /outside:/inside
+  container mount definitions for use with with_docker or with_singularity)
 * **memory=[string]** (int followed by a unit, such as 1G for 1 Gigabyte;
   defaults to 1G)
 * **time=[string]** (int followed by a unit, such as 1h for 1 hour; defaults to

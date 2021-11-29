@@ -26,6 +26,13 @@ it tells you how many jobs were added. They will get scheduled and executed at
 some point in the future, when the manager is able to find space amongst your
 computing resources.
 
+To prevent corrupted outputs, wr does not let you run the exact same command
+more than once simultaneously, so if you try to add a command that is already
+in the queue, it will not be added again. You also won't be able to add a
+command to the queue that you previously added to the queue and that completed
+successfully. If you need to re-run a previously completed command, you'll need
+to specify ``--rerun``.
+
 .. note::
     For just adding a single command, you can use the ``--sync`` option to 
     instead wait until the manager is able to get the command to either succeed
@@ -104,8 +111,8 @@ Resource Usage
 
 To make the most efficient use of your available hardware resources, you should
 specify how much time, memory, disk and CPU your commands will use. With this
-knowledge, wr will be able to schedule as many of your commands to be run at
-once, without overloading any particular machine.
+knowledge, wr will be able to schedule as many of your commands as possible to
+be run at once, without overloading any particular machine.
 
 ``--memory`` and ``--time`` let you provide hints to wr manager so that it can
 do a better job of spawning runners to handle these commands. "memory" values
@@ -124,7 +131,10 @@ space usage checking and learning only occurs for jobs where cwd doesn't matter
 .. note::
     By default, wr will assume 1GB memory, 1hr, 0GB disk and 1CPU per command.
 
-The manager learns how much memory, disk and time commands in the same
+However, it will typically be the case that you don't really know how much
+resources your commands will use, so you can start off with a rough guess.
+
+The manager will then learn how much memory, disk and time commands in the same
 ``--req_grp`` actually used in the past, and will use its own learnt values
 unless you set an override. For this learning to work well, you should have
 reason to believe that all the commands you add with the same req_grp will have
@@ -156,7 +166,7 @@ the manager's estimate. Possible values are:
 .. note::
     If you choose to override eg. only disk, then the learned value for memory
     and time will be used. If you want to override all 3 resources to disable
-    learning completly, you must explicitly supply non-zero values for memory
+    learning completely, you must explicitly supply non-zero values for memory
     and time and 0 or more for disk.)
 
 .. _job-priority:
@@ -216,15 +226,144 @@ Dependencies
 
 By default, the manager will try to get all the commands you add to the queue
 running at once, assuming there is enough capacity in your compute environment.
-That means if have a command Y that should only run after a command X has
-succeeded, and you add both X and Y to the queue, the manager could end up
-running them at the same time, and Y would presumably fail.
+That means if have a command that should only run after another command has
+succeeded, and you add both to the queue, the manager could end up running them
+at the same time, and the latter would presumably fail.
 
-To specify that certain commands should only be executed after certain other
-ones have completed, you can place commands in ``--dep_grps`` and then have
-other commands be dependant upon those ``--deps``.
+To construct a proper workflow where some commands only start running after
+certain others have completed successfully, you can specify dependencies. wr's
+dependency group system will let you form any directed graph.
 
-For an in-depth look at dependencies, see :doc:`/advanced/dependencies`.
+In brief, simply specify a "parent" command as belonging to one or more
+``--dep_grps``, then your dependent "child" command can be specified as being
+dependent on one of more ``--deps``. For example, to have an exe2 command depend
+on an exe1 command::
+
+    echo "exe1 /ins/a.in > /outs/a.1out" | wr add --dep_grps exe1.a
+    echo "exe2 /outs/a.1out > /outs/a.2out" | wr add --deps exe1.a
+
+You could add these both in quick successession or even at the same time, but
+the second command would not start running until the first has exited 0.
+
+For an in-depth look at dependencies, see :doc:`Basics </advanced/dependencies`.
+
+Environment variables
+---------------------
+
+When you add commands to the queue, if you add them on the same machine that you
+started the manager on, your current environment variables will be captured and
+replayed when it comes time to execute the commands.
+
+When the manager is remote to you, the environment variables your command will
+see will be those that were on the execution host when the user wr runs at
+logged in to it.
+
+You can override these environment variables by setting ``--env``, where the
+value is a comma separated list of key=value strings. Eg.::
+
+    echo "echo $FOO $OOF > /out/file" | wr add --env FOO=bar,OOF=rab
+
+Would output "bar rab", regardless of your current enviornment or if you were
+local or remote to the manager.
+
+Containers
+----------
+
+Normally the commands you add are run directly on the hosts in your available
+compute resources. This means that any executables in your command lines need
+be installed on all hosts.
+
+To ease installation concerns and achieve consistency between deployments in
+different compute environments, it is often preferable to have your executables
+inside containers.
+
+wr provides the convenience options ``--with_docker`` and ``--with_singularity``
+to make working via containers simpler.
+
+.. note::
+    You can only use one or the other, and for them to work you will need docker
+    or singularity respectively installed and in your $PATH on all hosts.
+
+Both options take the name or location of an image, create a container running
+that image (pulling it first if missing), then pipe your command in to the
+container's shell.
+
+They both also mount your job's working directory in to the container, and set
+that directory as the working directory inside the container. In addition, they
+both obey the ``--container_mounts`` option to mount additional paths inside
+the container.
+
+They differ on how they handle environment variables:
+
+* with_docker ignores all your environment variables, except for those you
+  explicitly set with ``--env``, which will be available inside the container.
+* with_singularity sets all your environment variables inside the container,
+  behaving like a non-container job.
+
+For with_docker, behind the scenes, when wr comes to execute your command, it
+actually does something like::
+
+    cat your_cmd.txt | docker run --rm --name [wr_job_internal_id] \
+	-w $PWD --mount type=bind,source=$PWD,target=$PWD \
+	[--mount type=bind,source=[...]],target=[...]] \
+    [-e env_you_overrode] \
+	-i [your image] /bin/sh
+
+For with_singularity, behind the scenes, when wr comes to execute your command,
+it actually does something like::
+
+    cat your_cmd.txt | singularity shell [-B [...]]:[...] [your image]
+
+The resource usage of your command running in a singularity container will be
+captured in the normal way. However for docker, the docker API will be used to
+get the resource usage of the container with the unique --name that wr sets.
+
+If you need to use different docker or singularity options, then you can just
+specify your command as a complete docker/singularity command line and not use
+with_docker/singularity.
+
+If you do use your own docker command line, specify ``--monitor_docker`` with a
+value corresponding to your --name or --cidfile. This will let wr capture your
+container's resource usage.
+
+.. note::
+    If the monitor_docker value contains ? or * symbols and doesn't match a name
+    or file name literally, those symbols will be treated as wildcards (any
+    single character, or any number of any character, respectively) in a search
+    for the first matching file name containing a valid container id, to be
+    treated as the --cidfile.
+
+    If the special argument "?" is supplied, monitoring will apply to the first
+    new docker container that appears after the command starts to run. NB: in ?
+    mode, if multiple jobs that run docker containers start running at the same
+    time on the same machine, the reported stats could be wrong for one or more
+    of those jobs.
+    
+    NB: does not handle monitoring of multiple docker containers run by a single
+    command. A side effect of monitoring a container is that if you use wr to
+    kill the job for this command, wr will also kill the container.
+
+Example usage (note the difference in behaviour for environment variables)::
+
+    $ export NAR=jar
+    $ touch ~/foo/foo.file
+    $ touch ~/bar/bar.file
+    $ cd ~/emptydir
+    $ touch cwd.file
+
+    $ echo 'echo $FOO $OOF $NAR > docker; ls *.file >> docker; ls /foo >> docker; ls /bar >> docker' | wr add -i docker -r 0 --cwd_matters --with_docker alpine --env FOO=bar,OOF=rab --container_mounts /home/ubuntu/foo:/foo,/home/ubuntu/bar:/bar
+    $ more docker
+    bar rab
+    cwd.file
+    foo.file
+    bar.file
+
+    $ echo 'echo $FOO $OOF $NAR > sing; ls *.file >> sing; ls /foo >> sing; ls /bar >> sing' | wr add -i sing -r 0 --cwd_matters --with_singularity library://sylabsed/linux/alpine --env FOO=bar,OOF=rab --container_mounts /home/ubuntu/foo:/foo,/home/ubuntu/bar:/bar
+    $ more sing
+    bar rab jar
+    cwd.file
+    foo.file
+    bar.file
 
 Limiting
 --------
@@ -311,8 +450,8 @@ For example
 would copy a log file that your cmd generated to describe its problems to some
 shared location and then delete all files created by your cmd.
 
-Mounts
-------
+S3 mounts
+---------
 
 If your command needs input or output files in an S3-like object store, it will
 be convienent and probably faster and more efficient to use wr's built-in
