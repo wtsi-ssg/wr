@@ -28,22 +28,24 @@ Thus, it is desirable to have Nextflow use wr as an execution backend to run
 your Nextflow workflows in an LSF cluster or in an OpenStack environment (which
 has an S3-compatible object store available).
 
-Support for wr in Nextflow is via the nf-wr plugin. You can build it by doing::
+Support for wr in Nextflow is via the nf-wr plugin. You can use it by installing
+Nextflow in the usual way (requiring the Java 11 JRE), then specifying the nf-wr
+plugin and executor. A complete installation and usage on a basic Ubuntu image
+might look like this::
 
-    git clone https://github.com/nextflow-io/nf-wr.git
-    cd nf-wr
-    make assemble
-    export NXF_CLASSPATH=$PWD/build/libs/nf-wr-1.0.0.jar
+    sudo apt-get update
+    sudo apt-get install openjdk-11-jre-headless unzip -y
+    curl -s https://get.nextflow.io | bash
+    wget https://github.com/VertebrateResequencing/wr/releases/download/v0.31.0/wr-linux-x86-64.zip
+    unzip wr-linux-x86-64.zip && rm CHANGELOG.md LICENSE README.md wr-linux-x86-64.zip
+    ./wr manager start
+    NXF_VER=21.12.1-edge ./nextflow run nextflow-io/hello -plugins nf-wr@1.2.0-rc.0 -process.executor wr
+    ./wr status -i nextflow -z
 
 .. note::
-    The plugin is not yet compatible with the latest versions of Nextflow. You
-    need to use an older version, eg. ``NXF_VER=20.10.0 nextflow [...]``.
-
-You can then use Nextflow as normal, installed in its usual way.
-
-.. note::
-    You'll need the Java 8 JDK to build Nextflow, and the Java 8 JRE to run
-    Nextflow.
+    The plugin is only compatible with Nextflow >= 21.12.1; if you already have
+    this version or higher, you don't need to specify the
+    `NXF_VER=21.12.1-edge`.
 
 Getting Started
 ---------------
@@ -55,13 +57,19 @@ security token and certificate to use.
 If you start (``wr manager start``) or deploy (``wr cloud deploy``) wr from the
 same machine that you will run Nextflow, and use wr with it's default settings,
 Nextflow will be able to guess all the details, so you just need to configure
-Nextflow to use wr, by adding this to your ```nextflow.config``::
+Nextflow to use wr, either on the command line as outlined above, or by adding
+to your ``nextflow.config``::
+
+    plugins {
+        id 'nf-wr@1.2.0-rc.0'
+    }
 
     executor {
         name='wr'
     }
 
-If you're running wr in the 'development' deployment, change the above to::
+If you're running wr in the 'development' deployment, change the executor block
+to::
 
     executor {
         name='wr'
@@ -179,14 +187,14 @@ singularity bucket.
 The next step is to configure Nextflow with your S3 details, and enable docker
 or singularity if desired. Following the above example where we mount a
 singularity bucket, ``nextflow.config`` would look like (in addition to the
-executor block for wr)::
+plugins and executor blocks for wr)::
 
     docker.enabled = false
 
     singularity {
-    enabled     = true
-    autoMounts  = false
-    cacheDir = '/home/ubuntu/singularity_cache'
+        enabled     = true
+        autoMounts  = false
+        cacheDir = '/home/ubuntu/singularity_cache'
     }
 
     aws {
