@@ -38,6 +38,9 @@ S3
     files whilst enjoying high performance.
     Read more about :doc:`/advanced/s3`.
 
+Containers
+    Built-in support for working with docker and singularity containers.
+
 wr is being used in production by multiple groups at the `Sanger Institute`_ and
 has processed hundreds of TB of data and run millions of commands.
 
