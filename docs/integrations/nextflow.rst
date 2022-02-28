@@ -35,17 +35,19 @@ might look like this::
 
     sudo apt-get update
     sudo apt-get install openjdk-11-jre-headless unzip -y
-    curl -s https://get.nextflow.io | bash
     wget https://github.com/VertebrateResequencing/wr/releases/download/v0.31.0/wr-linux-x86-64.zip
     unzip wr-linux-x86-64.zip && rm CHANGELOG.md LICENSE README.md wr-linux-x86-64.zip
     ./wr manager start
-    NXF_VER=21.12.1-edge ./nextflow run nextflow-io/hello -plugins nf-wr@1.2.0-rc.0 -process.executor wr
+    curl -s https://get.nextflow.io | bash
+    export NXF_EDGE=1
+    ./nextflow self-update
+    NXF_VER=22.02.0-edge ./nextflow run nextflow-io/hello -plugins nf-wr@1.2.0-rc.2 -process.executor wr
     ./wr status -i nextflow -z
 
 .. note::
-    The plugin is only compatible with Nextflow >= 21.12.1; if you already have
+    The plugin is only compatible with Nextflow >= 22.02.0; if you already have
     this version or higher, you don't need to specify the
-    `NXF_VER=21.12.1-edge`.
+    `NXF_VER=22.02.0-edge` or do the `export NXF_EDGE=1` and `self-update`.
 
 Getting Started
 ---------------
@@ -61,7 +63,7 @@ Nextflow to use wr, either on the command line as outlined above, or by adding
 to your ``nextflow.config``::
 
     plugins {
-        id 'nf-wr@1.2.0-rc.0'
+        id 'nf-wr@1.2.0-rc.2'
     }
 
     executor {
