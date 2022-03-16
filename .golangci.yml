@@ -53,10 +53,12 @@ issues:
     - path: _test\.go
       linters:
         - funlen
+        - maintidx
     - path: clog.go
       linters:
         - gochecknoinits
         - gochecknoglobals
+        - contextcheck
   max-issues-per-linter: 0
   max-same-issues: 0
   new-from-rev: master
@@ -102,7 +104,6 @@ linters:
     - gosec
     - ifshort
     - importas
-    - ireturn
     - lll
     - maintidx
     - makezero
@@ -142,9 +143,9 @@ linters:
   #   - goprintffuncname
   #   - grouper
   #   - interfacer
+  #   - ireturn
   #   - paralleltest
   #   - promlinter
-  #   - revive
   #   - sqlclosecheck
   #   - tagliatelle
   #   - testpackage

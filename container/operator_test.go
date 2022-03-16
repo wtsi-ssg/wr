@@ -117,7 +117,7 @@ func TestOperator(t *testing.T) {
 			ContainerKillFn: func(containerID string) error {
 				remainContainers := removeContainerEntry(cntrList, containerID)
 				if len(cntrList) == len(remainContainers) {
-					return &OperatorErr{Type: ErrContainerKill}
+					return &OperatorError{Type: ErrContainerKill}
 				}
 
 				// Copy the remaining containers to cntrList
@@ -131,7 +131,7 @@ func TestOperator(t *testing.T) {
 		// Create a client with no containers
 		empNewOperator := NewOperator(&MockInteractor{
 			ContainerListFn: func() ([]*Container, error) {
-				return nil, &OperatorErr{Type: ErrContainerList}
+				return nil, &OperatorError{Type: ErrContainerList}
 			},
 		},
 		)
@@ -401,7 +401,7 @@ func TestOperator(t *testing.T) {
 			emplist, err := empOperator.GetCurrentContainers(ctx)
 			So(len(emplist), ShouldEqual, 0)
 
-			var e *OperatorErr
+			var e *OperatorError
 			So(errors.As(err, &e), ShouldBeTrue)
 			So(e.Unwrap(), ShouldNotBeNil)
 		})

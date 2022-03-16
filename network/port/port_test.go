@@ -60,7 +60,7 @@ func TestPort(t *testing.T) {
 
 				_, err = checker.availablePort()
 				So(err, ShouldBeNil)
-				checker.listeners[0] = &mockListener{checker.listeners[0].(*net.TCPListener)}
+				checker.listeners[0] = &mockListener{checker.listeners[0].(*net.TCPListener)} //nolint:forcetypeassert
 				err = checker.release(err)
 				So(err, ShouldNotBeNil)
 			})
