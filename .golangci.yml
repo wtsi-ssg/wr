@@ -74,9 +74,13 @@ linters:
     - typecheck
     - unused
     - varcheck
+    - containedctx
+    - contextcheck
     - cyclop
     - dogsled
     - dupl
+    - durationcheck
+    - errname
     - errorlint
     - exportloopref
     - exhaustive
@@ -94,24 +98,28 @@ linters:
     - godox
     - goerr113
     - goimports
-    - golint
     - gomnd
     - gosec
     - ifshort
     - importas
+    - ireturn
     - lll
+    - maintidx
     - makezero
     - misspell
     - nakedret
     - nestif
     - nilerr
+    - nilnil
     - nlreturn
     - noctx
     - nolintlint
     - prealloc
     - predeclared
+    - revive
     - rowserrcheck
     - stylecheck
+    - tenv
     - thelper
     - unconvert
     - unparam
@@ -120,9 +128,11 @@ linters:
     - wsl
   # disable:
   #   - asciicheck
+  #   - bidichk
   #   - bodyclose
+  #   - decorder
   #   - depguard
-  #   - durationcheck
+  #   - errchkjson
   #   - exhaustivestruct
   #   - gofmt
   #   - gofumpt
@@ -130,8 +140,8 @@ linters:
   #   - gomoddirectives
   #   - gomodguard
   #   - goprintffuncname
+  #   - grouper
   #   - interfacer
-  #   - maligned
   #   - paralleltest
   #   - promlinter
   #   - revive
@@ -139,4 +149,5 @@ linters:
   #   - tagliatelle
   #   - testpackage
   #   - tparallel
+  #   - varnamelen
   #   - wrapcheck
