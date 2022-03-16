@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	secondsRangeMin    = 250 * time.Millisecond
+	secondsRangeMin    = 250 * time.Millisecond //nolint:revive
 	secondsRangeMax    = 3 * time.Second
 	secondsRangeFactor = 1.5
 )

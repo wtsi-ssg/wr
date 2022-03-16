@@ -54,7 +54,7 @@ func TestContainer(t *testing.T) {
 		// Create a client with no containers
 		empNewCntrOperator := NewOperator(&MockInteractor{
 			ContainerStatsFn: func(containerID string) (*Stats, error) {
-				return nil, &OperatorErr{Type: ErrContainerStats}
+				return nil, &OperatorError{Type: ErrContainerStats}
 			},
 		},
 		)

@@ -122,8 +122,8 @@ func TestRunSingularity(t *testing.T) {
 }
 
 func TestRunReal(t *testing.T) {
-	os.Setenv("FOO", "bar")
-	os.Setenv("OOF", "rab")
+	t.Setenv("FOO", "bar")
+	t.Setenv("OOF", "rab")
 
 	containerCmd := "export FOO=car; echo $FOO && echo $OOF && ls *.file && ls /mntA && ls /mntB"
 	expected := "car\nrab\nhome.file\na.file\nb.file\n"

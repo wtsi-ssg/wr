@@ -102,7 +102,7 @@ func (c *Checker) availablePort() (int, error) {
 	}
 
 	c.listeners = append(c.listeners, l)
-	port := l.Addr().(*net.TCPAddr).Port
+	port := l.Addr().(*net.TCPAddr).Port //nolint:forcetypeassert
 	c.ports[port] = true
 
 	return port, nil
@@ -124,7 +124,7 @@ func (c *Checker) checkRange(start, size int) ([]int, bool) {
 	}
 
 	if len(before)+len(after)+1 >= size {
-		combined := append(before, append([]int{start}, after...)...)
+		combined := append(before, append([]int{start}, after...)...) //nolint:gocritic
 
 		return combined[0:size], true
 	}

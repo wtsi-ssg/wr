@@ -96,7 +96,7 @@ func (u *UntilNoError) ShouldStop(retries int, err error) Reason {
 // untilContext implements Until, stopping retries after the context has been
 // closed.
 type untilContext struct {
-	Context context.Context
+	Context context.Context //nolint:containedctx
 }
 
 // ShouldStop returns BecauseContextClosed after the context has been

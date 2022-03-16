@@ -39,7 +39,7 @@ type Operation func() error
 
 // Status is returned by Do() to explain what happened when retrying your
 // Operation. It can be stringified or used as an error that wraps Err.
-type Status struct {
+type Status struct { //nolint:errname
 	// Retried is the number of retries done (which can be 0 if the Operation
 	// only needed to be run once).
 	Retried int

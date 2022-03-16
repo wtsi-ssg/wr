@@ -44,14 +44,14 @@ const (
 	ErrContainerKill  OperationErr = "Container could not be killed"
 )
 
-// OperatorErr records an error and a reason that caused it.
-type OperatorErr struct {
+// OperatorError records an error and a reason that caused it.
+type OperatorError struct {
 	Type OperationErr // one of our OperationErr constants
 	Err  error
 }
 
 // Error returns an error with the reason for a failed operation.
-func (et *OperatorErr) Error() string {
+func (et *OperatorError) Error() string {
 	msg := string(et.Type)
 	if et.Err != nil {
 		msg += " [" + et.Err.Error() + "]"
@@ -61,7 +61,7 @@ func (et *OperatorErr) Error() string {
 }
 
 // Unwrap method returns contained error of OperatorErr.
-func (et *OperatorErr) Unwrap() error {
+func (et *OperatorError) Unwrap() error {
 	return et.Err
 }
 
@@ -105,7 +105,7 @@ func NewOperator(cntrInteractor Interactor) *Operator {
 func (o *Operator) GetCurrentContainers(ctx context.Context) ([]*Container, error) {
 	contnrList, err := o.client.ContainerList(ctx)
 	if err != nil {
-		return nil, &OperatorErr{Type: ErrContainerList, Err: err}
+		return nil, &OperatorError{Type: ErrContainerList, Err: err}
 	}
 
 	o.addClientToContainers(contnrList)
@@ -170,7 +170,7 @@ func (o *Operator) GetNewContainerByName(ctx context.Context, name string) (*Con
 		}
 	}
 
-	return nil, nil
+	return nil, nil //nolint:nilnil
 }
 
 // GetContainerByPath checks the file at the given path, and if the first line
@@ -223,7 +223,7 @@ func (o *Operator) GetContainerByID(ctx context.Context, id string) (*Container,
 		}
 	}
 
-	return nil, nil
+	return nil, nil //nolint:nilnil
 }
 
 // cidPathGlobToContainer is like cidPathToContainer, but cidPath (which should
@@ -247,7 +247,7 @@ func (o *Operator) cidPathGlobToContainer(ctx context.Context, cidGlobPath strin
 		}
 	}
 
-	return nil, nil
+	return nil, nil //nolint:nilnil
 }
 
 // KillContainer kills the container with the given ID.

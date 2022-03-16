@@ -337,7 +337,7 @@ func TestLogger(t *testing.T) {
 		Warn(background, "msg", "foo", 1)
 		So(buff.String(), ShouldContainSubstring, foo)
 
-		trySyslogTest(t)
+		trySyslogTest(background, t)
 	})
 
 	Convey("CreateFileHandler can be used to create a file handler", t, func() {
@@ -437,7 +437,7 @@ func TestCaller(t *testing.T) {
 }
 
 // trySyslogTest does syslog tests if we can access a syslog path.
-func trySyslogTest(t *testing.T) {
+func trySyslogTest(ctx context.Context, t *testing.T) {
 	t.Helper()
 
 	syslogpath := getSyslogPath()
@@ -454,7 +454,7 @@ func trySyslogTest(t *testing.T) {
 		startSyslogTail(syslogpath, logCh)
 
 		ToHandlerAtLevel(handler, "warn")
-		Warn(context.Background(), "msg", "foo", 1)
+		Warn(ctx, "msg", "foo", 1)
 
 		select {
 		case tailedLog := <-logCh:

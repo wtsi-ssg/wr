@@ -53,10 +53,12 @@ issues:
     - path: _test\.go
       linters:
         - funlen
+        - maintidx
     - path: clog.go
       linters:
         - gochecknoinits
         - gochecknoglobals
+        - contextcheck
   max-issues-per-linter: 0
   max-same-issues: 0
   new-from-rev: master
@@ -74,9 +76,13 @@ linters:
     - typecheck
     - unused
     - varcheck
+    - containedctx
+    - contextcheck
     - cyclop
     - dogsled
     - dupl
+    - durationcheck
+    - errname
     - errorlint
     - exportloopref
     - exhaustive
@@ -94,24 +100,27 @@ linters:
     - godox
     - goerr113
     - goimports
-    - golint
     - gomnd
     - gosec
     - ifshort
     - importas
     - lll
+    - maintidx
     - makezero
     - misspell
     - nakedret
     - nestif
     - nilerr
+    - nilnil
     - nlreturn
     - noctx
     - nolintlint
     - prealloc
     - predeclared
+    - revive
     - rowserrcheck
     - stylecheck
+    - tenv
     - thelper
     - unconvert
     - unparam
@@ -120,9 +129,11 @@ linters:
     - wsl
   # disable:
   #   - asciicheck
+  #   - bidichk
   #   - bodyclose
+  #   - decorder
   #   - depguard
-  #   - durationcheck
+  #   - errchkjson
   #   - exhaustivestruct
   #   - gofmt
   #   - gofumpt
@@ -130,13 +141,14 @@ linters:
   #   - gomoddirectives
   #   - gomodguard
   #   - goprintffuncname
+  #   - grouper
   #   - interfacer
-  #   - maligned
+  #   - ireturn
   #   - paralleltest
   #   - promlinter
-  #   - revive
   #   - sqlclosecheck
   #   - tagliatelle
   #   - testpackage
   #   - tparallel
+  #   - varnamelen
   #   - wrapcheck
