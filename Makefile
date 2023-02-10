@@ -12,7 +12,7 @@ bench: export CGO_ENABLED = 1
 bench:
 	go test -tags netgo --count 1 -run Bench -bench=. ./...
 
-# curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.44.2
+# curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.50.1
 lint:
 	@golangci-lint run
 
