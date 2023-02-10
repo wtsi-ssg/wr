@@ -104,7 +104,14 @@ func CallerInfoHandler(h log.Handler) log.Handler {
 			case log.LvlInfo:
 				break
 			case log.LvlDebug, log.LvlWarn, log.LvlError:
-				path := filepath.Join(fmt.Sprintf("%k", s[1]), fmt.Sprintf("%v", s[1]))
+				var call stack.Call
+				if len(s) > 1 {
+					call = s[1]
+				} else {
+					call = s[0]
+				}
+
+				path := filepath.Join(fmt.Sprintf("%k", call), fmt.Sprintf("%v", call))
 				r.Ctx = append(r.Ctx, "caller", path)
 			case log.LvlCrit:
 				r.Ctx = append(r.Ctx, "stack", fmt.Sprintf("%+v", s))
