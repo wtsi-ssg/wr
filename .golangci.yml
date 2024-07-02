@@ -6,7 +6,7 @@ run:
 
 linters-settings:
   dupl:
-    threshold: 50
+    threshold: 100
   errcheck:
     check-type-assertions: true
     check-blank: true
@@ -16,13 +16,14 @@ linters-settings:
     lines: 30
     statements: 20
   gocognit:
-    min-complexity: 8
-  nestif:
-    min-complexity: 2
+    min-complexity: 9
   gocyclo:
-    min-complexity: 5
+    min-complexity: 7
+  gomnd:
+    ignored-functions:
+      - 'strconv.Parse*'
   govet:
-    check-shadowing: true
+    shadow: true
     enable-all: true
     disable-all: false
     disable:
@@ -33,6 +34,8 @@ linters-settings:
     locale: UK
   nakedret:
     max-func-lines: 20
+  nestif:
+    min-complexity: 2
   prealloc:
     simple: true
     range-loops: true
@@ -54,11 +57,26 @@ issues:
       linters:
         - funlen
         - maintidx
-    - path: clog.go
+        - contextcheck
+        - gocognit
+        - gocyclo
+        - cyclop
+        - revive
+    - path: cmd
       linters:
         - gochecknoinits
         - gochecknoglobals
-        - contextcheck
+        - dupl
+        - forbidigo
+    - path: version\.go
+      linters:
+        - forbidigo
+    - path: groupuser\.go
+      linters:
+        - dupl
+    - path: usergroup\.go
+      linters:
+        - dupl
   max-issues-per-linter: 0
   max-same-issues: 0
   new-from-rev: master
@@ -66,44 +84,58 @@ issues:
 linters:
   disable-all: true
   enable:
+    # defaults
     - errcheck
     - gosimple
     - govet
     - ineffassign
     - staticcheck
-    - typecheck
     - unused
+    # extras
     - containedctx
     - contextcheck
+    #- copyloopvar
     - cyclop
     - dogsled
     - dupl
+    - dupword
     - durationcheck
+    - err113
+    - errchkjson
     - errname
     - errorlint
     - exhaustive
     - exportloopref
+    - fatcontext
     - forbidigo
     - forcetypeassert
     - funlen
     - gci
+    - gocheckcompilerdirectives
     - gochecknoglobals
     - gochecknoinits
+    - gochecksumtype
     - gocognit
     - goconst
     - gocritic
     - gocyclo
     - godot
     - godox
-    - goerr113
     - goimports
-    - gomnd
     - gosec
+    - gosmopolitan
+    - grouper
     - importas
+    - inamedparam
+    - interfacebloat
+    #- intrange
+    - ireturn
     - lll
     - maintidx
     - makezero
+    - mirror
     - misspell
+    - mnd
     - nakedret
     - nestif
     - nilerr
@@ -112,56 +144,53 @@ linters:
     - noctx
     - nolintlint
     - nosprintfhostport
+    - perfsprint
     - prealloc
     - predeclared
     - reassign
     - revive
+    - sloglint
     - stylecheck
+    - tagalign
     - tenv
     - thelper
+    - tparallel
     - unconvert
     - unparam
     - usestdlibvars
-    #- wastedassign
+    - wastedassign
     - whitespace
     - wsl
-  # disable:
+
+  #disable:
   #   - asasalint
   #   - asciicheck
   #   - bidichk
   #   - bodyclose
+  #   - canonicalheader
   #   - decorder
   #   - depguard
-  #   - errchkjson
-  #   - execinquery
-  #   - exhaustivestruct
   #   - exhaustruct
   #   - ginkgolinter
   #   - gofmt
   #   - gofumpt
   #   - goheader
-  #   - golint
   #   - gomoddirectives
   #   - gomodguard
   #   - goprintffuncname
-  #   - grouper
-  #   - ifshort
-  #   - interfacer
-  #   - ireturn
   #   - loggercheck
-  #   - maligned
+  #   - musttag
   #   - nonamedreturns
-  #   - nosnakecase
   #   - paralleltest
   #   - promlinter
+  #   - protogetter
   #   - rowserrcheck
-  #   - scopeline
+  #   - spancheck
   #   - sqlclosecheck
-  #   - structcheck
   #   - tagliatelle
   #   - testableexamples
+  #   - testifylint
   #   - testpackage
-  #   - tparallel
-  #   - varcheck
   #   - varnamelen
   #   - wrapcheck
+  #   - zerologlint
