@@ -28,7 +28,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/docker/docker/api/types"
+	cn "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/wtsi-ssg/wr/container"
 	"github.com/wtsi-ssg/wr/math/convert"
@@ -50,7 +50,7 @@ func NewInteractor(cl *client.Client) *Interactor {
 // ContainerList implements the Interactor interface method, which returns the
 // list of containers.
 func (i *Interactor) ContainerList(ctx context.Context) ([]*container.Container, error) {
-	containerList, err := i.dockerClient.ContainerList(ctx, types.ContainerListOptions{})
+	containerList, err := i.dockerClient.ContainerList(ctx, cn.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -80,8 +80,8 @@ func (i *Interactor) ContainerStats(ctx context.Context,
 
 // decodeDockerContainerStats takes type.ContainerStats and decodes it to return
 // the current memory usage (RSS, in MB) and total CPU (in seconds).
-func decodeDockerContainerStats(containerStats types.ContainerStats) (*container.Stats, error) {
-	var ds *types.Stats
+func decodeDockerContainerStats(containerStats cn.StatsResponseReader) (*container.Stats, error) {
+	var ds *cn.Stats
 
 	err := json.NewDecoder(containerStats.Body).Decode(&ds)
 	if err != nil {

@@ -34,6 +34,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	cn "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	nw "github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
@@ -116,7 +117,7 @@ func createContainers(ctx context.Context, cli *client.Client, containerNames []
 }
 
 func pullUbuntuImage(ctx context.Context, cli *client.Client) error {
-	rc, err := cli.ImagePull(ctx, "ubuntu", types.ImagePullOptions{})
+	rc, err := cli.ImagePull(ctx, "ubuntu", image.PullOptions{})
 	if err != nil {
 		return err
 	}
@@ -153,14 +154,14 @@ func createContainer(ctx context.Context, cli *client.Client, cname string) (str
 }
 
 func startContainer(ctx context.Context, cli *client.Client, containerID string) error {
-	return cli.ContainerStart(ctx, containerID, types.ContainerStartOptions{})
+	return cli.ContainerStart(ctx, containerID, cn.StartOptions{})
 }
 
 // removeContainers removes all the containers given a list of containers as a
 // part of clean up step.
 func removeContainers(ctx context.Context, cli *client.Client, containerIDs []string) error {
 	for _, cid := range containerIDs {
-		err := cli.ContainerRemove(ctx, cid, types.ContainerRemoveOptions{Force: true})
+		err := cli.ContainerRemove(ctx, cid, cn.RemoveOptions{Force: true})
 		if err != nil {
 			return err
 		}
