@@ -1,6 +1,11 @@
 # wr
 experimental reimplementation of wr using TDD
 
+NB: for compatability with older versions of docker, you may have to explictly
+set something like `export DOCKER_API_VERSION=1.41`, depending on the API
+version that your version of docker server supports.
+
+
 ## Developers
 To develop this code base, you should use TDD. To aid this, the test suite is
 written using GoConvey.
