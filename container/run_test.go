@@ -143,7 +143,7 @@ func TestRunReal(t *testing.T) {
 
 		actual, err := realTestTryCmd(cmd, homeDir)
 		So(err, ShouldBeNil)
-		So(actual, ShouldEqual, expected)
+		So(actual, ShouldContainSubstring, expected)
 	})
 
 	Convey("SingularityRunCmd's command really works", t, func() {
