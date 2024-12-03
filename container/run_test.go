@@ -156,7 +156,7 @@ func TestRunReal(t *testing.T) {
 
 		defer cleanup()
 
-		cmd := SingularityRunCmd("library://sylabsed/linux/alpine", cmdFile, mounts)
+		cmd := SingularityRunCmd("docker://alpine", cmdFile, mounts)
 
 		actual, err := realTestTryCmd(cmd, homeDir)
 		So(err, ShouldBeNil)
