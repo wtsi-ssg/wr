@@ -1,6 +1,6 @@
 module github.com/wtsi-ssg/wr
 
-go 1.23
+go 1.23.5
 
 require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
